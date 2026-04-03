@@ -74,6 +74,88 @@
       padding: 18px;
     }
 
+    .top-center {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+      pointer-events: none;
+    }
+
+    .timer-pill,
+    .round-toast {
+      border: 1px solid rgba(164, 197, 220, 0.18);
+      background: rgba(9, 16, 28, 0.9);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.24);
+    }
+
+    .timer-pill {
+      min-width: 158px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    }
+
+    .timer-pill[data-urgent="true"] {
+      border-color: rgba(216, 100, 92, 0.6);
+      background: rgba(45, 14, 14, 0.92);
+      box-shadow: 0 18px 44px rgba(216, 100, 92, 0.2);
+      animation: timerPulse 0.9s ease-in-out infinite;
+    }
+
+    .timer-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(136, 185, 216, 0.88);
+    }
+
+    .timer-value {
+      font-size: 1.45rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-pill[data-urgent="true"] .timer-value {
+      color: #ffd8d1;
+    }
+
+    .round-toast {
+      max-width: min(360px, calc(100vw - 40px));
+      padding: 7px 12px;
+      border-radius: 999px;
+      color: rgba(242, 237, 227, 0.94);
+      font-size: 0.82rem;
+      line-height: 1.2;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    .round-toast[data-visible="true"] {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .round-toast[data-urgent="true"] {
+      border-color: rgba(216, 100, 92, 0.44);
+      background: rgba(45, 14, 14, 0.9);
+    }
+
+    @keyframes timerPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+
     .round-overlay {
       position: absolute;
       inset: 0;
@@ -408,6 +490,13 @@
     <section class="game-shell">
       <canvas id="game" width="1280" height="720" aria-label="Pocket Miner game canvas"></canvas>
       <div class="overlay" aria-hidden="true">
+        <div class="top-center">
+          <div id="round-timer" class="timer-pill" data-urgent="false">
+            <div class="timer-label">Time Left</div>
+            <div id="round-timer-value" class="timer-value">60s</div>
+          </div>
+          <div id="round-toast" class="round-toast" data-visible="false" data-urgent="false"></div>
+        </div>
         <div class="hud">
           <div class="title">Pocket Miner</div>
           <div class="resources" id="resource-bar">

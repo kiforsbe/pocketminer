@@ -25,6 +25,7 @@ const PICKUP_COLLECT_RANGE = 20;
 const STACK_SIZE = 8;
 const ROUND_DURATION = 60;
 const SUMMARY_STEP_RATE = 16;
+const NOTIFICATION_DURATION = 3.2;
 
 const canvas = document.getElementById("game");
 const roundOverlay = document.getElementById("round-overlay");
@@ -60,6 +61,11 @@ const gameState = {
   bank: 0,
   roundStats: createRoundStats(),
   summary: null,
+  notification: null,
+  alertFlags: {
+    halfway: false,
+    thirtySeconds: false,
+  },
 };
 
 let lastTime = performance.now();
@@ -115,6 +121,8 @@ function update(dt, timeSeconds) {
   }
 
   gameState.timeLeft = Math.max(0, gameState.timeLeft - dt);
+  updateRoundNotification(dt);
+  checkRoundMilestones();
   gameState.hoverTarget = player.update(dt, input, world);
   gameState.miningResult = null;
   updateParticles(dt);
@@ -165,6 +173,8 @@ function render() {
     roundInfo: {
       round: gameState.round,
       timeLeft: Math.ceil(gameState.timeLeft),
+      urgent: gameState.phase === "playing" && gameState.timeLeft <= 30,
+      notification: gameState.notification,
     },
   });
 }
@@ -207,6 +217,7 @@ function endRound() {
     totalItems,
     completed: oreEntries.length === 0,
   };
+  gameState.notification = null;
 
   gameState.bank += gameState.summary.totalEarnings;
   populateSummaryOverlay();
@@ -317,6 +328,11 @@ function startNextRound() {
   gameState.pickups = [];
   gameState.roundStats = createRoundStats();
   gameState.summary = null;
+  gameState.notification = null;
+  gameState.alertFlags = {
+    halfway: false,
+    thirtySeconds: false,
+  };
   gameState.lastMiningSoundAt = 0;
   world = new World();
   player = new Player(world.getSpawnPosition());
@@ -328,6 +344,44 @@ function startNextRound() {
     audio.startMusic(gameState.levelMusicId);
   }
   roundOverlay?.setAttribute("data-visible", "false");
+}
+
+function showRoundNotification(message, { urgent = false } = {}) {
+  gameState.notification = {
+    message,
+    urgent,
+    ttl: NOTIFICATION_DURATION,
+  };
+}
+
+function updateRoundNotification(dt) {
+  if (!gameState.notification) {
+    return;
+  }
+
+  gameState.notification.ttl = Math.max(0, gameState.notification.ttl - dt);
+  if (gameState.notification.ttl === 0) {
+    gameState.notification = null;
+  }
+}
+
+function checkRoundMilestones() {
+  const halfwayMark = ROUND_DURATION / 2;
+
+  if (!gameState.alertFlags.halfway && gameState.timeLeft <= halfwayMark) {
+    gameState.alertFlags.halfway = true;
+    if (halfwayMark === 30) {
+      gameState.alertFlags.thirtySeconds = true;
+      showRoundNotification("Halfway there. Final 30 seconds!", { urgent: true });
+      return;
+    }
+    showRoundNotification(`Halfway there. ${Math.ceil(gameState.timeLeft)}s left.`);
+  }
+
+  if (!gameState.alertFlags.thirtySeconds && gameState.timeLeft <= 30) {
+    gameState.alertFlags.thirtySeconds = true;
+    showRoundNotification("Final 30 seconds!", { urgent: true });
+  }
 }
 
 function spawnOreChunks(miningResult) {

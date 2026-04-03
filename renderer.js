@@ -431,8 +431,26 @@ export class Renderer {
 
   #drawHud(inventory, roundInfo) {
     const resourceEl = document.getElementById("resource-bar");
+    const timerEl = document.getElementById("round-timer");
+    const timerValueEl = document.getElementById("round-timer-value");
+    const toastEl = document.getElementById("round-toast");
     if (resourceEl) {
       resourceEl.innerHTML = `<span>Round: ${roundInfo.round}</span><span>Time: ${roundInfo.timeLeft}s</span><span>Items: ${inventory.getItemCount()}</span>`;
+    }
+    if (timerEl && timerValueEl) {
+      timerEl.setAttribute("data-urgent", roundInfo.urgent ? "true" : "false");
+      timerValueEl.textContent = `${roundInfo.timeLeft}s`;
+    }
+    if (toastEl) {
+      if (roundInfo.notification?.message) {
+        toastEl.textContent = roundInfo.notification.message;
+        toastEl.setAttribute("data-visible", "true");
+        toastEl.setAttribute("data-urgent", roundInfo.notification.urgent ? "true" : "false");
+      } else {
+        toastEl.textContent = "";
+        toastEl.setAttribute("data-visible", "false");
+        toastEl.setAttribute("data-urgent", "false");
+      }
     }
   }
 
