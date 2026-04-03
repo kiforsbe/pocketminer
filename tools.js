@@ -92,9 +92,9 @@ export const TOOL_DEFINITIONS = Object.freeze({
     branchLabel: "Time",
     price: 0,
     miningPower: 0,
-    description: "Testing default: a short 5-second shift timer.",
+    description: "The basic shift timer. Time upgrades can branch from here later.",
     tier: 0,
-    durationSeconds: 5,
+    durationSeconds: 60,
     isRoot: true,
   }),
   [DEFAULT_TOOL_ID]: createTool({

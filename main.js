@@ -113,7 +113,7 @@ const gameState = {
   phase: "playing",
   round: 1,
   timeLeft: getToolDefinition(DEFAULT_TIME_ROOT_ID).durationSeconds ?? 60,
-  bank: 90,
+  bank: 0,
   roundStats: createRoundStats(),
   summary: null,
   notification: null,

@@ -516,14 +516,20 @@ export class Renderer {
 
   #drawHotbar(inventory) {
     const slots = inventory.getSlots();
+    const slotsPerRow = 8;
     const slotSize = 52;
     const gap = 8;
-    const totalWidth = slots.length * slotSize + (slots.length - 1) * gap;
+    const rowCount = Math.max(1, Math.ceil(slots.length / slotsPerRow));
+    const columns = Math.min(slots.length, slotsPerRow);
+    const totalWidth = columns * slotSize + Math.max(0, columns - 1) * gap;
     const startX = (this.viewport.width - totalWidth) * 0.5;
-    const y = this.viewport.height - slotSize - 24;
+    const startY = this.viewport.height - rowCount * slotSize - Math.max(0, rowCount - 1) * gap - 24;
 
     for (let index = 0; index < slots.length; index += 1) {
-      const x = startX + index * (slotSize + gap);
+      const column = index % slotsPerRow;
+      const row = Math.floor(index / slotsPerRow);
+      const x = startX + column * (slotSize + gap);
+      const y = startY + row * (slotSize + gap);
       const slot = slots[index];
       this.ctx.fillStyle = "rgba(9, 16, 28, 0.82)";
       this.ctx.fillRect(x, y, slotSize, slotSize);
