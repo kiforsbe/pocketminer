@@ -10,6 +10,9 @@ function createTool({
   id,
   label,
   materialItemId = null,
+  category,
+  branchId,
+  branchLabel,
   price,
   miningPower,
   description,
@@ -20,6 +23,9 @@ function createTool({
     id,
     label,
     materialItemId,
+    category,
+    branchId,
+    branchLabel,
     price,
     miningPower,
     description,
@@ -30,30 +36,38 @@ function createTool({
 }
 
 export const DEFAULT_GAME_MODE = "standard";
-export const DEFAULT_TOOL_ID = "starter-pick";
+export const DEFAULT_TOOL_ID = "bare-hands";
 
 export const TOOL_DEFINITIONS = Object.freeze({
   [DEFAULT_TOOL_ID]: createTool({
     id: DEFAULT_TOOL_ID,
-    label: "Starter Pickaxe",
+    label: "Bare Hands",
+    category: "hands",
+    branchId: "hands",
+    branchLabel: "Bare Hands",
     price: 0,
-    miningPower: 60,
-    description: "A basic pick for scratching through the first layer.",
+    miningPower: 38,
+    description: "No tool yet. Good enough for scraping out the first few blocks.",
     tier: 0,
   }),
-  "coal-pick": createTool({
-    id: "coal-pick",
-    label: "Coal Pickaxe",
-    materialItemId: "coal",
+  "wood-pick": createTool({
+    id: "wood-pick",
+    label: "Wood Pickaxe",
+    category: "pickaxe",
+    branchId: "pickaxe",
+    branchLabel: "Pickaxes",
     price: 12,
     miningPower: 90,
-    description: "A quicker early-game upgrade for shallow mining.",
+    description: "Your first real pickaxe, mapped to the coal tier of progression.",
     tier: 1,
   }),
   "copper-pick": createTool({
     id: "copper-pick",
     label: "Copper Pickaxe",
     materialItemId: "copper",
+    category: "pickaxe",
+    branchId: "pickaxe",
+    branchLabel: "Pickaxes",
     price: 26,
     miningPower: 130,
     description: "Cuts through the upper vein with a steadier bite.",
@@ -63,6 +77,9 @@ export const TOOL_DEFINITIONS = Object.freeze({
     id: "tin-pick",
     label: "Tin Pickaxe",
     materialItemId: "tin",
+    category: "pickaxe",
+    branchId: "pickaxe",
+    branchLabel: "Pickaxes",
     price: 48,
     miningPower: oneSwingPowerFor(TILE_TYPES.DIRT),
     description: "Strong enough to clear dirt in a single swing.",
@@ -73,6 +90,9 @@ export const TOOL_DEFINITIONS = Object.freeze({
     id: "iron-pick",
     label: "Iron Pickaxe",
     materialItemId: "iron",
+    category: "pickaxe",
+    branchId: "pickaxe",
+    branchLabel: "Pickaxes",
     price: 84,
     miningPower: oneSwingPowerFor(TILE_TYPES.STONE),
     description: "Built to crack stone in one swing.",
@@ -83,6 +103,9 @@ export const TOOL_DEFINITIONS = Object.freeze({
     id: "silver-pick",
     label: "Silver Pickaxe",
     materialItemId: "silver",
+    category: "pickaxe",
+    branchId: "pickaxe",
+    branchLabel: "Pickaxes",
     price: 140,
     miningPower: oneSwingPowerFor(TILE_TYPES.SHALE),
     description: "Turns shale into a one-swing block.",
@@ -93,6 +116,9 @@ export const TOOL_DEFINITIONS = Object.freeze({
     id: "gold-pick",
     label: "Gold Pickaxe",
     materialItemId: "gold",
+    category: "pickaxe",
+    branchId: "pickaxe",
+    branchLabel: "Pickaxes",
     price: 220,
     miningPower: oneSwingPowerFor(TILE_TYPES.BASALT),
     description: "Lets you smash basalt in one clean swing.",
@@ -103,6 +129,9 @@ export const TOOL_DEFINITIONS = Object.freeze({
     id: "ruby-pick",
     label: "Ruby Pickaxe",
     materialItemId: "ruby",
+    category: "pickaxe",
+    branchId: "pickaxe",
+    branchLabel: "Pickaxes",
     price: 360,
     miningPower: oneSwingPowerFor(TILE_TYPES.BASALT) + 140,
     description: "A brutal late-game pick for high-yield stone and ore.",
@@ -113,6 +142,9 @@ export const TOOL_DEFINITIONS = Object.freeze({
     id: "sapphire-pick",
     label: "Sapphire Pickaxe",
     materialItemId: "sapphire",
+    category: "pickaxe",
+    branchId: "pickaxe",
+    branchLabel: "Pickaxes",
     price: 520,
     miningPower: oneSwingPowerFor(TILE_TYPES.BASALT) + 260,
     description: "The top-end pick for tearing through the deepest rock.",
@@ -127,7 +159,7 @@ export const GAME_MODE_DEFINITIONS = Object.freeze({
     label: "Standard Shift",
     toolIds: Object.freeze([
       DEFAULT_TOOL_ID,
-      "coal-pick",
+      "wood-pick",
       "copper-pick",
       "tin-pick",
       "iron-pick",
@@ -146,4 +178,8 @@ export function getToolDefinition(toolId) {
 export function getToolsForGameMode(gameMode = DEFAULT_GAME_MODE) {
   const mode = GAME_MODE_DEFINITIONS[gameMode] ?? GAME_MODE_DEFINITIONS[DEFAULT_GAME_MODE];
   return mode.toolIds.map((toolId) => TOOL_DEFINITIONS[toolId]);
+}
+
+export function getToolBranchTools(gameMode = DEFAULT_GAME_MODE, branchId = "pickaxe") {
+  return getToolsForGameMode(gameMode).filter((tool) => tool.branchId === branchId);
 }

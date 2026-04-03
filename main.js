@@ -3,7 +3,7 @@ import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { Input } from "./input.js";
 import { Player } from "./player.js";
 import { Renderer } from "./renderer.js";
-import { DEFAULT_GAME_MODE, DEFAULT_TOOL_ID, GAME_MODE_DEFINITIONS, getToolDefinition, getToolsForGameMode } from "./tools.js";
+import { DEFAULT_GAME_MODE, DEFAULT_TOOL_ID, GAME_MODE_DEFINITIONS, getToolBranchTools, getToolDefinition, getToolsForGameMode } from "./tools.js";
 import { World } from "./world.js";
 
 const AUDIO_MANIFEST = [
@@ -464,8 +464,8 @@ function populateStoreOverlay() {
   }
 
   const mode = GAME_MODE_DEFINITIONS[gameState.gameMode] ?? GAME_MODE_DEFINITIONS[DEFAULT_GAME_MODE];
-  const tools = getToolsForGameMode(gameState.gameMode);
   const currentTool = getEquippedTool();
+  const tools = getVisibleStoreTools();
   storeBank.textContent = `${gameState.bank}€`;
   storeMode.textContent = mode.label;
   storeCurrentTool.textContent = `${currentTool.label} (${currentTool.miningPower} power)`;
@@ -477,7 +477,11 @@ function populateStoreOverlay() {
     card.className = "store-item";
     card.dataset.state = purchaseState;
 
-    const material = tool.materialItemId ? ITEM_DEFINITIONS[tool.materialItemId]?.label ?? tool.label : "Starter";
+    const material = tool.category === "hands"
+      ? "Root"
+      : tool.materialItemId
+        ? ITEM_DEFINITIONS[tool.materialItemId]?.label ?? tool.label
+        : tool.branchLabel;
     const swingTarget = tool.oneSwingBlockLabel
       ? `One-swing ${tool.oneSwingBlockLabel.toLowerCase()}`
       : `Mining power ${tool.miningPower}`;
@@ -502,6 +506,21 @@ function populateStoreOverlay() {
     card.append(action);
     storeGrid.append(card);
   }
+}
+
+function getVisibleStoreTools() {
+  const allTools = getToolsForGameMode(gameState.gameMode);
+  const currentTool = getEquippedTool();
+
+  if (currentTool.branchId === "hands") {
+    return [
+      currentTool,
+      ...getToolBranchTools(gameState.gameMode, "pickaxe"),
+    ];
+  }
+
+  const branchTools = getToolBranchTools(gameState.gameMode, currentTool.branchId);
+  return branchTools.filter((tool) => tool.tier >= currentTool.tier);
 }
 
 function getToolPurchaseState(toolId) {
