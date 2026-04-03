@@ -71,6 +71,11 @@ const storeGrid = document.getElementById("store-grid");
 const storeBank = document.getElementById("store-bank");
 const storeMode = document.getElementById("store-mode");
 const storeCurrentTool = document.getElementById("store-current-tool");
+const storeTooltip = document.getElementById("store-tooltip");
+const storeTooltipTitle = document.getElementById("store-tooltip-title");
+const storeTooltipState = document.getElementById("store-tooltip-state");
+const storeTooltipCopy = document.getElementById("store-tooltip-copy");
+const storeTooltipStats = document.getElementById("store-tooltip-stats");
 
 const input = new Input({ keyboardTarget: window, pointerTarget: canvas });
 let world = new World();
@@ -164,6 +169,36 @@ function attachRoundControls() {
     }
 
     purchaseTool(toolId);
+  });
+
+  storeGrid?.addEventListener("pointerover", (event) => {
+    const button = event.target instanceof HTMLElement ? event.target.closest("button[data-tool-id]") : null;
+    if (!button) {
+      return;
+    }
+
+    showStoreTooltip(button.dataset.toolId, button.dataset.state, event);
+  });
+
+  storeGrid?.addEventListener("pointermove", (event) => {
+    if (storeTooltip?.dataset.visible !== "true") {
+      return;
+    }
+    positionStoreTooltip(event);
+  });
+
+  storeGrid?.addEventListener("pointerout", (event) => {
+    const button = event.target instanceof HTMLElement ? event.target.closest("button[data-tool-id]") : null;
+    if (!button) {
+      return;
+    }
+
+    const nextTarget = event.relatedTarget instanceof HTMLElement ? event.relatedTarget.closest("button[data-tool-id]") : null;
+    if (nextTarget === button) {
+      return;
+    }
+
+    hideStoreTooltip();
   });
 }
 
@@ -304,6 +339,7 @@ function endRound() {
   populateSummaryOverlay();
   populateStoreOverlay();
   setOverlayView("summary");
+  roundOverlay?.removeAttribute("hidden");
   roundOverlay?.setAttribute("data-visible", "true");
 }
 
@@ -436,6 +472,7 @@ function startNextRound() {
   }
   setOverlayView("summary");
   roundOverlay?.setAttribute("data-visible", "false");
+  roundOverlay?.setAttribute("hidden", "true");
 }
 
 function createPlayer() {
@@ -456,6 +493,9 @@ function setOverlayView(view) {
   gameState.overlayView = view;
   summaryView?.toggleAttribute("hidden", view !== "summary");
   storeView?.toggleAttribute("hidden", view !== "store");
+  if (view !== "store") {
+    hideStoreTooltip();
+  }
 }
 
 function populateStoreOverlay() {
@@ -474,96 +514,84 @@ function populateStoreOverlay() {
   treeRoot.className = "store-tree-root";
 
   const rootTool = currentTool.branchId === "hands" ? currentTool : getToolDefinition(DEFAULT_TOOL_ID);
-  const rootNode = createStoreItem(rootTool, {
+  const rootNode = createStoreNode(rootTool, {
     state: currentTool.branchId === "hands" ? "current" : "locked",
-    buttonLabel: currentTool.branchId === "hands" ? "Equipped" : "Root",
     interactive: false,
     materialLabel: "Root",
+    gridColumn: `1 / span ${Math.max(1, getVisibleStoreBranches().length)}`,
+    gridRow: "1",
   });
   rootNode.classList.add("store-root-node");
   treeRoot.append(rootNode);
 
-  const branches = document.createElement("div");
-  branches.className = "store-branches";
-  for (const branch of getVisibleStoreBranches()) {
-    branches.append(createStoreBranch(branch));
+  const branches = getVisibleStoreBranches();
+  const grid = document.createElement("div");
+  grid.className = "store-tree-grid";
+  grid.style.setProperty("--store-columns", String(Math.max(1, branches.length)));
+  grid.append(rootNode);
+
+  const connector = document.createElement("div");
+  connector.className = "store-tree-connector";
+  connector.style.gridColumn = `1 / span ${Math.max(1, branches.length)}`;
+  connector.style.gridRow = "2";
+  grid.append(connector);
+
+  for (let branchIndex = 0; branchIndex < branches.length; branchIndex += 1) {
+    const branch = branches[branchIndex];
+    const column = String(branchIndex + 1);
+    const label = document.createElement("div");
+    label.className = "store-branch-label";
+    label.textContent = branch.label;
+    label.style.gridColumn = column;
+    label.style.gridRow = "3";
+    grid.append(label);
+
+    for (const node of branch.nodes) {
+      const tierLabel = document.createElement("div");
+      tierLabel.className = "store-tier-label";
+      tierLabel.textContent = `Tier ${node.tool.tier}`;
+      tierLabel.style.gridColumn = column;
+      tierLabel.style.gridRow = String(node.tool.tier + 3);
+
+      const nodeWrap = document.createElement("div");
+      nodeWrap.className = "store-node-wrap";
+      nodeWrap.style.gridColumn = column;
+      nodeWrap.style.gridRow = String(node.tool.tier + 4);
+
+      const storeNode = createStoreNode(node.tool, {
+        state: node.state,
+        interactive: node.state === "available",
+      });
+      nodeWrap.append(storeNode);
+
+      grid.append(tierLabel);
+      grid.append(nodeWrap);
+    }
   }
 
-  treeRoot.append(branches);
+  treeRoot.append(grid);
   storeGrid.append(treeRoot);
 }
 
-function createStoreBranch(branch) {
-  const branchEl = document.createElement("section");
-  branchEl.className = "store-branch";
-
-  const head = document.createElement("div");
-  head.className = "store-branch-head";
-  head.innerHTML = `
-    <div class="store-branch-title">
-      <strong>${branch.label}</strong>
-      <span>${branch.subtitle}</span>
-    </div>
-    <div class="store-branch-count">${branch.nodes.length} shown</div>
-  `;
-  branchEl.append(head);
-
-  const nodes = document.createElement("div");
-  nodes.className = "store-branch-nodes";
-  for (let index = 0; index < branch.nodes.length; index += 1) {
-    const node = branch.nodes[index];
-    const item = createStoreItem(node.tool, {
-      state: node.state,
-      buttonLabel: getToolActionLabel(node.state, node.tool),
-      interactive: node.state === "available",
-    });
-
-    if (index > 0) {
-      const link = document.createElement("div");
-      link.className = "store-node-link";
-      item.prepend(link);
-    }
-
-    nodes.append(item);
+function createStoreNode(tool, { state, interactive, materialLabel = null, gridColumn = null, gridRow = null } = {}) {
+  const button = document.createElement("button");
+  button.className = "store-node";
+  button.dataset.toolId = tool.id;
+  button.dataset.state = state;
+  button.setAttribute("aria-disabled", interactive ? "false" : "true");
+  if (gridColumn) {
+    button.style.gridColumn = gridColumn;
+  }
+  if (gridRow) {
+    button.style.gridRow = gridRow;
   }
 
-  branchEl.append(nodes);
-  return branchEl;
-}
-
-function createStoreItem(tool, { state, buttonLabel, interactive, materialLabel = null } = {}) {
-  const card = document.createElement("article");
-  card.className = "store-item";
-  card.dataset.state = state;
-
-  const material = materialLabel ?? (tool.category === "hands"
-    ? "Root"
-    : tool.materialItemId
-      ? ITEM_DEFINITIONS[tool.materialItemId]?.label ?? tool.label
-      : tool.branchLabel);
-  const swingTarget = tool.oneSwingBlockLabel
-    ? `One-swing ${tool.oneSwingBlockLabel.toLowerCase()}`
-    : `Mining power ${tool.miningPower}`;
-
-  const action = document.createElement("button");
-  action.className = interactive ? "store-buy" : "store-buy secondary-button";
-  action.dataset.toolId = tool.id;
-  action.disabled = !interactive;
-  action.textContent = buttonLabel;
-
-  card.innerHTML = `
-    <div class="store-copy">
-      <div class="store-title-row">
-        <strong>${tool.label}</strong>
-        <span class="store-price">${tool.price === 0 ? "Owned" : `${tool.price}€`}</span>
-      </div>
-      <div class="store-tagline">${material}</div>
-      <p>${tool.description}</p>
-      <p>${swingTarget}</p>
-    </div>
+  const visual = getToolVisual(tool, materialLabel);
+  button.innerHTML = `
+    <span class="store-node-icon" style="background:${visual.background}; box-shadow:${visual.glow};">${visual.text}</span>
+    <span class="store-node-tier">${tool.tier}</span>
   `;
-  card.append(action);
-  return card;
+  return button;
 }
 
 function getVisibleStoreBranches() {
@@ -590,7 +618,6 @@ function getVisibleStoreBranches() {
     branches.push({
       id: branchId,
       label: branchTools[0]?.branchLabel ?? branchId,
-      subtitle: currentTool.branchId === branchId ? "Current upgrade lane" : "Available next branch",
       nodes: visibleNodes,
     });
   }
@@ -630,6 +657,88 @@ function getToolActionLabel(state, tool) {
     return `Need ${tool.price}€`;
   }
   return "Buy Upgrade";
+}
+
+function getToolVisual(tool, materialLabel = null) {
+  if (tool.category === "hands") {
+    return {
+      text: "H",
+      background: "linear-gradient(180deg, #7f624c, #5f4637)",
+      glow: "0 0 18px rgba(184, 133, 97, 0.28)",
+      material: materialLabel ?? "Root",
+    };
+  }
+
+  if (tool.id === "wood-pick") {
+    return {
+      text: "W",
+      background: "linear-gradient(180deg, #9a6d42, #6f482d)",
+      glow: "0 0 18px rgba(186, 122, 70, 0.22)",
+      material: "Wood",
+    };
+  }
+
+  const item = tool.materialItemId ? ITEM_DEFINITIONS[tool.materialItemId] : null;
+  return {
+    text: item?.shortLabel ?? tool.label.slice(0, 1),
+    background: `linear-gradient(180deg, ${item?.color ?? "#6f7a89"}, #1b2432)`,
+    glow: `0 0 18px ${item?.glow ?? "rgba(136, 185, 216, 0.24)"}`,
+    material: materialLabel ?? item?.label ?? tool.branchLabel,
+  };
+}
+
+function showStoreTooltip(toolId, state, event) {
+  if (!toolId || !storeTooltip || !storeTooltipTitle || !storeTooltipState || !storeTooltipCopy || !storeTooltipStats) {
+    return;
+  }
+
+  const tool = getToolDefinition(toolId);
+  const visual = getToolVisual(tool);
+  storeTooltip.hidden = false;
+  storeTooltip.dataset.visible = "true";
+  storeTooltipTitle.textContent = tool.label;
+  storeTooltipState.textContent = getToolActionLabel(state, tool);
+  storeTooltipCopy.textContent = tool.description;
+  storeTooltipStats.innerHTML = `
+    <div>Branch: ${tool.branchLabel}</div>
+    <div>Material: ${visual.material}</div>
+    <div>Cost: ${tool.price}€</div>
+    <div>Mining Power: ${tool.miningPower}</div>
+    <div>${tool.oneSwingBlockLabel ? `One-swing: ${tool.oneSwingBlockLabel}` : "No one-swing bonus yet"}</div>
+  `;
+  positionStoreTooltip(event);
+}
+
+function positionStoreTooltip(event) {
+  if (!storeTooltip) {
+    return;
+  }
+
+  const padding = 14;
+  const offset = 18;
+  const rect = storeTooltip.getBoundingClientRect();
+  let left = event.clientX + offset;
+  let top = event.clientY + offset;
+
+  if (left + rect.width > window.innerWidth - padding) {
+    left = event.clientX - rect.width - offset;
+  }
+
+  if (top + rect.height > window.innerHeight - padding) {
+    top = event.clientY - rect.height - offset;
+  }
+
+  storeTooltip.style.left = `${Math.max(padding, left)}px`;
+  storeTooltip.style.top = `${Math.max(padding, top)}px`;
+}
+
+function hideStoreTooltip() {
+  if (!storeTooltip) {
+    return;
+  }
+
+  storeTooltip.dataset.visible = "false";
+  storeTooltip.hidden = true;
 }
 
 function purchaseTool(toolId) {

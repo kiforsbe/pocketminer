@@ -168,6 +168,10 @@
       transition: opacity 180ms ease;
     }
 
+    .round-overlay[hidden] {
+      display: none !important;
+    }
+
     .round-overlay[data-visible="true"] {
       opacity: 1;
       pointer-events: auto;
@@ -391,163 +395,184 @@
       gap: 12px;
     }
 
+    .store-tree-grid {
+      --store-columns: 1;
+      display: grid;
+      grid-template-columns: repeat(var(--store-columns), minmax(72px, 88px));
+      grid-auto-rows: minmax(26px, auto);
+      justify-content: center;
+      align-items: start;
+      column-gap: 26px;
+      row-gap: 12px;
+      padding: 4px 0 10px;
+    }
+
     .store-root-node {
       justify-self: center;
-      width: min(220px, 100%);
+      align-self: center;
+      grid-row: 1;
     }
 
-    .store-branches {
-      display: grid;
-      gap: 12px;
-    }
-
-    .store-branch {
+    .store-tree-connector {
       position: relative;
-      display: grid;
-      gap: 12px;
-      padding: 14px;
-      border-radius: 16px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    .store-branch::before {
-      content: "";
-      position: absolute;
-      top: -12px;
-      left: 50%;
+      justify-self: center;
       width: 1px;
-      height: 12px;
-      background: rgba(136, 185, 216, 0.24);
-      transform: translateX(-50%);
+      height: 14px;
+      background: rgba(136, 185, 216, 0.28);
     }
 
-    .store-branch-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
+    .store-branch-label {
+      justify-self: center;
+      text-align: center;
+      color: rgba(136, 185, 216, 0.86);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      line-height: 1.1;
     }
 
-    .store-branch-title {
+    .store-tier-label {
+      align-self: center;
+      justify-self: end;
+      padding-right: 10px;
+      color: rgba(242, 237, 227, 0.52);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .store-node-wrap {
       display: grid;
-      gap: 2px;
+      justify-items: center;
+      gap: 6px;
     }
 
-    .store-branch-title strong {
-      color: var(--text);
+    .store-node-link-vertical {
+      width: 1px;
+      height: 10px;
+      background: rgba(136, 185, 216, 0.24);
+    }
+
+    .store-node {
+      pointer-events: auto;
+      position: relative;
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: radial-gradient(circle at top, rgba(255, 255, 255, 0.08), rgba(10, 15, 24, 0.96));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 24px rgba(0, 0, 0, 0.26);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .store-node[aria-disabled="true"] {
+      cursor: default;
+    }
+
+    .store-node[data-state="current"] {
+      border-color: rgba(136, 185, 216, 0.58);
+      box-shadow: inset 0 0 0 1px rgba(136, 185, 216, 0.18), 0 12px 28px rgba(44, 84, 122, 0.28);
+    }
+
+    .store-node[data-state="available"] {
+      border-color: rgba(226, 169, 75, 0.42);
+    }
+
+    .store-node[data-state="poor"],
+    .store-node[data-state="locked"] {
+      opacity: 0.48;
+      filter: saturate(0.7);
+    }
+
+    .store-node-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: #f6f1e7;
+      font-weight: 800;
+      font-size: 0.92rem;
+      letter-spacing: 0.04em;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .store-node-tier {
+      position: absolute;
+      right: 6px;
+      bottom: 5px;
+      min-width: 18px;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: rgba(6, 10, 16, 0.82);
+      color: rgba(242, 237, 227, 0.88);
+      font-size: 0.64rem;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .store-node-branch {
+      font-size: 0.64rem;
+      color: rgba(136, 185, 216, 0.84);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .store-tooltip {
+      position: fixed;
+      z-index: 30;
+      width: min(280px, calc(100vw - 24px));
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(136, 185, 216, 0.22);
+      background: rgba(8, 13, 20, 0.97);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 100ms ease, transform 100ms ease;
+    }
+
+    .store-tooltip[data-visible="true"] {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .store-tooltip h3,
+    .store-tooltip p {
+      margin: 0;
+    }
+
+    .store-tooltip h3 {
+      color: var(--accent);
       font-size: 1rem;
     }
 
-    .store-branch-title span {
-      color: rgba(136, 185, 216, 0.86);
+    .store-tooltip .tooltip-state {
+      margin-top: 4px;
+      color: rgba(136, 185, 216, 0.9);
       font-size: 0.74rem;
       text-transform: uppercase;
       letter-spacing: 0.06em;
     }
 
-    .store-branch-count {
-      color: rgba(242, 237, 227, 0.72);
-      font-size: 0.8rem;
+    .store-tooltip .tooltip-copy {
+      margin-top: 8px;
+      color: rgba(242, 237, 227, 0.84);
+      line-height: 1.35;
+      font-size: 0.88rem;
     }
 
-    .store-branch-nodes {
-      display: grid;
-      grid-auto-flow: column;
-      grid-auto-columns: minmax(188px, 1fr);
-      gap: 10px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-    }
-
-    .store-item {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      align-items: start;
-      padding: 12px;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.035);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      min-width: 0;
-    }
-
-    .store-item[data-state="current"] {
-      border-color: rgba(136, 185, 216, 0.34);
-      background: rgba(136, 185, 216, 0.08);
-    }
-
-    .store-item[data-state="locked"],
-    .store-item[data-state="poor"] {
-      opacity: 0.7;
-    }
-
-    .store-copy {
+    .store-tooltip .tooltip-stats {
       display: grid;
       gap: 4px;
-      min-width: 0;
-    }
-
-    .store-node-link {
-      display: none;
-      height: 10px;
-      border-top: 1px solid rgba(136, 185, 216, 0.22);
-      margin: 0 8px;
-    }
-
-    .store-item + .store-item .store-node-link {
-      display: block;
-    }
-
-    .store-title-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      align-items: baseline;
-      flex-wrap: wrap;
-    }
-
-    .store-title-row strong {
-      color: var(--text);
-    }
-
-    .store-price {
-      color: var(--accent);
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .store-copy p {
-      margin: 0;
-      color: rgba(242, 237, 227, 0.76);
-      line-height: 1.35;
-    }
-
-    .store-tagline {
-      font-size: 0.78rem;
-      color: rgba(136, 185, 216, 0.92);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .store-buy {
-      pointer-events: auto;
-      border: 0;
-      border-radius: 12px;
-      background: linear-gradient(180deg, #e2a94b, #c88627);
-      color: #14181f;
-      font: inherit;
-      font-weight: 700;
-      padding: 10px 14px;
-      cursor: pointer;
-      min-width: 118px;
-      justify-self: start;
-    }
-
-    .store-buy:disabled {
-      cursor: default;
-      opacity: 0.6;
+      margin-top: 10px;
+      color: rgba(242, 237, 227, 0.9);
+      font-size: 0.82rem;
     }
 
     .store-actions {
@@ -569,8 +594,8 @@
         grid-template-columns: 1fr;
       }
 
-      .store-branch-nodes {
-        grid-auto-columns: minmax(160px, 1fr);
+      .store-tree-grid {
+        column-gap: 16px;
       }
     }
 
@@ -823,7 +848,7 @@
           </section>
         </div>
       </div>
-      <div id="round-overlay" class="round-overlay" data-visible="false">
+      <div id="round-overlay" class="round-overlay" data-visible="false" hidden>
         <section class="round-card">
           <div id="summary-view" class="round-view">
             <div class="round-header">
@@ -880,6 +905,12 @@
               </div>
             </div>
             <div id="store-grid" class="store-grid"></div>
+            <div id="store-tooltip" class="store-tooltip" data-visible="false" hidden>
+              <h3 id="store-tooltip-title">Tool</h3>
+              <div id="store-tooltip-state" class="tooltip-state">State</div>
+              <p id="store-tooltip-copy" class="tooltip-copy"></p>
+              <div id="store-tooltip-stats" class="tooltip-stats"></div>
+            </div>
             <div class="store-actions">
               <button id="back-to-summary-button" class="secondary-button" type="button">Back</button>
               <button id="store-next-round-button" type="button">Start Next Round</button>
