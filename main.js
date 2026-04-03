@@ -58,7 +58,6 @@ const PICKUP_BOB_SPEED = 6;
 const PICKUP_RADIUS = 10;
 const PICKUP_MAGNET_RANGE = 86;
 const PICKUP_COLLECT_RANGE = 20;
-const ROUND_DURATION = 60;
 const SUMMARY_STEP_RATE = 16;
 const NOTIFICATION_DURATION = 3.2;
 const STORE_CATEGORY_ORDER = Object.freeze([
@@ -113,7 +112,7 @@ const gameState = {
   pickups: [],
   phase: "playing",
   round: 1,
-  timeLeft: ROUND_DURATION,
+  timeLeft: getToolDefinition(DEFAULT_TIME_ROOT_ID).durationSeconds ?? 60,
   bank: 0,
   roundStats: createRoundStats(),
   summary: null,
@@ -380,6 +379,10 @@ function getInventoryCapacity() {
   };
 }
 
+function getRoundDuration() {
+  return getToolDefinition(gameState.timeUpgradeId ?? DEFAULT_TIME_ROOT_ID).durationSeconds ?? 60;
+}
+
 function createInventoryForLoadout(previousInventory = null) {
   const { slotCount, stackSize } = getInventoryCapacity();
   const inventory = new Inventory({ slotCount, stackSize });
@@ -561,7 +564,7 @@ function updateSummaryRow(entry) {
 function startNextRound() {
   gameState.round += 1;
   gameState.phase = "playing";
-  gameState.timeLeft = ROUND_DURATION;
+  gameState.timeLeft = getRoundDuration();
   gameState.inventory = createInventoryForLoadout();
   gameState.miningResult = null;
   gameState.hoverTarget = null;
@@ -643,9 +646,10 @@ function populateStoreOverlay() {
   const mode = GAME_MODE_DEFINITIONS[gameState.gameMode] ?? GAME_MODE_DEFINITIONS[DEFAULT_GAME_MODE];
   const currentTool = getEquippedTool();
   const inventoryCapacity = getInventoryCapacity();
+  const roundDuration = getRoundDuration();
   storeBank.textContent = `${gameState.bank}€`;
   storeMode.textContent = mode.label;
-  storeCurrentTool.textContent = `${currentTool.label} (${currentTool.miningPower} power) | ${inventoryCapacity.slotCount} slots x ${inventoryCapacity.stackSize}`;
+  storeCurrentTool.textContent = `${currentTool.label} (${currentTool.miningPower} power) | ${inventoryCapacity.slotCount} slots x ${inventoryCapacity.stackSize} | ${roundDuration}s rounds`;
   storeGrid.replaceChildren();
 
   const treeRoot = document.createElement("div");
@@ -730,6 +734,7 @@ function createStoreNode(tool, { state, interactive, materialLabel = null, gridC
   const visual = getToolVisual(tool, materialLabel);
   button.innerHTML = `
     <span class="store-node-icon" style="background:${visual.background}; box-shadow:${visual.glow};">${visual.text}</span>
+    <span class="store-node-cost">${tool.price}€</span>
     <span class="store-node-tier">${tool.tier}</span>
   `;
   return button;
@@ -844,6 +849,15 @@ function getToolVisual(tool, materialLabel = null) {
     };
   }
 
+  if (tool.category === "time") {
+    return {
+      text: `${tool.durationSeconds}s`,
+      background: "linear-gradient(180deg, #6e6f78, #353741)",
+      glow: "0 0 18px rgba(182, 188, 216, 0.22)",
+      material: materialLabel ?? "Clock",
+    };
+  }
+
   if (tool.category === "hands") {
     return {
       text: "H",
@@ -927,7 +941,14 @@ function showStoreTooltip(toolId, state, event) {
     storeTooltipStats.innerHTML = `
       <div>Branch: ${tool.branchLabel}</div>
       <div>Status: Base branch ready</div>
-      <div>Future upgrades: longer shifts, time tricks</div>
+      <div>Round Length: ${tool.durationSeconds ?? 60}s</div>
+    `;
+  } else if (tool.category === "time") {
+    storeTooltipStats.innerHTML = `
+      <div>Branch: ${tool.branchLabel}</div>
+      <div>Cost: ${tool.price}€</div>
+      <div>Round Length: ${tool.durationSeconds}s</div>
+      <div>Effect: Longer mining shift</div>
     `;
   } else {
     storeTooltipStats.innerHTML = `
@@ -1007,6 +1028,8 @@ function purchaseTool(toolId) {
   } else if (tool.branchId === "capacity") {
     gameState.capacityUpgradeId = tool.id;
     gameState.inventory = createInventoryForLoadout(gameState.inventory);
+  } else if (tool.branchId === "time") {
+    gameState.timeUpgradeId = tool.id;
   }
 
   summaryBank.textContent = `${gameState.bank}€`;
@@ -1121,7 +1144,7 @@ function updateRoundNotification(dt) {
 }
 
 function checkRoundMilestones() {
-  const halfwayMark = ROUND_DURATION / 2;
+  const halfwayMark = getRoundDuration() / 2;
 
   if (!gameState.alertFlags.halfway && gameState.timeLeft <= halfwayMark) {
     gameState.alertFlags.halfway = true;

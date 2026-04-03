@@ -21,6 +21,7 @@ function createTool({
   tier,
   slotCount = null,
   stackSize = null,
+  durationSeconds = null,
   isRoot = false,
 }) {
   return Object.freeze({
@@ -39,6 +40,7 @@ function createTool({
     tier,
     slotCount,
     stackSize,
+    durationSeconds,
     isRoot,
   });
 }
@@ -92,6 +94,7 @@ export const TOOL_DEFINITIONS = Object.freeze({
     miningPower: 0,
     description: "The basic shift timer. Time upgrades can branch from here later.",
     tier: 0,
+    durationSeconds: 60,
     isRoot: true,
   }),
   [DEFAULT_TOOL_ID]: createTool({
@@ -319,6 +322,32 @@ export const TOOL_DEFINITIONS = Object.freeze({
     tier: 4,
     stackSize: DEFAULT_STACK_SIZE * 16,
   }),
+  "time-1": createTool({
+    id: "time-1",
+    label: "Extended Shift",
+    category: "time",
+    storeCategory: "misc",
+    branchId: "time",
+    branchLabel: "Time",
+    price: 50,
+    miningPower: 0,
+    description: "Adds another 30 seconds to each round for a total of 90 seconds.",
+    tier: 1,
+    durationSeconds: 90,
+  }),
+  "time-2": createTool({
+    id: "time-2",
+    label: "Deep Shift",
+    category: "time",
+    storeCategory: "misc",
+    branchId: "time",
+    branchLabel: "Time",
+    price: 500,
+    miningPower: 0,
+    description: "Pushes the whole round to 150 seconds total.",
+    tier: 2,
+    durationSeconds: 150,
+  }),
 });
 
 export const GAME_MODE_DEFINITIONS = Object.freeze({
@@ -346,6 +375,8 @@ export const GAME_MODE_DEFINITIONS = Object.freeze({
       "capacity-2",
       "capacity-3",
       "capacity-4",
+      "time-1",
+      "time-2",
     ]),
   }),
 });
