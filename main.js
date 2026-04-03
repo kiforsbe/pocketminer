@@ -110,6 +110,14 @@ const gameState = {
     transitionToken: 0,
   },
   overlayView: "summary",
+  storeDrag: {
+    active: false,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startScrollLeft: 0,
+    startScrollTop: 0,
+  },
 };
 
 let player = createPlayer();
@@ -170,6 +178,49 @@ function attachRoundControls() {
 
     purchaseTool(toolId);
   });
+
+  storeGrid?.addEventListener("pointerdown", (event) => {
+    if (!(event.target instanceof HTMLElement) || event.target.closest("button[data-tool-id]")) {
+      return;
+    }
+
+    gameState.storeDrag.active = true;
+    gameState.storeDrag.pointerId = event.pointerId;
+    gameState.storeDrag.startX = event.clientX;
+    gameState.storeDrag.startY = event.clientY;
+    gameState.storeDrag.startScrollLeft = storeGrid.scrollLeft;
+    gameState.storeDrag.startScrollTop = storeGrid.scrollTop;
+    storeGrid.dataset.dragging = "true";
+    storeGrid.setPointerCapture?.(event.pointerId);
+    hideStoreTooltip();
+  });
+
+  storeGrid?.addEventListener("pointermove", (event) => {
+    if (gameState.storeDrag.active && gameState.storeDrag.pointerId === event.pointerId) {
+      storeGrid.scrollLeft = gameState.storeDrag.startScrollLeft - (event.clientX - gameState.storeDrag.startX);
+      storeGrid.scrollTop = gameState.storeDrag.startScrollTop - (event.clientY - gameState.storeDrag.startY);
+      return;
+    }
+
+    if (storeTooltip?.dataset.visible !== "true") {
+      return;
+    }
+    positionStoreTooltip(event);
+  });
+
+  const endStoreDrag = (event) => {
+    if (!gameState.storeDrag.active || gameState.storeDrag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    gameState.storeDrag.active = false;
+    gameState.storeDrag.pointerId = null;
+    storeGrid.dataset.dragging = "false";
+    storeGrid.releasePointerCapture?.(event.pointerId);
+  };
+
+  storeGrid?.addEventListener("pointerup", endStoreDrag);
+  storeGrid?.addEventListener("pointercancel", endStoreDrag);
 
   storeGrid?.addEventListener("pointerover", (event) => {
     const button = event.target instanceof HTMLElement ? event.target.closest("button[data-tool-id]") : null;
@@ -515,7 +566,7 @@ function populateStoreOverlay() {
 
   const rootTool = currentTool.branchId === "hands" ? currentTool : getToolDefinition(DEFAULT_TOOL_ID);
   const rootNode = createStoreNode(rootTool, {
-    state: currentTool.branchId === "hands" ? "current" : "locked",
+    state: currentTool.branchId === "hands" ? "current" : "owned",
     interactive: false,
     materialLabel: "Root",
     gridColumn: `1 / span ${Math.max(1, getVisibleStoreBranches().length)}`,
@@ -546,17 +597,25 @@ function populateStoreOverlay() {
     label.style.gridRow = "3";
     grid.append(label);
 
-    for (const node of branch.nodes) {
+    for (let nodeIndex = 0; nodeIndex < branch.nodes.length; nodeIndex += 1) {
+      const node = branch.nodes[nodeIndex];
+      const baseRow = 4 + nodeIndex * 2;
       const tierLabel = document.createElement("div");
       tierLabel.className = "store-tier-label";
       tierLabel.textContent = `Tier ${node.tool.tier}`;
       tierLabel.style.gridColumn = column;
-      tierLabel.style.gridRow = String(node.tool.tier + 3);
+      tierLabel.style.gridRow = String(baseRow);
 
       const nodeWrap = document.createElement("div");
       nodeWrap.className = "store-node-wrap";
       nodeWrap.style.gridColumn = column;
-      nodeWrap.style.gridRow = String(node.tool.tier + 4);
+      nodeWrap.style.gridRow = String(baseRow + 1);
+
+      if (nodeIndex > 0) {
+        const connector = document.createElement("div");
+        connector.className = "store-node-link-vertical";
+        nodeWrap.append(connector);
+      }
 
       const storeNode = createStoreNode(node.tool, {
         state: node.state,
@@ -571,6 +630,7 @@ function populateStoreOverlay() {
 
   treeRoot.append(grid);
   storeGrid.append(treeRoot);
+  requestAnimationFrame(() => centerStoreViewOnCurrentNode());
 }
 
 function createStoreNode(tool, { state, interactive, materialLabel = null, gridColumn = null, gridRow = null } = {}) {
@@ -595,7 +655,6 @@ function createStoreNode(tool, { state, interactive, materialLabel = null, gridC
 }
 
 function getVisibleStoreBranches() {
-  const currentTool = getEquippedTool();
   const branches = [];
   const branchIds = new Set(
     getToolsForGameMode(gameState.gameMode)
@@ -605,11 +664,7 @@ function getVisibleStoreBranches() {
 
   for (const branchId of branchIds) {
     const branchTools = getToolBranchTools(gameState.gameMode, branchId);
-    const firstVisibleTier = currentTool.branchId === branchId ? currentTool.tier : branchTools[0]?.tier ?? 0;
-    const visibleNodes = branchTools
-      .filter((tool) => tool.tier >= firstVisibleTier)
-      .slice(0, 4)
-      .map((tool) => ({ tool, state: getToolPurchaseState(tool.id) }));
+    const visibleNodes = branchTools.map((tool) => ({ tool, state: getToolPurchaseState(tool.id) }));
 
     if (visibleNodes.length === 0) {
       continue;
@@ -630,9 +685,14 @@ function getToolPurchaseState(toolId) {
   const currentIndex = tools.findIndex((tool) => tool.id === gameState.equippedToolId);
   const targetIndex = tools.findIndex((tool) => tool.id === toolId);
   const tool = getToolDefinition(toolId);
+  const currentTool = getEquippedTool();
 
   if (toolId === gameState.equippedToolId) {
     return "current";
+  }
+
+  if (tool.branchId === currentTool.branchId && targetIndex < currentIndex) {
+    return "owned";
   }
 
   if (targetIndex > currentIndex + 1) {
@@ -649,6 +709,9 @@ function getToolPurchaseState(toolId) {
 function getToolActionLabel(state, tool) {
   if (state === "current") {
     return "Equipped";
+  }
+  if (state === "owned") {
+    return "Learned";
   }
   if (state === "locked") {
     return "Locked";
@@ -739,6 +802,24 @@ function hideStoreTooltip() {
 
   storeTooltip.dataset.visible = "false";
   storeTooltip.hidden = true;
+}
+
+function centerStoreViewOnCurrentNode() {
+  if (!storeGrid) {
+    return;
+  }
+
+  const currentNode = storeGrid.querySelector('.store-node[data-state="current"]');
+  if (!(currentNode instanceof HTMLElement)) {
+    storeGrid.scrollLeft = 0;
+    storeGrid.scrollTop = 0;
+    return;
+  }
+
+  const left = currentNode.offsetLeft - (storeGrid.clientWidth - currentNode.offsetWidth) * 0.5;
+  const top = currentNode.offsetTop - (storeGrid.clientHeight - currentNode.offsetHeight) * 0.5;
+  storeGrid.scrollLeft = Math.max(0, left);
+  storeGrid.scrollTop = Math.max(0, top);
 }
 
 function purchaseTool(toolId) {

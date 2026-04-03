@@ -385,25 +385,46 @@
     }
 
     .store-grid {
-      display: grid;
-      gap: 10px;
+      display: block;
       margin-top: 14px;
+      height: min(460px, calc(100vh - 320px));
+      overflow: auto;
+      padding: 8px 12px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.025);
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .store-grid[data-dragging="true"] {
+      cursor: grabbing;
+    }
+
+    .store-grid::-webkit-scrollbar {
+      width: 0;
+      height: 0;
     }
 
     .store-tree-root {
       display: grid;
       gap: 12px;
+      width: max-content;
+      min-width: 100%;
+      min-height: max-content;
+      padding: 4px 18px 18px;
     }
 
     .store-tree-grid {
       --store-columns: 1;
       display: grid;
       grid-template-columns: repeat(var(--store-columns), minmax(72px, 88px));
-      grid-auto-rows: minmax(26px, auto);
+      grid-auto-rows: auto;
       justify-content: center;
       align-items: start;
       column-gap: 26px;
-      row-gap: 12px;
+      row-gap: 8px;
       padding: 4px 0 10px;
     }
 
@@ -432,24 +453,22 @@
     }
 
     .store-tier-label {
-      align-self: center;
-      justify-self: end;
-      padding-right: 10px;
       color: rgba(242, 237, 227, 0.52);
       font-size: 0.68rem;
       text-transform: uppercase;
       letter-spacing: 0.06em;
+      justify-self: center;
     }
 
     .store-node-wrap {
       display: grid;
       justify-items: center;
-      gap: 6px;
+      gap: 4px;
     }
 
     .store-node-link-vertical {
       width: 1px;
-      height: 10px;
+      height: 8px;
       background: rgba(136, 185, 216, 0.24);
     }
 
@@ -592,6 +611,10 @@
 
       .store-meta {
         grid-template-columns: 1fr;
+      }
+
+      .store-grid {
+        height: min(420px, calc(100vh - 280px));
       }
 
       .store-tree-grid {
