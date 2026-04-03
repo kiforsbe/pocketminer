@@ -4,10 +4,12 @@ import { Input } from "./input.js";
 import { Player } from "./player.js";
 import { Renderer } from "./renderer.js";
 import {
+  DEFAULT_BAG_ROOT_ID,
+  DEFAULT_CAPACITY_ROOT_ID,
   DEFAULT_GAME_MODE,
   DEFAULT_SLOT_COUNT,
   DEFAULT_STACK_SIZE,
-  DEFAULT_STORAGE_ROOT_ID,
+  DEFAULT_TIME_ROOT_ID,
   DEFAULT_TOOL_ID,
   GAME_MODE_DEFINITIONS,
   getToolBranchTools,
@@ -59,6 +61,11 @@ const PICKUP_COLLECT_RANGE = 20;
 const ROUND_DURATION = 60;
 const SUMMARY_STEP_RATE = 16;
 const NOTIFICATION_DURATION = 3.2;
+const STORE_CATEGORY_ORDER = Object.freeze([
+  { id: "tools", label: "Tools", branchIds: ["pickaxe"] },
+  { id: "storage", label: "Storage", branchIds: ["bags", "capacity"] },
+  { id: "misc", label: "Misc", branchIds: ["time"] },
+]);
 
 const canvas = document.getElementById("game");
 const roundOverlay = document.getElementById("round-overlay");
@@ -94,8 +101,9 @@ const audio = new AudioManager();
 const gameState = {
   gameMode: DEFAULT_GAME_MODE,
   equippedToolId: DEFAULT_TOOL_ID,
-  bagUpgradeId: null,
-  capacityUpgradeId: null,
+  bagUpgradeId: DEFAULT_BAG_ROOT_ID,
+  capacityUpgradeId: DEFAULT_CAPACITY_ROOT_ID,
+  timeUpgradeId: DEFAULT_TIME_ROOT_ID,
   inventory: new Inventory({ slotCount: DEFAULT_SLOT_COUNT, stackSize: DEFAULT_STACK_SIZE }),
   miningResult: null,
   hoverTarget: null,
@@ -363,8 +371,8 @@ function createRoundStats() {
 }
 
 function getInventoryCapacity() {
-  const bagUpgrade = gameState.bagUpgradeId ? getToolDefinition(gameState.bagUpgradeId) : null;
-  const capacityUpgrade = gameState.capacityUpgradeId ? getToolDefinition(gameState.capacityUpgradeId) : null;
+  const bagUpgrade = getToolDefinition(gameState.bagUpgradeId ?? DEFAULT_BAG_ROOT_ID);
+  const capacityUpgrade = getToolDefinition(gameState.capacityUpgradeId ?? DEFAULT_CAPACITY_ROOT_ID);
 
   return {
     slotCount: bagUpgrade?.slotCount ?? DEFAULT_SLOT_COUNT,
@@ -604,14 +612,18 @@ function getCurrentBranchUpgradeId(branchId) {
   }
 
   if (branchId === "bags") {
-    return gameState.bagUpgradeId;
+    return gameState.bagUpgradeId ?? DEFAULT_BAG_ROOT_ID;
   }
 
   if (branchId === "capacity") {
-    return gameState.capacityUpgradeId;
+    return gameState.capacityUpgradeId ?? DEFAULT_CAPACITY_ROOT_ID;
   }
 
-  return branchId === "storage-root" ? DEFAULT_STORAGE_ROOT_ID : null;
+  if (branchId === "time") {
+    return gameState.timeUpgradeId ?? DEFAULT_TIME_ROOT_ID;
+  }
+
+  return branchId === "hands" ? DEFAULT_TOOL_ID : null;
 }
 
 function setOverlayView(view) {
@@ -639,71 +651,65 @@ function populateStoreOverlay() {
   const treeRoot = document.createElement("div");
   treeRoot.className = "store-tree-root";
 
-  const rootTool = getToolDefinition(DEFAULT_STORAGE_ROOT_ID);
-  const rootNode = createStoreNode(rootTool, {
-    state: gameState.equippedToolId === DEFAULT_TOOL_ID && !gameState.bagUpgradeId && !gameState.capacityUpgradeId ? "current" : "owned",
-    interactive: false,
-    materialLabel: "Starter",
-    gridColumn: `1 / span ${Math.max(1, getVisibleStoreBranches().length)}`,
-    gridRow: "1",
-  });
-  rootNode.classList.add("store-root-node");
-  treeRoot.append(rootNode);
+  const categories = getVisibleStoreCategories();
+  for (const category of categories) {
+    const section = document.createElement("section");
+    section.className = "store-category-section";
 
-  const branches = getVisibleStoreBranches();
-  const grid = document.createElement("div");
-  grid.className = "store-tree-grid";
-  grid.style.setProperty("--store-columns", String(Math.max(1, branches.length)));
-  grid.append(rootNode);
+    const title = document.createElement("div");
+    title.className = "store-category-title";
+    title.textContent = category.label;
+    section.append(title);
 
-  const connector = document.createElement("div");
-  connector.className = "store-tree-connector";
-  connector.style.gridColumn = `1 / span ${Math.max(1, branches.length)}`;
-  connector.style.gridRow = "2";
-  grid.append(connector);
+    const grid = document.createElement("div");
+    grid.className = "store-tree-grid";
+    grid.style.setProperty("--store-columns", String(Math.max(1, category.branches.length)));
 
-  for (let branchIndex = 0; branchIndex < branches.length; branchIndex += 1) {
-    const branch = branches[branchIndex];
-    const column = String(branchIndex + 1);
-    const label = document.createElement("div");
-    label.className = "store-branch-label";
-    label.textContent = branch.label;
-    label.style.gridColumn = column;
-    label.style.gridRow = "3";
-    grid.append(label);
+    for (let branchIndex = 0; branchIndex < category.branches.length; branchIndex += 1) {
+      const branch = category.branches[branchIndex];
+      const column = String(branchIndex + 1);
+      const label = document.createElement("div");
+      label.className = "store-branch-label";
+      label.textContent = branch.label;
+      label.style.gridColumn = column;
+      label.style.gridRow = "1";
+      grid.append(label);
 
-    for (let nodeIndex = 0; nodeIndex < branch.nodes.length; nodeIndex += 1) {
-      const node = branch.nodes[nodeIndex];
-      const baseRow = 4 + nodeIndex * 2;
-      const tierLabel = document.createElement("div");
-      tierLabel.className = "store-tier-label";
-      tierLabel.textContent = `Tier ${node.tool.tier}`;
-      tierLabel.style.gridColumn = column;
-      tierLabel.style.gridRow = String(baseRow);
+      for (let nodeIndex = 0; nodeIndex < branch.nodes.length; nodeIndex += 1) {
+        const node = branch.nodes[nodeIndex];
+        const baseRow = 2 + nodeIndex * 2;
+        const tierLabel = document.createElement("div");
+        tierLabel.className = "store-tier-label";
+        tierLabel.textContent = `Tier ${node.tool.tier}`;
+        tierLabel.style.gridColumn = column;
+        tierLabel.style.gridRow = String(baseRow);
 
-      const nodeWrap = document.createElement("div");
-      nodeWrap.className = "store-node-wrap";
-      nodeWrap.style.gridColumn = column;
-      nodeWrap.style.gridRow = String(baseRow + 1);
+        const nodeWrap = document.createElement("div");
+        nodeWrap.className = "store-node-wrap";
+        nodeWrap.style.gridColumn = column;
+        nodeWrap.style.gridRow = String(baseRow + 1);
 
-      if (nodeIndex > 0) {
-        const connector = document.createElement("div");
-        connector.className = "store-node-link-vertical";
-        nodeWrap.append(connector);
+        if (nodeIndex > 0) {
+          const connector = document.createElement("div");
+          connector.className = "store-node-link-vertical";
+          nodeWrap.append(connector);
+        }
+
+        const storeNode = createStoreNode(node.tool, {
+          state: node.state,
+          interactive: node.state === "available",
+        });
+        nodeWrap.append(storeNode);
+
+        grid.append(tierLabel);
+        grid.append(nodeWrap);
       }
-
-      const storeNode = createStoreNode(node.tool, {
-        state: node.state,
-        interactive: node.state === "available",
-      });
-      nodeWrap.append(storeNode);
-
-      grid.append(tierLabel);
-      grid.append(nodeWrap);
     }
+
+    section.append(grid);
+    treeRoot.append(section);
   }
 
-  treeRoot.append(grid);
   storeGrid.append(treeRoot);
   requestAnimationFrame(() => centerStoreViewOnCurrentNode());
 }
@@ -729,30 +735,39 @@ function createStoreNode(tool, { state, interactive, materialLabel = null, gridC
   return button;
 }
 
-function getVisibleStoreBranches() {
-  const branches = [];
-  const branchIds = new Set(
-    getToolsForGameMode(gameState.gameMode)
-      .map((tool) => tool.branchId)
-      .filter((branchId) => branchId !== "hands" && branchId !== "storage-root")
-  );
+function getVisibleStoreCategories() {
+  const categories = [];
 
-  for (const branchId of branchIds) {
-    const branchTools = getToolBranchTools(gameState.gameMode, branchId);
-    const visibleNodes = branchTools.map((tool) => ({ tool, state: getToolPurchaseState(tool.id) }));
+  for (const config of STORE_CATEGORY_ORDER) {
+    const branches = [];
 
-    if (visibleNodes.length === 0) {
-      continue;
+    for (const branchId of config.branchIds) {
+      const branchTools = branchId === "pickaxe"
+        ? [getToolDefinition(DEFAULT_TOOL_ID), ...getToolBranchTools(gameState.gameMode, branchId)]
+        : getToolBranchTools(gameState.gameMode, branchId);
+      const visibleNodes = branchTools.map((tool) => ({ tool, state: getToolPurchaseState(tool.id) }));
+
+      if (visibleNodes.length === 0) {
+        continue;
+      }
+
+      branches.push({
+        id: branchId,
+        label: branchTools[0]?.branchLabel ?? branchId,
+        nodes: visibleNodes,
+      });
     }
 
-    branches.push({
-      id: branchId,
-      label: branchTools[0]?.branchLabel ?? branchId,
-      nodes: visibleNodes,
-    });
+    if (branches.length > 0) {
+      categories.push({
+        id: config.id,
+        label: config.label,
+        branches,
+      });
+    }
   }
 
-  return branches;
+  return categories;
 }
 
 function getToolPurchaseState(toolId) {
@@ -762,12 +777,12 @@ function getToolPurchaseState(toolId) {
   const currentIndex = branchTools.findIndex((branchTool) => branchTool.id === currentUpgradeId);
   const targetIndex = branchTools.findIndex((branchTool) => branchTool.id === toolId);
 
-  if (tool.isRoot) {
-    return "owned";
-  }
-
   if (toolId === currentUpgradeId) {
     return "current";
+  }
+
+  if (tool.isRoot) {
+    return "owned";
   }
 
   if (targetIndex < currentIndex) {
@@ -802,12 +817,30 @@ function getToolActionLabel(state, tool) {
 }
 
 function getToolVisual(tool, materialLabel = null) {
-  if (tool.category === "storage-root") {
+  if (tool.category === "bag-root") {
     return {
-      text: "PK",
+      text: "TP",
       background: "linear-gradient(180deg, #7b6242, #4a3828)",
       glow: "0 0 18px rgba(190, 144, 92, 0.28)",
-      material: materialLabel ?? "Starter",
+      material: materialLabel ?? "Pockets",
+    };
+  }
+
+  if (tool.category === "capacity-root") {
+    return {
+      text: "8x",
+      background: "linear-gradient(180deg, #5b7389, #243448)",
+      glow: "0 0 18px rgba(136, 185, 216, 0.28)",
+      material: materialLabel ?? "Small",
+    };
+  }
+
+  if (tool.category === "time-root") {
+    return {
+      text: "TM",
+      background: "linear-gradient(180deg, #6e6f78, #353741)",
+      glow: "0 0 18px rgba(182, 188, 216, 0.22)",
+      material: materialLabel ?? "Time",
     };
   }
 
@@ -876,19 +909,25 @@ function showStoreTooltip(toolId, state, event) {
       <div>Mining Power: ${tool.miningPower}</div>
       <div>${tool.oneSwingBlockLabel ? `One-swing: ${tool.oneSwingBlockLabel}` : "No one-swing bonus yet"}</div>
     `;
-  } else if (tool.category === "bag") {
+  } else if (tool.category === "bag" || tool.category === "bag-root") {
     storeTooltipStats.innerHTML = `
       <div>Branch: ${tool.branchLabel}</div>
       <div>Cost: ${tool.price}€</div>
-      <div>Total Slots: ${tool.slotCount}</div>
-      <div>Bag Gain: +8 slots</div>
+      <div>Total Slots: ${tool.slotCount ?? DEFAULT_SLOT_COUNT}</div>
+      <div>${tool.isRoot ? "Starting carry space" : "Bag Gain: +8 slots"}</div>
     `;
-  } else if (tool.category === "capacity") {
+  } else if (tool.category === "capacity" || tool.category === "capacity-root") {
     storeTooltipStats.innerHTML = `
       <div>Branch: ${tool.branchLabel}</div>
       <div>Cost: ${tool.price}€</div>
-      <div>Stack Size: ${tool.stackSize} per slot</div>
-      <div>Effect: 2x every slot</div>
+      <div>Stack Size: ${tool.stackSize ?? DEFAULT_STACK_SIZE} per slot</div>
+      <div>${tool.isRoot ? "Starting slot size" : "Effect: 2x every slot"}</div>
+    `;
+  } else if (tool.category === "time-root") {
+    storeTooltipStats.innerHTML = `
+      <div>Branch: ${tool.branchLabel}</div>
+      <div>Status: Base branch ready</div>
+      <div>Future upgrades: longer shifts, time tricks</div>
     `;
   } else {
     storeTooltipStats.innerHTML = `

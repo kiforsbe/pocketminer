@@ -442,11 +442,31 @@
 
     .store-tree-root {
       display: grid;
-      gap: 12px;
+      gap: 18px;
       width: max-content;
       min-width: 100%;
       min-height: max-content;
       padding: 4px 18px 18px;
+    }
+
+    .store-category-section {
+      display: grid;
+      gap: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .store-category-section:first-child {
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .store-category-title {
+      color: var(--accent);
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
 
     .store-tree-grid {
