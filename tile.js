@@ -41,7 +41,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.DIRT]: createDefinition({
     id: 1,
-    hp: 35,
+    hp: 24,
     sprite: { x: 0, y: 0 },
     label: "Dirt",
     fill: "#7f5634",
@@ -50,7 +50,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.STONE]: createDefinition({
     id: 2,
-    hp: 55,
+    hp: 38,
     sprite: { x: 1, y: 0 },
     label: "Stone",
     fill: "#7d8799",
@@ -59,7 +59,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.SHALE]: createDefinition({
     id: 3,
-    hp: 72,
+    hp: 50,
     sprite: { x: 4, y: 0 },
     label: "Shale",
     fill: "#5f6a7c",
@@ -68,7 +68,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.BASALT]: createDefinition({
     id: 4,
-    hp: 96,
+    hp: 68,
     sprite: { x: 5, y: 0 },
     label: "Basalt",
     fill: "#3e4655",
@@ -77,7 +77,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.COAL]: createDefinition({
     id: 10,
-    hp: 62,
+    hp: 44,
     sprite: { x: 2, y: 0 },
     drop: "coal",
     label: "Coal Ore",
@@ -87,7 +87,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.COPPER]: createDefinition({
     id: 11,
-    hp: 68,
+    hp: 48,
     sprite: { x: 6, y: 0 },
     drop: "copper",
     label: "Copper Ore",
@@ -97,7 +97,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.TIN]: createDefinition({
     id: 12,
-    hp: 88,
+    hp: 62,
     sprite: { x: 7, y: 0 },
     drop: "tin",
     label: "Tin Ore",
@@ -107,7 +107,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.IRON]: createDefinition({
     id: 13,
-    hp: 96,
+    hp: 68,
     sprite: { x: 3, y: 0 },
     drop: "iron",
     label: "Iron Ore",
@@ -117,7 +117,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.SILVER]: createDefinition({
     id: 14,
-    hp: 116,
+    hp: 82,
     sprite: { x: 8, y: 0 },
     drop: "silver",
     label: "Silver Ore",
@@ -127,7 +127,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.GOLD]: createDefinition({
     id: 15,
-    hp: 126,
+    hp: 90,
     sprite: { x: 9, y: 0 },
     drop: "gold",
     label: "Gold Ore",
@@ -137,7 +137,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.RUBY]: createDefinition({
     id: 16,
-    hp: 148,
+    hp: 106,
     sprite: { x: 10, y: 0 },
     drop: "ruby",
     label: "Ruby Ore",
@@ -147,7 +147,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.SAPPHIRE]: createDefinition({
     id: 17,
-    hp: 152,
+    hp: 110,
     sprite: { x: 11, y: 0 },
     drop: "sapphire",
     label: "Sapphire Ore",

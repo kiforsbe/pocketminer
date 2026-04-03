@@ -316,7 +316,7 @@ function update(dt, timeSeconds) {
     const miningResult = player.mine(dt, world);
     if (miningResult.active) {
       gameState.miningResult = miningResult;
-      if (timeSeconds - gameState.lastMiningSoundAt > 0.16) {
+      if (miningResult.hit && timeSeconds - gameState.lastMiningSoundAt > 0.16) {
         audio.playSound("miningHit", { playbackRate: 0.96 + Math.random() * 0.1 });
         gameState.lastMiningSoundAt = timeSeconds;
       }

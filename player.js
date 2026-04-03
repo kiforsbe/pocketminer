@@ -9,11 +9,13 @@ const MAX_FALL_SPEED = 920;
 const DEFAULT_MINING_POWER = 60;
 const FOOTSTEP_DISTANCE = 56;
 const MINING_RANGE_TILES = 3;
+const MINING_SWING_INTERVAL = 0.6;
+const MINING_SWING_DAMAGE_WINDOW = 0.18;
 
 const ANIMATION_SETS = {
   idle: { start: 0, frames: 4, fps: 5 },
   walk: { start: 4, frames: 6, fps: 10 },
-  mining: { start: 10, frames: 4, fps: 12 },
+  mining: { start: 10, frames: 4, fps: 4 },
 };
 
 export class Player {
@@ -35,6 +37,8 @@ export class Player {
   }
 
   update(dt, input, world) {
+    this.mineCooldown = Math.max(0, this.mineCooldown - dt);
+
     let direction = 0;
     if (input.isDown("left")) {
       direction -= 1;
@@ -124,7 +128,12 @@ export class Player {
     }
 
     this.currentMiningTarget = target;
-    const result = world.damageTile(target.column, target.row, this.miningPower * dt);
+    if (this.mineCooldown > 0) {
+      return { active: true, hit: false, broken: false, resource: null, target };
+    }
+
+    this.mineCooldown = MINING_SWING_INTERVAL;
+    const result = world.damageTile(target.column, target.row, this.miningPower * MINING_SWING_DAMAGE_WINDOW);
     return { active: true, target, ...result };
   }
 
