@@ -13,6 +13,7 @@ export class AudioManager {
     this.musicGain = null;
     this.buffers = new Map();
     this.musicSource = null;
+    this.musicToken = 0;
     this.ready = false;
   }
 
@@ -72,27 +73,36 @@ export class AudioManager {
   }
 
   stopMusic() {
+    this.musicToken += 1;
     if (!this.musicSource) {
       return;
     }
 
+    this.musicSource.onended = null;
     this.musicSource.stop();
     this.musicSource = null;
   }
 
-  startMusic(id = "music") {
-    if (!this.ready || this.context.state !== "running" || this.musicSource) {
-      return;
+  playMusicSegment(id, { loop = false, onended = null } = {}) {
+    if (!this.ready || this.context.state !== "running") {
+      return null;
     }
 
     const buffer = this.buffers.get(id);
     if (!buffer) {
-      return;
+      return null;
+    }
+
+    const token = ++this.musicToken;
+    if (this.musicSource) {
+      this.musicSource.onended = null;
+      this.musicSource.stop();
+      this.musicSource = null;
     }
 
     const source = this.context.createBufferSource();
     source.buffer = buffer;
-    source.loop = true;
+    source.loop = loop;
     source.connect(this.musicGain);
     source.start();
     this.musicSource = source;
@@ -100,6 +110,14 @@ export class AudioManager {
       if (this.musicSource === source) {
         this.musicSource = null;
       }
+      if (token === this.musicToken) {
+        onended?.();
+      }
     };
+    return token;
+  }
+
+  startMusic(id = "music") {
+    return this.playMusicSegment(id, { loop: true });
   }
 }
