@@ -18,6 +18,7 @@ const STRATA = Object.freeze([
       { type: TILE_TYPES.TIN, weight: 0.014 },
       { type: TILE_TYPES.IRON, weight: 0.008 },
     ],
+    coreYield: { base: 2, variance: 1 },
     tunnelChance: 0.025,
     stratumStrength: 0.24,
   },
@@ -41,6 +42,7 @@ const STRATA = Object.freeze([
       { type: TILE_TYPES.SILVER, weight: 0.016 },
       { type: TILE_TYPES.GOLD, weight: 0.01 },
     ],
+    coreYield: { base: 3, variance: 1 },
     tunnelChance: 0.018,
     stratumStrength: 0.18,
   },
@@ -64,6 +66,7 @@ const STRATA = Object.freeze([
       { type: TILE_TYPES.RUBY, weight: 0.014 },
       { type: TILE_TYPES.SAPPHIRE, weight: 0.014 },
     ],
+    coreYield: { base: 4, variance: 1 },
     tunnelChance: 0.012,
     stratumStrength: 0.12,
   },
@@ -84,6 +87,7 @@ const STRATA = Object.freeze([
       { type: TILE_TYPES.GOLD, weight: 0.02 },
     ],
     bonusFromNext: [],
+    coreYield: { base: 5, variance: 1 },
     tunnelChance: 0.008,
     stratumStrength: 0.08,
   },
@@ -240,11 +244,13 @@ export class World {
 
     const resource = tile.definition.drop;
     const brokenType = tile.type;
+    const dropCount = this.getOreDropCount(column, row, brokenType);
     tile.setType(TILE_TYPES.EMPTY);
     return {
       hit: true,
       broken: true,
       resource,
+      dropCount,
       tile,
       brokenType,
       column,
@@ -283,5 +289,31 @@ export class World {
       ...stratum,
       depth,
     };
+  }
+
+  getStratumAtRow(row) {
+    const depth = Math.max(0, row - this.surfaceRow);
+    const stratum = this.#getDepthProfile(depth);
+    return {
+      ...stratum,
+      depth,
+    };
+  }
+
+  getOreDropCount(column, row, tileType) {
+    const definition = this.getTileDefinition(tileType);
+    if (!definition.drop) {
+      return 0;
+    }
+
+    const stratum = this.getStratumAtRow(row);
+    const isCoreOre = stratum.primaryOres.some((ore) => ore.type === tileType);
+    if (!isCoreOre) {
+      return 1;
+    }
+
+    const { base, variance } = stratum.coreYield;
+    const swing = Math.floor(Math.random() * (variance * 2 + 1)) - variance;
+    return Math.max(1, base + swing);
   }
 }

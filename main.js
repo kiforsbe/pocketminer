@@ -100,8 +100,10 @@ function update(dt, timeSeconds) {
 
       if (miningResult.broken) {
         if (miningResult.resource) {
-          gameState.statusText = `${ITEM_DEFINITIONS[miningResult.resource].label} popped free. Pick it up.`;
-          spawnPickup(miningResult);
+          const quantity = miningResult.dropCount || 1;
+          const oreName = ITEM_DEFINITIONS[miningResult.resource].label;
+          gameState.statusText = `${quantity} ${oreName}${quantity > 1 ? " pieces" : " piece"} popped free.`;
+          spawnPickups(miningResult, quantity);
           spawnOreChunks(miningResult);
           audio.playSound("orePop", { playbackRate: 0.94 + Math.random() * 0.14, volume: 0.3 });
         } else {
@@ -160,7 +162,7 @@ function spawnOreChunks(miningResult) {
   }
 }
 
-function spawnPickup(miningResult) {
+function spawnPickups(miningResult, quantity) {
   const definition = ITEM_DEFINITIONS[miningResult.resource];
   if (!definition) {
     return;
@@ -170,20 +172,22 @@ function spawnPickup(miningResult) {
   const originY = miningResult.row * 32 + 18;
   const direction = player.getCenter().x <= originX ? 1 : -1;
 
-  gameState.pickups.push({
-    itemId: miningResult.resource,
-    x: originX,
-    y: originY,
-    vx: direction * (90 + Math.random() * 80),
-    vy: -(160 + Math.random() * 80),
-    grounded: false,
-    rotation: Math.random() * Math.PI * 2,
-    angularVelocity: (Math.random() - 0.5) * 6,
-    bobTime: Math.random() * Math.PI * 2,
-    radius: PICKUP_RADIUS,
-    color: definition.color,
-    glow: definition.glow,
-  });
+  for (let index = 0; index < quantity; index += 1) {
+    gameState.pickups.push({
+      itemId: miningResult.resource,
+      x: originX + (Math.random() - 0.5) * 8,
+      y: originY + (Math.random() - 0.5) * 6,
+      vx: direction * (70 + Math.random() * 90) + (Math.random() - 0.5) * 45,
+      vy: -(140 + Math.random() * 95),
+      grounded: false,
+      rotation: Math.random() * Math.PI * 2,
+      angularVelocity: (Math.random() - 0.5) * 6,
+      bobTime: Math.random() * Math.PI * 2,
+      radius: PICKUP_RADIUS,
+      color: definition.color,
+      glow: definition.glow,
+    });
+  }
 }
 
 function updateParticles(dt) {
