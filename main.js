@@ -465,62 +465,137 @@ function populateStoreOverlay() {
 
   const mode = GAME_MODE_DEFINITIONS[gameState.gameMode] ?? GAME_MODE_DEFINITIONS[DEFAULT_GAME_MODE];
   const currentTool = getEquippedTool();
-  const tools = getVisibleStoreTools();
   storeBank.textContent = `${gameState.bank}€`;
   storeMode.textContent = mode.label;
   storeCurrentTool.textContent = `${currentTool.label} (${currentTool.miningPower} power)`;
   storeGrid.replaceChildren();
 
-  for (const tool of tools) {
-    const purchaseState = getToolPurchaseState(tool.id);
-    const card = document.createElement("article");
-    card.className = "store-item";
-    card.dataset.state = purchaseState;
+  const treeRoot = document.createElement("div");
+  treeRoot.className = "store-tree-root";
 
-    const material = tool.category === "hands"
-      ? "Root"
-      : tool.materialItemId
-        ? ITEM_DEFINITIONS[tool.materialItemId]?.label ?? tool.label
-        : tool.branchLabel;
-    const swingTarget = tool.oneSwingBlockLabel
-      ? `One-swing ${tool.oneSwingBlockLabel.toLowerCase()}`
-      : `Mining power ${tool.miningPower}`;
+  const rootTool = currentTool.branchId === "hands" ? currentTool : getToolDefinition(DEFAULT_TOOL_ID);
+  const rootNode = createStoreItem(rootTool, {
+    state: currentTool.branchId === "hands" ? "current" : "locked",
+    buttonLabel: currentTool.branchId === "hands" ? "Equipped" : "Root",
+    interactive: false,
+    materialLabel: "Root",
+  });
+  rootNode.classList.add("store-root-node");
+  treeRoot.append(rootNode);
 
-    const action = document.createElement("button");
-    action.className = purchaseState === "available" ? "store-buy" : "store-buy secondary-button";
-    action.dataset.toolId = tool.id;
-    action.disabled = purchaseState !== "available";
-    action.textContent = getToolActionLabel(purchaseState, tool);
-
-    card.innerHTML = `
-      <div class="store-copy">
-        <div class="store-title-row">
-          <strong>${tool.label}</strong>
-          <span class="store-price">${tool.price === 0 ? "Owned" : `${tool.price}€`}</span>
-        </div>
-        <div class="store-tagline">${material}</div>
-        <p>${tool.description}</p>
-        <p>${swingTarget}</p>
-      </div>
-    `;
-    card.append(action);
-    storeGrid.append(card);
+  const branches = document.createElement("div");
+  branches.className = "store-branches";
+  for (const branch of getVisibleStoreBranches()) {
+    branches.append(createStoreBranch(branch));
   }
+
+  treeRoot.append(branches);
+  storeGrid.append(treeRoot);
 }
 
-function getVisibleStoreTools() {
-  const allTools = getToolsForGameMode(gameState.gameMode);
-  const currentTool = getEquippedTool();
+function createStoreBranch(branch) {
+  const branchEl = document.createElement("section");
+  branchEl.className = "store-branch";
 
-  if (currentTool.branchId === "hands") {
-    return [
-      currentTool,
-      ...getToolBranchTools(gameState.gameMode, "pickaxe"),
-    ];
+  const head = document.createElement("div");
+  head.className = "store-branch-head";
+  head.innerHTML = `
+    <div class="store-branch-title">
+      <strong>${branch.label}</strong>
+      <span>${branch.subtitle}</span>
+    </div>
+    <div class="store-branch-count">${branch.nodes.length} shown</div>
+  `;
+  branchEl.append(head);
+
+  const nodes = document.createElement("div");
+  nodes.className = "store-branch-nodes";
+  for (let index = 0; index < branch.nodes.length; index += 1) {
+    const node = branch.nodes[index];
+    const item = createStoreItem(node.tool, {
+      state: node.state,
+      buttonLabel: getToolActionLabel(node.state, node.tool),
+      interactive: node.state === "available",
+    });
+
+    if (index > 0) {
+      const link = document.createElement("div");
+      link.className = "store-node-link";
+      item.prepend(link);
+    }
+
+    nodes.append(item);
   }
 
-  const branchTools = getToolBranchTools(gameState.gameMode, currentTool.branchId);
-  return branchTools.filter((tool) => tool.tier >= currentTool.tier);
+  branchEl.append(nodes);
+  return branchEl;
+}
+
+function createStoreItem(tool, { state, buttonLabel, interactive, materialLabel = null } = {}) {
+  const card = document.createElement("article");
+  card.className = "store-item";
+  card.dataset.state = state;
+
+  const material = materialLabel ?? (tool.category === "hands"
+    ? "Root"
+    : tool.materialItemId
+      ? ITEM_DEFINITIONS[tool.materialItemId]?.label ?? tool.label
+      : tool.branchLabel);
+  const swingTarget = tool.oneSwingBlockLabel
+    ? `One-swing ${tool.oneSwingBlockLabel.toLowerCase()}`
+    : `Mining power ${tool.miningPower}`;
+
+  const action = document.createElement("button");
+  action.className = interactive ? "store-buy" : "store-buy secondary-button";
+  action.dataset.toolId = tool.id;
+  action.disabled = !interactive;
+  action.textContent = buttonLabel;
+
+  card.innerHTML = `
+    <div class="store-copy">
+      <div class="store-title-row">
+        <strong>${tool.label}</strong>
+        <span class="store-price">${tool.price === 0 ? "Owned" : `${tool.price}€`}</span>
+      </div>
+      <div class="store-tagline">${material}</div>
+      <p>${tool.description}</p>
+      <p>${swingTarget}</p>
+    </div>
+  `;
+  card.append(action);
+  return card;
+}
+
+function getVisibleStoreBranches() {
+  const currentTool = getEquippedTool();
+  const branches = [];
+  const branchIds = new Set(
+    getToolsForGameMode(gameState.gameMode)
+      .map((tool) => tool.branchId)
+      .filter((branchId) => branchId !== "hands")
+  );
+
+  for (const branchId of branchIds) {
+    const branchTools = getToolBranchTools(gameState.gameMode, branchId);
+    const firstVisibleTier = currentTool.branchId === branchId ? currentTool.tier : branchTools[0]?.tier ?? 0;
+    const visibleNodes = branchTools
+      .filter((tool) => tool.tier >= firstVisibleTier)
+      .slice(0, 4)
+      .map((tool) => ({ tool, state: getToolPurchaseState(tool.id) }));
+
+    if (visibleNodes.length === 0) {
+      continue;
+    }
+
+    branches.push({
+      id: branchId,
+      label: branchTools[0]?.branchLabel ?? branchId,
+      subtitle: currentTool.branchId === branchId ? "Current upgrade lane" : "Available next branch",
+      nodes: visibleNodes,
+    });
+  }
+
+  return branches;
 }
 
 function getToolPurchaseState(toolId) {
