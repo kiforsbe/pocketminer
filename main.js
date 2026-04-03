@@ -11,6 +11,7 @@ const AUDIO_MANIFEST = [
   { id: "blockBreak", src: "./assets/block-break.wav" },
   { id: "orePop", src: "./assets/ore-pop.wav" },
   { id: "coin", src: "./assets/coin.wav" },
+  { id: "tick", src: "./assets/tick.wav" },
   { id: "music-hearth", src: "./assets/Underground_Hearth.mp3" },
   { id: "music-waltz", src: "./assets/Pickaxe_Waltz.mp3" },
 ];
@@ -66,6 +67,7 @@ const gameState = {
     halfway: false,
     thirtySeconds: false,
   },
+  lastCountdownTickSecond: null,
 };
 
 let lastTime = performance.now();
@@ -123,6 +125,7 @@ function update(dt, timeSeconds) {
   gameState.timeLeft = Math.max(0, gameState.timeLeft - dt);
   updateRoundNotification(dt);
   checkRoundMilestones();
+  playCountdownTickIfNeeded();
   gameState.hoverTarget = player.update(dt, input, world);
   gameState.miningResult = null;
   updateParticles(dt);
@@ -218,6 +221,7 @@ function endRound() {
     completed: oreEntries.length === 0,
   };
   gameState.notification = null;
+  gameState.lastCountdownTickSecond = null;
 
   gameState.bank += gameState.summary.totalEarnings;
   populateSummaryOverlay();
@@ -333,6 +337,7 @@ function startNextRound() {
     halfway: false,
     thirtySeconds: false,
   };
+  gameState.lastCountdownTickSecond = null;
   gameState.lastMiningSoundAt = 0;
   world = new World();
   player = new Player(world.getSpawnPosition());
@@ -382,6 +387,24 @@ function checkRoundMilestones() {
     gameState.alertFlags.thirtySeconds = true;
     showRoundNotification("Final 30 seconds!", { urgent: true });
   }
+}
+
+function playCountdownTickIfNeeded() {
+  if (!gameState.audioReady || gameState.phase !== "playing" || gameState.timeLeft > 30 || gameState.timeLeft <= 0) {
+    return;
+  }
+
+  const wholeSeconds = Math.ceil(gameState.timeLeft);
+  if (gameState.lastCountdownTickSecond === wholeSeconds) {
+    return;
+  }
+
+  gameState.lastCountdownTickSecond = wholeSeconds;
+  const urgentFactor = wholeSeconds <= 10 ? 1.12 : 1;
+  audio.playSound("tick", {
+    volume: wholeSeconds <= 10 ? 0.24 : 0.18,
+    playbackRate: (1.02 + (30 - wholeSeconds) * 0.003) * urgentFactor,
+  });
 }
 
 function spawnOreChunks(miningResult) {
