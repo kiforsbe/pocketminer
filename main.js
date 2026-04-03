@@ -378,16 +378,20 @@ function endRound() {
     tickBudget: 0,
     displayedEarnings: 0,
     totalEarnings: oreEntries.reduce((sum, entry) => sum + entry.count * entry.value, 0),
+    startingBank: gameState.bank,
     blocksMined: gameState.roundStats.blocksMined,
     totalItems,
     completed: oreEntries.length === 0,
+    bankAwarded: false,
   };
   gameState.notification = null;
   gameState.countdownTickCooldown = 0;
   stopStratumMusic({ playOutro: true });
   gameState.overlayView = "summary";
 
-  gameState.bank += gameState.summary.totalEarnings;
+  if (gameState.summary.completed) {
+    commitSummaryBankEarnings();
+  }
   populateSummaryOverlay();
   populateStoreOverlay();
   setOverlayView("summary");
@@ -409,7 +413,7 @@ function populateSummaryOverlay() {
   summaryItems.textContent = String(gameState.summary.totalItems);
   summaryRound.textContent = String(gameState.round);
   summaryEarnings.textContent = `${gameState.summary.displayedEarnings}€`;
-  summaryBank.textContent = `${gameState.bank}€`;
+  summaryBank.textContent = `${gameState.summary.startingBank}€`;
 
   for (const entry of gameState.summary.entries) {
     const row = document.createElement("div");
@@ -464,7 +468,7 @@ function advanceSummaryCount() {
   const entry = gameState.summary.entries[gameState.summary.activeIndex];
   if (!entry) {
     gameState.summary.completed = true;
-    roundSubtitle.textContent = "Choose when to begin the next shift.";
+    commitSummaryBankEarnings();
     return;
   }
 
@@ -479,8 +483,22 @@ function advanceSummaryCount() {
     gameState.summary.activeIndex += 1;
     if (gameState.summary.activeIndex >= gameState.summary.entries.length) {
       gameState.summary.completed = true;
-      roundSubtitle.textContent = "Choose when to begin the next shift.";
+      commitSummaryBankEarnings();
     }
+  }
+}
+
+function commitSummaryBankEarnings() {
+  if (!gameState.summary || gameState.summary.bankAwarded) {
+    return;
+  }
+
+  gameState.bank = gameState.summary.startingBank + gameState.summary.totalEarnings;
+  gameState.summary.bankAwarded = true;
+  roundSubtitle.textContent = "Choose when to begin the next shift.";
+  summaryBank.textContent = `${gameState.bank}€`;
+  if (storeBank) {
+    storeBank.textContent = `${gameState.bank}€`;
   }
 }
 
