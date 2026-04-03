@@ -316,4 +316,23 @@ export class World {
     const swing = Math.floor(Math.random() * (variance * 2 + 1)) - variance;
     return Math.max(1, base + swing);
   }
+
+  getOreDropRange(row, tileType) {
+    const definition = this.getTileDefinition(tileType);
+    if (!definition.drop) {
+      return null;
+    }
+
+    const stratum = this.getStratumAtRow(row);
+    const isCoreOre = stratum.primaryOres.some((ore) => ore.type === tileType);
+    if (!isCoreOre) {
+      return { min: 1, max: 1 };
+    }
+
+    const { base, variance } = stratum.coreYield;
+    return {
+      min: Math.max(1, base - variance),
+      max: Math.max(1, base + variance),
+    };
+  }
 }

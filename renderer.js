@@ -438,6 +438,7 @@ export class Renderer {
     const blockTypeEl = document.getElementById("block-type");
     const blockHpEl = document.getElementById("block-hp");
     const blockRangeEl = document.getElementById("block-range");
+    const blockYieldEl = document.getElementById("block-yield");
     const stratum = this.world.getStratumAtPixel(player.getCenter().y);
 
     this.#paintIcon("stratum-icon", stratum.base[0].type);
@@ -464,7 +465,7 @@ export class Renderer {
       }
     }
 
-    if (!blockNameEl || !blockTypeEl || !blockHpEl || !blockRangeEl) {
+    if (!blockNameEl || !blockTypeEl || !blockHpEl || !blockRangeEl || !blockYieldEl) {
       return;
     }
 
@@ -474,6 +475,7 @@ export class Renderer {
       blockTypeEl.textContent = "No target";
       blockHpEl.textContent = "--";
       blockRangeEl.textContent = "--";
+      blockYieldEl.textContent = "--";
       return;
     }
 
@@ -484,6 +486,7 @@ export class Renderer {
       blockTypeEl.textContent = "No target";
       blockHpEl.textContent = "--";
       blockRangeEl.textContent = "--";
+      blockYieldEl.textContent = "--";
       return;
     }
 
@@ -492,6 +495,10 @@ export class Renderer {
     blockTypeEl.textContent = tile.definition.drop ? "Ore" : "Stratum block";
     blockHpEl.textContent = tile.maxHp > 0 ? `${Math.ceil(tile.hp)} / ${tile.maxHp}` : "--";
     blockRangeEl.textContent = target.distance ? `${(target.distance / TILE_SIZE).toFixed(1)} tiles` : "In range";
+    const dropRange = this.world.getOreDropRange(target.row, tile.type);
+    blockYieldEl.textContent = dropRange
+      ? (dropRange.min === dropRange.max ? `${dropRange.min}` : `${dropRange.min}-${dropRange.max}`)
+      : "--";
   }
 
   #drawHotbar(inventory) {
