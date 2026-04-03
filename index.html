@@ -114,7 +114,12 @@
     .status-card {
       align-self: end;
       justify-self: end;
-      text-align: right;
+      text-align: left;
+      display: grid;
+      gap: 12px;
+      width: 190px;
+      min-width: 190px;
+      max-width: 190px;
     }
 
     .status-card strong {
@@ -130,6 +135,116 @@
       margin: 0;
       line-height: 1.4;
       font-size: 0.92rem;
+    }
+
+    .survey-section {
+      display: grid;
+      gap: 8px;
+      padding-top: 2px;
+    }
+
+    .survey-section + .survey-section {
+      padding-top: 10px;
+      border-top: 1px solid rgba(136, 185, 216, 0.14);
+    }
+
+    .survey-row {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .survey-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid rgba(242, 237, 227, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .survey-copy {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .survey-copy p {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .survey-subheading {
+      font-size: 0.74rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(136, 185, 216, 0.88);
+    }
+
+    .ore-swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .ore-groups {
+      display: grid;
+      gap: 8px;
+    }
+
+    .ore-group {
+      display: grid;
+      gap: 5px;
+    }
+
+    .ore-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 5px 2px 3px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.7rem;
+      line-height: 1;
+      color: rgba(242, 237, 227, 0.9);
+      max-width: 100%;
+    }
+
+    .ore-chip canvas {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .compact-stats {
+      display: grid;
+      gap: 5px;
+    }
+
+    .compact-stat {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 4px;
+      align-items: baseline;
+      font-size: 0.78rem;
+    }
+
+    .compact-stat-label {
+      color: rgba(136, 185, 216, 0.86);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.64rem;
+    }
+
+    .compact-stat-value {
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
 
     @media (max-width: 720px) {
@@ -168,8 +283,48 @@
           <div class="controls">Move: A/D or Arrows | Aim: Mouse | Mine: Left Click, E, or Space | Jump: W or Up</div>
         </div>
         <div class="status-card">
-          <strong>Status</strong>
-          <p id="status-text">Loading assets and preparing the mine...</p>
+          <section class="survey-section">
+            <strong>Survey</strong>
+            <div class="survey-row">
+              <canvas id="stratum-icon" class="survey-icon" width="44" height="44"></canvas>
+              
+              <div class="survey-copy">
+                <p id="stratum-name">Loading strata...</p>
+                <p id="stratum-depth">Depth band loading...</p>
+              </div>
+            </div>
+            <div class="ore-groups">
+              <div class="ore-group">
+                <div class="survey-subheading">Core Ores</div>
+                <div id="stratum-core-swatches" class="ore-swatches"></div>
+              </div>
+              <div class="ore-group">
+                <div class="survey-subheading">Bonus Ores</div>
+                <div id="stratum-bonus-swatches" class="ore-swatches"></div>
+              </div>
+            </div>
+          </section>
+          <section class="survey-section">
+            <strong>Selected Block</strong>
+            <div class="survey-row">
+              <canvas id="block-icon" class="survey-icon" width="44" height="44"></canvas>
+              
+              <div class="survey-copy">
+                <p id="block-name">None</p>
+                <p id="block-type">No target</p>
+              </div>
+            </div>
+            <div class="compact-stats">
+              <div class="compact-stat">
+                <div class="compact-stat-label">HP</div>
+                <div id="block-hp" class="compact-stat-value">--</div>
+              </div>
+              <div class="compact-stat">
+                <div class="compact-stat-label">Range</div>
+                <div id="block-range" class="compact-stat-value">--</div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </section>

@@ -89,6 +89,8 @@ const STRATA = Object.freeze([
   },
 ]);
 
+export const WORLD_STRATA = STRATA;
+
 export class World {
   constructor({ columns = 32, rows = 180, surfaceRow = 6 } = {}) {
     this.columns = columns;
@@ -268,5 +270,18 @@ export class World {
 
   getTileDefinition(type) {
     return TILE_DEFINITIONS[type] ?? TILE_DEFINITIONS[TILE_TYPES.EMPTY];
+  }
+
+  getDepthAtPixel(y) {
+    return Math.max(0, Math.floor(y / TILE_SIZE) - this.surfaceRow);
+  }
+
+  getStratumAtPixel(y) {
+    const depth = this.getDepthAtPixel(y);
+    const stratum = this.#getDepthProfile(depth);
+    return {
+      ...stratum,
+      depth,
+    };
   }
 }

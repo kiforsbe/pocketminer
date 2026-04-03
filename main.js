@@ -24,7 +24,6 @@ const PICKUP_COLLECT_RANGE = 20;
 const STACK_SIZE = 8;
 
 const canvas = document.getElementById("game");
-const statusText = document.getElementById("status-text");
 
 const world = new World();
 const input = new Input({ keyboardTarget: window, pointerTarget: canvas });
@@ -49,7 +48,6 @@ const gameState = {
 let lastTime = performance.now();
 
 async function bootstrap() {
-  statusText.textContent = "Loading placeholder art and audio...";
   const [assets] = await Promise.all([
     Renderer.loadAssets(),
     audio.preload(AUDIO_MANIFEST),
@@ -273,7 +271,12 @@ function resolvePickupCollisions(pickup) {
 
 bootstrap().catch((error) => {
   console.error(error);
-  if (statusText) {
-    statusText.textContent = `Failed to start: ${error.message}`;
+  const blockNameEl = document.getElementById("block-name");
+  const blockDetailsEl = document.getElementById("block-details");
+  if (blockNameEl) {
+    blockNameEl.textContent = "Selected Block: Error";
+  }
+  if (blockDetailsEl) {
+    blockDetailsEl.textContent = `Startup failed: ${error.message}`;
   }
 });

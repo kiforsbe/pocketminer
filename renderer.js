@@ -1,5 +1,5 @@
 import { ITEM_DEFINITIONS } from "./inventory.js";
-import { TILE_SIZE, TILE_TYPES } from "./tile.js";
+import { TILE_DEFINITIONS, TILE_SIZE, TILE_TYPES } from "./tile.js";
 
 const VIEWPORT = { width: 1280, height: 720 };
 const PLAYER_FRAME_WIDTH = 32;
@@ -109,8 +109,9 @@ export class Renderer {
     this.#drawParticles(particles);
     this.#drawPlayer(player);
     this.#drawDepthMeter(player);
-    this.#drawHud(inventory, statusText, audioReady);
+    this.#drawHud(inventory);
     this.#drawHotbar(inventory);
+    this.#drawSurveyPanel(player, miningResult?.target ?? hoverTarget);
   }
 
   #drawBackground() {
@@ -217,6 +218,93 @@ export class Renderer {
       default:
         break;
     }
+  }
+
+  #drawProceduralTilePreview(context, definition, size) {
+    context.clearRect(0, 0, size, size);
+    if (!definition || definition.pattern === "empty") {
+      return;
+    }
+
+    context.fillStyle = definition.fill;
+    context.fillRect(0, 0, size, size);
+    context.strokeStyle = "rgba(0, 0, 0, 0.2)";
+    context.strokeRect(0, 0, size, size);
+    context.fillStyle = definition.accent;
+    const unit = size / 32;
+
+    switch (definition.pattern) {
+      case "speck":
+        for (const offset of [4, 11, 18, 24]) {
+          context.fillRect(offset * unit, (6 + (offset % 4) * 4) * unit, 4 * unit, 4 * unit);
+        }
+        break;
+      case "bands":
+        context.fillRect(4 * unit, 6 * unit, 22 * unit, 2 * unit);
+        context.fillRect(7 * unit, 14 * unit, 18 * unit, 2 * unit);
+        context.fillRect(5 * unit, 22 * unit, 20 * unit, 2 * unit);
+        break;
+      case "slate":
+        context.fillRect(5 * unit, 5 * unit, 20 * unit, 3 * unit);
+        context.fillRect(9 * unit, 12 * unit, 16 * unit, 2 * unit);
+        context.fillRect(4 * unit, 19 * unit, 22 * unit, 3 * unit);
+        break;
+      case "blocks":
+        context.fillRect(5 * unit, 5 * unit, 8 * unit, 8 * unit);
+        context.fillRect(17 * unit, 8 * unit, 9 * unit, 9 * unit);
+        context.fillRect(9 * unit, 19 * unit, 12 * unit, 6 * unit);
+        break;
+      case "ore-cluster":
+        context.fillRect(6 * unit, 5 * unit, 6 * unit, 6 * unit);
+        context.fillRect(18 * unit, 8 * unit, 7 * unit, 7 * unit);
+        context.fillRect(11 * unit, 19 * unit, 8 * unit, 8 * unit);
+        break;
+      case "ore-gem":
+        context.fillRect(7 * unit, 6 * unit, 5 * unit, 5 * unit);
+        context.fillRect(19 * unit, 10 * unit, 6 * unit, 6 * unit);
+        context.fillRect(13 * unit, 18 * unit, 7 * unit, 7 * unit);
+        context.fillRect(9 * unit, 14 * unit, 3 * unit, 3 * unit);
+        break;
+      case "gem-shard":
+        context.fillRect(8 * unit, 6 * unit, 4 * unit, 8 * unit);
+        context.fillRect(20 * unit, 9 * unit, 5 * unit, 9 * unit);
+        context.fillRect(13 * unit, 19 * unit, 6 * unit, 7 * unit);
+        break;
+      default:
+        break;
+    }
+  }
+
+  #paintIcon(canvasId, tileType) {
+    const canvas = document.getElementById(canvasId);
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+    context.imageSmoothingEnabled = false;
+    this.#drawProceduralTilePreview(context, TILE_DEFINITIONS[tileType], canvas.width);
+  }
+
+  #renderOreChip(container, tileType) {
+    const definition = TILE_DEFINITIONS[tileType];
+    if (!definition) {
+      return;
+    }
+
+    const chip = document.createElement("span");
+    chip.className = "ore-chip";
+    const canvas = document.createElement("canvas");
+    canvas.width = 18;
+    canvas.height = 18;
+    const label = document.createElement("span");
+    label.textContent = definition.label.replace(" Ore", "");
+    chip.append(canvas, label);
+    container.append(chip);
+
+    const context = canvas.getContext("2d");
+    context.imageSmoothingEnabled = false;
+    this.#drawProceduralTilePreview(context, definition, 18);
   }
 
   #drawMiningHighlight(hoverTarget, miningResult) {
@@ -334,15 +422,76 @@ export class Renderer {
     this.ctx.fillText(`Depth: ${depthTiles}m`, this.viewport.width - 145, 44);
   }
 
-  #drawHud(inventory, statusText, audioReady) {
-    const statusEl = document.getElementById("status-text");
+  #drawHud(inventory) {
     const resourceEl = document.getElementById("resource-bar");
-    if (statusEl) {
-      statusEl.textContent = audioReady ? statusText : `${statusText} Click or press a key to enable audio.`;
-    }
     if (resourceEl) {
       resourceEl.innerHTML = `<span>Items: ${inventory.getItemCount()}</span><span>Slots: ${inventory.getOccupiedSlotCount()}/${inventory.slotCount}</span><span>Stack: ${inventory.stackSize}</span>`;
     }
+  }
+
+  #drawSurveyPanel(player, target) {
+    const stratumNameEl = document.getElementById("stratum-name");
+    const stratumDepthEl = document.getElementById("stratum-depth");
+    const stratumCoreSwatchesEl = document.getElementById("stratum-core-swatches");
+    const stratumBonusSwatchesEl = document.getElementById("stratum-bonus-swatches");
+    const blockNameEl = document.getElementById("block-name");
+    const blockTypeEl = document.getElementById("block-type");
+    const blockHpEl = document.getElementById("block-hp");
+    const blockRangeEl = document.getElementById("block-range");
+    const stratum = this.world.getStratumAtPixel(player.getCenter().y);
+
+    this.#paintIcon("stratum-icon", stratum.base[0].type);
+
+    if (stratumNameEl) {
+      stratumNameEl.textContent = stratum.name;
+    }
+
+    if (stratumDepthEl) {
+      stratumDepthEl.textContent = `Depth ${stratum.depth}m`;
+    }
+
+    if (stratumCoreSwatchesEl) {
+      stratumCoreSwatchesEl.replaceChildren();
+      for (const ore of stratum.primaryOres) {
+        this.#renderOreChip(stratumCoreSwatchesEl, ore.type);
+      }
+    }
+
+    if (stratumBonusSwatchesEl) {
+      stratumBonusSwatchesEl.replaceChildren();
+      for (const ore of [...stratum.bonusFromPrev, ...stratum.bonusFromNext]) {
+        this.#renderOreChip(stratumBonusSwatchesEl, ore.type);
+      }
+    }
+
+    if (!blockNameEl || !blockTypeEl || !blockHpEl || !blockRangeEl) {
+      return;
+    }
+
+    if (!target) {
+      this.#paintIcon("block-icon", TILE_TYPES.EMPTY);
+      blockNameEl.textContent = "None";
+      blockTypeEl.textContent = "No target";
+      blockHpEl.textContent = "--";
+      blockRangeEl.textContent = "--";
+      return;
+    }
+
+    const tile = this.world.getTile(target.column, target.row);
+    if (!tile) {
+      this.#paintIcon("block-icon", TILE_TYPES.EMPTY);
+      blockNameEl.textContent = "None";
+      blockTypeEl.textContent = "No target";
+      blockHpEl.textContent = "--";
+      blockRangeEl.textContent = "--";
+      return;
+    }
+
+    this.#paintIcon("block-icon", tile.type);
+    blockNameEl.textContent = tile.definition.label;
+    blockTypeEl.textContent = tile.definition.drop ? "Ore" : "Stratum block";
+    blockHpEl.textContent = tile.maxHp > 0 ? `${Math.ceil(tile.hp)} / ${tile.maxHp}` : "--";
+    blockRangeEl.textContent = target.distance ? `${(target.distance / TILE_SIZE).toFixed(1)} tiles` : "In range";
   }
 
   #drawHotbar(inventory) {
