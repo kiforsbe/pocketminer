@@ -59,7 +59,8 @@ const PICKUP_BOB_SPEED = 6;
 const PICKUP_RADIUS = 10;
 const PICKUP_MAGNET_RANGE = 86;
 const PICKUP_COLLECT_RANGE = 20;
-const SUMMARY_STEP_RATE = 16;
+const SUMMARY_MIN_STEP_RATE = 4;
+const SUMMARY_MAX_STEP_RATE = 34;
 const NOTIFICATION_DURATION = 3.2;
 const STORE_CATEGORY_ORDER = Object.freeze([
   { id: "tools", label: "Tools", branchIds: ["pickaxe"] },
@@ -427,6 +428,8 @@ function endRound() {
     entries: oreEntries,
     activeIndex: 0,
     tickBudget: 0,
+    processedItems: 0,
+    totalCountSteps: totalItems,
     displayedEarnings: 0,
     totalEarnings: oreEntries.reduce((sum, entry) => sum + entry.count * entry.value, 0),
     startingBank: gameState.bank,
@@ -508,11 +511,18 @@ function updateSummary(dt) {
     return;
   }
 
-  gameState.summary.tickBudget += dt * SUMMARY_STEP_RATE;
+  gameState.summary.tickBudget += dt * getSummaryStepRate(gameState.summary);
   while (gameState.summary.tickBudget >= 1 && !gameState.summary.completed) {
     gameState.summary.tickBudget -= 1;
     advanceSummaryCount();
   }
+}
+
+function getSummaryStepRate(summary) {
+  const totalSteps = Math.max(1, summary.totalCountSteps);
+  const progress = Math.min(1, summary.processedItems / totalSteps);
+  const easedRate = Math.sin(progress * Math.PI);
+  return SUMMARY_MIN_STEP_RATE + (SUMMARY_MAX_STEP_RATE - SUMMARY_MIN_STEP_RATE) * easedRate;
 }
 
 function advanceSummaryCount() {
@@ -525,6 +535,7 @@ function advanceSummaryCount() {
 
   entry.displayedCount += 1;
   entry.displayedValue += entry.value;
+  gameState.summary.processedItems += 1;
   gameState.summary.displayedEarnings += entry.value;
   updateSummaryRow(entry);
   summaryEarnings.textContent = `${gameState.summary.displayedEarnings}€`;
