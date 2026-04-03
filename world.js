@@ -44,26 +44,88 @@ export class World {
     }
 
     const depth = row - this.surfaceRow;
-    const stoneBias = Math.min(0.85, 0.28 + depth * 0.0125);
-    const coalChance = Math.min(0.14, 0.02 + depth * 0.0022);
-    const ironChance = depth > 12 ? Math.min(0.11, 0.01 + (depth - 12) * 0.0018) : 0;
-    const tunnelChance = row > this.surfaceRow + 2 ? Math.max(0, 0.06 - depth * 0.00025) : 0;
-    const noise = (Math.sin(column * 1.37 + row * 0.61) + 1) * 0.5;
-    const roll = Math.random() * 0.82 + noise * 0.18;
+    const profile = this.#getDepthProfile(depth);
+    const stratumNoise = this.#sampleNoise(column, row, 0.17, 0.11, 0.09);
+    const veinNoise = this.#sampleNoise(column, row, 0.63, 0.24, 0.32);
+    const pocketNoise = this.#sampleNoise(column, row, 1.14, 0.57, 0.51);
+    const roll = Math.random();
+    const tunnelChance = row > this.surfaceRow + 2 ? profile.tunnelChance : 0;
 
     if (roll < tunnelChance) {
       return TILE_TYPES.EMPTY;
     }
 
-    if (roll > 1 - ironChance) {
+    const coalChance = profile.coalChance + Math.max(0, veinNoise - 0.56) * 0.42 + Math.max(0, pocketNoise - 0.7) * 0.2;
+    const ironChance = profile.ironChance + Math.max(0, veinNoise - 0.66) * 0.28 + Math.max(0, pocketNoise - 0.78) * 0.12;
+    const oreRoll = Math.random();
+
+    if (profile.ironChance > 0 && oreRoll < ironChance) {
       return TILE_TYPES.IRON;
     }
 
-    if (roll > 1 - ironChance - coalChance) {
+    if (oreRoll < ironChance + coalChance) {
       return TILE_TYPES.COAL;
     }
 
-    return roll < stoneBias ? TILE_TYPES.STONE : TILE_TYPES.DIRT;
+    const dirtBias = profile.dirtBias + (stratumNoise - 0.5) * profile.stratumStrength;
+    return Math.random() < dirtBias ? TILE_TYPES.DIRT : TILE_TYPES.STONE;
+  }
+
+  #getDepthProfile(depth) {
+    if (depth < 10) {
+      return {
+        dirtBias: 0.84,
+        coalChance: 0.025,
+        ironChance: 0,
+        tunnelChance: 0.028,
+        stratumStrength: 0.28,
+      };
+    }
+
+    if (depth < 26) {
+      return {
+        dirtBias: 0.7,
+        coalChance: 0.055,
+        ironChance: 0,
+        tunnelChance: 0.022,
+        stratumStrength: 0.24,
+      };
+    }
+
+    if (depth < 64) {
+      return {
+        dirtBias: 0.36,
+        coalChance: 0.14,
+        ironChance: 0,
+        tunnelChance: 0.016,
+        stratumStrength: 0.2,
+      };
+    }
+
+    if (depth < 112) {
+      return {
+        dirtBias: 0.12,
+        coalChance: 0.22,
+        ironChance: 0.07,
+        tunnelChance: 0.012,
+        stratumStrength: 0.14,
+      };
+    }
+
+    return {
+      dirtBias: 0.04,
+      coalChance: 0.26,
+      ironChance: 0.13,
+      tunnelChance: 0.008,
+      stratumStrength: 0.1,
+    };
+  }
+
+  #sampleNoise(column, row, columnScale, rowScale, phaseOffset) {
+    const a = Math.sin(column * columnScale + row * rowScale + phaseOffset);
+    const b = Math.sin(column * (columnScale * 0.47) - row * (rowScale * 1.83) + phaseOffset * 1.7);
+    const c = Math.cos(column * (columnScale * 1.31) + row * (rowScale * 0.42) - phaseOffset * 0.6);
+    return (a + b + c + 3) / 6;
   }
 
   inBounds(column, row) {
