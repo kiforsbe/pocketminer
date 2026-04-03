@@ -22,6 +22,12 @@ export class Input {
       right: ["KeyD", "ArrowRight"],
       jump: ["KeyW", "ArrowUp"],
       mine: ["KeyE", "Space"],
+      rewardPrev: ["KeyA", "ArrowLeft", "KeyW", "ArrowUp"],
+      rewardNext: ["KeyD", "ArrowRight", "KeyS", "ArrowDown"],
+      rewardConfirm: ["Enter", "Space", "KeyE"],
+      rewardChoice1: ["Digit1", "Numpad1"],
+      rewardChoice2: ["Digit2", "Numpad2"],
+      rewardChoice3: ["Digit3", "Numpad3"],
     };
 
     this.keyboardTarget.addEventListener("keydown", this.onKeyDown);
@@ -34,7 +40,7 @@ export class Input {
   }
 
   #handleKeyDown(event) {
-    if (["ArrowLeft", "ArrowRight", "ArrowUp", "Space"].includes(event.code)) {
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) {
       event.preventDefault();
     }
 

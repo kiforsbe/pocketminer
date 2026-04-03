@@ -43,6 +43,7 @@ const AUDIO_MANIFEST = [
   { id: "orePop", src: "./assets/ore-pop.wav" },
   { id: "coin", src: "./assets/coin.wav" },
   { id: "tick", src: "./assets/tick.wav" },
+  { id: "treasureChest", src: "./assets/treasure-chest.wav" },
   ...STRATUM_TRACK_NAMES.flatMap(createMusicManifestEntries),
 ];
 
@@ -66,6 +67,32 @@ const STORE_CATEGORY_ORDER = Object.freeze([
   { id: "tools", label: "Tools", branchIds: ["pickaxe"] },
   { id: "storage", label: "Storage", branchIds: ["bags", "capacity"] },
   { id: "misc", label: "Misc", branchIds: ["time"] },
+]);
+const CHEST_REWARD_DEFINITIONS = Object.freeze([
+  Object.freeze({
+    id: "moveSpeed",
+    title: "Fleet Boots",
+    statLabel: "Walk speed",
+    description: "Traverse each tunnel faster.",
+  }),
+  Object.freeze({
+    id: "jumpPower",
+    title: "Spring Coil",
+    statLabel: "Jump power",
+    description: "Leap higher between ledges and shafts.",
+  }),
+  Object.freeze({
+    id: "swingRate",
+    title: "Quick Grip",
+    statLabel: "Swing rate",
+    description: "Shorten the recovery time between swings.",
+  }),
+  Object.freeze({
+    id: "toolDamage",
+    title: "Honed Edge",
+    statLabel: "Tool damage",
+    description: "Drive more damage into each mining hit.",
+  }),
 ]);
 
 const canvas = document.getElementById("game");
@@ -93,6 +120,24 @@ const storeTooltipTitle = document.getElementById("store-tooltip-title");
 const storeTooltipState = document.getElementById("store-tooltip-state");
 const storeTooltipCopy = document.getElementById("store-tooltip-copy");
 const storeTooltipStats = document.getElementById("store-tooltip-stats");
+const cardOverlay = document.getElementById("card-overlay");
+const cardTitle = document.getElementById("card-title");
+const cardSubtitle = document.getElementById("card-subtitle");
+const cardChoiceGrid = document.getElementById("card-choice-grid");
+const cardFooter = document.getElementById("card-footer");
+
+function createPlayerBonuses() {
+  return {
+    moveSpeed: 0,
+    jumpPower: 0,
+    swingRate: 0,
+    toolDamage: 0,
+  };
+}
+
+function formatBonusPercent(value) {
+  return `${Math.round(value * 100)}%`;
+}
 
 const input = new Input({ keyboardTarget: window, pointerTarget: canvas });
 let world = new World({ seed: World.createRandomSeed() });
@@ -118,7 +163,9 @@ const gameState = {
   bank: 0,
   roundStats: createRoundStats(),
   summary: null,
+  chestReward: null,
   notification: null,
+  playerBonuses: createPlayerBonuses(),
   alertFlags: {
     halfway: false,
     thirtySeconds: false,
@@ -152,6 +199,7 @@ async function bootstrap() {
   renderer.setAssets(assets);
   attachAudioUnlock();
   attachRoundControls();
+  attachChestRewardControls();
   window.addEventListener("resize", () => renderer.resize());
   requestAnimationFrame(frame);
 }
@@ -273,6 +321,26 @@ function attachRoundControls() {
   });
 }
 
+function attachChestRewardControls() {
+  cardChoiceGrid?.addEventListener("pointerover", (event) => {
+    const button = event.target instanceof HTMLElement ? event.target.closest("button[data-card-index]") : null;
+    if (!button || !gameState.chestReward) {
+      return;
+    }
+
+    setChestRewardSelection(Number(button.dataset.cardIndex));
+  });
+
+  cardChoiceGrid?.addEventListener("click", (event) => {
+    const button = event.target instanceof HTMLElement ? event.target.closest("button[data-card-index]") : null;
+    if (!button || !gameState.chestReward) {
+      return;
+    }
+
+    chooseChestReward(Number(button.dataset.cardIndex));
+  });
+}
+
 function attachAudioUnlock() {
   const unlock = async () => {
     await audio.unlock();
@@ -297,6 +365,11 @@ function frame(now) {
 }
 
 function update(dt, timeSeconds) {
+  if (gameState.phase === "reward") {
+    updateChestRewardSelection();
+    return;
+  }
+
   if (gameState.phase === "summary") {
     updateSummary(dt);
     return;
@@ -323,15 +396,20 @@ function update(dt, timeSeconds) {
 
       if (miningResult.broken) {
         gameState.roundStats.blocksMined += 1;
-        if (miningResult.resource) {
-          const quantity = miningResult.dropCount || 1;
-          const oreName = ITEM_DEFINITIONS[miningResult.resource].label;
-          spawnPickups(miningResult, quantity);
-          spawnOreChunks(miningResult);
-          audio.playSound("orePop", { playbackRate: 0.94 + Math.random() * 0.14, volume: 0.3 });
+        if (miningResult.chest) {
+          renderer.markTerrainDirty();
+          openChestReward(miningResult.chest);
+          audio.playSound("treasureChest", { volume: 0.24 });
+        } else {
+          if (miningResult.resource) {
+            const quantity = miningResult.dropCount || 1;
+            spawnPickups(miningResult, quantity);
+            spawnOreChunks(miningResult);
+            audio.playSound("orePop", { playbackRate: 0.94 + Math.random() * 0.14, volume: 0.3 });
+          }
+          renderer.markTerrainDirty();
+          audio.playSound("blockBreak", { playbackRate: 0.98 + Math.random() * 0.08 });
         }
-        renderer.markTerrainDirty();
-        audio.playSound("blockBreak", { playbackRate: 0.98 + Math.random() * 0.08 });
       }
     }
   }
@@ -584,6 +662,7 @@ function startNextRound() {
   gameState.pickups = [];
   gameState.roundStats = createRoundStats();
   gameState.summary = null;
+  gameState.chestReward = null;
   gameState.notification = null;
   gameState.alertFlags = {
     halfway: false,
@@ -598,6 +677,7 @@ function startNextRound() {
   world = new World({ seed: World.createRandomSeed() });
   player = createPlayer();
   renderer.setWorld(world);
+  hideChestRewardOverlay();
   if (gameState.audioReady) {
     audio.stopMusic();
     syncStratumMusic({ immediate: true });
@@ -612,9 +692,15 @@ function createPlayer() {
   const nextPlayer = new Player({
     ...world.getSpawnPosition(),
     miningPower: tool.miningPower,
+    bonuses: gameState.playerBonuses,
   });
   nextPlayer.setRendererContext(renderer);
   return nextPlayer;
+}
+
+function syncPlayerBonuses() {
+  player.setMiningPower(getEquippedTool().miningPower);
+  player.setPermanentBonuses(gameState.playerBonuses);
 }
 
 function getEquippedTool() {
@@ -1038,7 +1124,7 @@ function purchaseTool(toolId) {
 
   if (tool.branchId === "pickaxe") {
     gameState.equippedToolId = tool.id;
-    player.setMiningPower(tool.miningPower);
+    syncPlayerBonuses();
   } else if (tool.branchId === "bags") {
     gameState.bagUpgradeId = tool.id;
     gameState.inventory = createInventoryForLoadout(gameState.inventory);
@@ -1051,6 +1137,136 @@ function purchaseTool(toolId) {
 
   summaryBank.textContent = `${gameState.bank}€`;
   populateStoreOverlay();
+}
+
+function createChestRewardChoices(chest) {
+  const amount = chest.powerScale;
+  return [...CHEST_REWARD_DEFINITIONS]
+    .map((definition) => ({ definition, order: world.random() }))
+    .sort((left, right) => left.order - right.order)
+    .slice(0, 3)
+    .map(({ definition }) => ({
+      ...definition,
+      amount,
+    }));
+}
+
+function openChestReward(chest) {
+  gameState.phase = "reward";
+  gameState.miningResult = null;
+  gameState.hoverTarget = null;
+  gameState.chestReward = {
+    chest,
+    choices: createChestRewardChoices(chest),
+    selectedIndex: 0,
+  };
+  populateChestRewardOverlay();
+  cardOverlay?.removeAttribute("hidden");
+  cardOverlay?.setAttribute("data-visible", "true");
+}
+
+function hideChestRewardOverlay() {
+  cardOverlay?.setAttribute("data-visible", "false");
+  cardOverlay?.setAttribute("hidden", "true");
+}
+
+function populateChestRewardOverlay() {
+  if (!gameState.chestReward || !cardChoiceGrid) {
+    return;
+  }
+
+  const { chest, choices, selectedIndex } = gameState.chestReward;
+  cardTitle.textContent = `${chest.stratumName} Cache`;
+  cardSubtitle.textContent = `Choose one permanent upgrade. ${formatBonusPercent(chest.powerScale)} rewards in this stratum.`;
+  cardFooter.textContent = "Choose with 1, 2, 3, WASD, Enter, or mouse.";
+  cardChoiceGrid.replaceChildren();
+
+  choices.forEach((choice, index) => {
+    const currentValue = gameState.playerBonuses[choice.id] ?? 0;
+    const nextValue = currentValue + choice.amount;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "card-choice";
+    button.dataset.cardIndex = String(index);
+    button.dataset.selected = index === selectedIndex ? "true" : "false";
+    button.innerHTML = `
+      <span class="card-choice-hotkey">${index + 1}</span>
+      <strong class="card-choice-title">${choice.title}</strong>
+      <span class="card-choice-stat">${choice.statLabel}</span>
+      <p class="card-choice-copy">${choice.description} Gain ${formatBonusPercent(choice.amount)}.</p>
+      <div class="card-choice-delta">
+        <span>Now ${formatBonusPercent(currentValue)}</span>
+        <strong>After ${formatBonusPercent(nextValue)}</strong>
+      </div>
+    `;
+    cardChoiceGrid.append(button);
+  });
+}
+
+function setChestRewardSelection(index) {
+  if (!gameState.chestReward) {
+    return;
+  }
+
+  const clampedIndex = Math.max(0, Math.min(index, gameState.chestReward.choices.length - 1));
+  if (clampedIndex === gameState.chestReward.selectedIndex) {
+    return;
+  }
+
+  gameState.chestReward.selectedIndex = clampedIndex;
+  populateChestRewardOverlay();
+}
+
+function chooseChestReward(index) {
+  if (!gameState.chestReward) {
+    return;
+  }
+
+  const choice = gameState.chestReward.choices[index];
+  if (!choice) {
+    return;
+  }
+
+  gameState.playerBonuses[choice.id] += choice.amount;
+  syncPlayerBonuses();
+  showRoundNotification(`${choice.title}: +${formatBonusPercent(choice.amount)} ${choice.statLabel.toLowerCase()}.`);
+  gameState.chestReward = null;
+  gameState.phase = "playing";
+  hideChestRewardOverlay();
+}
+
+function updateChestRewardSelection() {
+  if (!gameState.chestReward) {
+    return;
+  }
+
+  if (input.wasPressed("rewardChoice1")) {
+    chooseChestReward(0);
+    return;
+  }
+
+  if (input.wasPressed("rewardChoice2")) {
+    chooseChestReward(1);
+    return;
+  }
+
+  if (input.wasPressed("rewardChoice3")) {
+    chooseChestReward(2);
+    return;
+  }
+
+  if (input.wasPressed("rewardPrev")) {
+    setChestRewardSelection((gameState.chestReward.selectedIndex + gameState.chestReward.choices.length - 1)
+      % gameState.chestReward.choices.length);
+  }
+
+  if (input.wasPressed("rewardNext")) {
+    setChestRewardSelection((gameState.chestReward.selectedIndex + 1) % gameState.chestReward.choices.length);
+  }
+
+  if (input.wasPressed("rewardConfirm")) {
+    chooseChestReward(gameState.chestReward.selectedIndex);
+  }
 }
 
 function syncStratumMusic({ immediate = false } = {}) {

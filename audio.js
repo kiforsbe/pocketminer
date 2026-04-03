@@ -3,6 +3,7 @@ const DEFAULT_GAIN = {
   miningHit: 0.22,
   blockBreak: 0.26,
   coin: 0.22,
+  treasureChest: 0.24,
   music: 0.12,
 };
 

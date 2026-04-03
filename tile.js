@@ -2,6 +2,7 @@ export const TILE_SIZE = 32;
 
 export const TILE_TYPES = Object.freeze({
   EMPTY: "empty",
+  CHEST: "chest",
   DIRT: "dirt",
   STONE: "stone",
   SHALE: "shale",
@@ -38,6 +39,15 @@ export const TILE_DEFINITIONS = Object.freeze({
     fill: "rgba(0,0,0,0)",
     accent: "rgba(0,0,0,0)",
     pattern: "empty",
+  }),
+  [TILE_TYPES.CHEST]: createDefinition({
+    id: 18,
+    hp: 28,
+    sprite: { x: 0, y: 0 },
+    label: "Treasure Chest",
+    fill: "#70491f",
+    accent: "#f0c45a",
+    pattern: "chest",
   }),
   [TILE_TYPES.DIRT]: createDefinition({
     id: 1,

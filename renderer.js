@@ -205,6 +205,15 @@ export class Renderer {
         context.fillRect(x + 17, y + 8, 9, 9);
         context.fillRect(x + 9, y + 19, 12, 6);
         break;
+      case "chest":
+        context.fillRect(x + 5, y + 10, 22, 14);
+        context.fillRect(x + 7, y + 7, 18, 5);
+        context.fillStyle = "#34210c";
+        context.fillRect(x + 5, y + 12, 22, 2);
+        context.fillStyle = tile.definition.accent;
+        context.fillRect(x + 14, y + 13, 4, 8);
+        context.fillRect(x + 5, y + 16, 22, 2);
+        break;
       case "ore-cluster":
         context.fillRect(x + 6, y + 5, 6, 6);
         context.fillRect(x + 18, y + 8, 7, 7);
@@ -259,6 +268,15 @@ export class Renderer {
         context.fillRect(5 * unit, 5 * unit, 8 * unit, 8 * unit);
         context.fillRect(17 * unit, 8 * unit, 9 * unit, 9 * unit);
         context.fillRect(9 * unit, 19 * unit, 12 * unit, 6 * unit);
+        break;
+      case "chest":
+        context.fillRect(5 * unit, 10 * unit, 22 * unit, 14 * unit);
+        context.fillRect(7 * unit, 7 * unit, 18 * unit, 5 * unit);
+        context.fillStyle = "#34210c";
+        context.fillRect(5 * unit, 12 * unit, 22 * unit, 2 * unit);
+        context.fillStyle = definition.accent;
+        context.fillRect(14 * unit, 13 * unit, 4 * unit, 8 * unit);
+        context.fillRect(5 * unit, 16 * unit, 22 * unit, 2 * unit);
         break;
       case "ore-cluster":
         context.fillRect(6 * unit, 5 * unit, 6 * unit, 6 * unit);
@@ -505,11 +523,13 @@ export class Renderer {
 
     this.#paintIcon("block-icon", tile.type);
     blockNameEl.textContent = tile.definition.label;
-    blockTypeEl.textContent = tile.definition.drop ? "Ore" : "Stratum block";
+    blockTypeEl.textContent = tile.type === TILE_TYPES.CHEST ? "Treasure chest" : (tile.definition.drop ? "Ore" : "Stratum block");
     blockHpEl.textContent = tile.maxHp > 0 ? `${Math.ceil(tile.hp)} / ${tile.maxHp}` : "--";
     blockRangeEl.textContent = target.distance ? `${(target.distance / TILE_SIZE).toFixed(1)} tiles` : "In range";
     const dropRange = this.world.getOreDropRange(target.row, tile.type);
-    blockYieldEl.textContent = dropRange
+    blockYieldEl.textContent = tile.type === TILE_TYPES.CHEST
+      ? "1 card pick"
+      : dropRange
       ? (dropRange.min === dropRange.max ? `${dropRange.min}` : `${dropRange.min}-${dropRange.max}`)
       : "--";
   }

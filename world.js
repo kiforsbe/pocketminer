@@ -108,6 +108,9 @@ const STRATA = Object.freeze([
   },
 ]);
 
+const CHEST_CLEARANCE_COLUMNS = 3;
+const CHEST_CLEARANCE_ROWS = 4;
+
 export const WORLD_STRATA = STRATA;
 
 export class World {
@@ -129,6 +132,8 @@ export class World {
     this.random = createSeededRandom(this.seed);
     this.pixelWidth = columns * TILE_SIZE;
     this.pixelHeight = rows * TILE_SIZE;
+    this.chestMap = new Map();
+    this.chests = [];
     this.noiseOffsets = Object.freeze({
       stratum: this.#createNoiseOffset(),
       vein: this.#createNoiseOffset(),
@@ -143,7 +148,111 @@ export class World {
     ));
 
     this.#carveStarterPocket(grid);
+    this.#placeChests(grid);
     return grid;
+  }
+
+  #placeChests(grid) {
+    let startDepth = 0;
+
+    for (let index = 0; index < STRATA.length; index += 1) {
+      const stratum = STRATA[index];
+      const maxDepth = Number.isFinite(stratum.maxDepth)
+        ? stratum.maxDepth - 1
+        : this.rows - this.surfaceRow - CHEST_CLEARANCE_ROWS - 1;
+      const minDepth = startDepth + CHEST_CLEARANCE_ROWS;
+      const maxPlacementDepth = maxDepth - CHEST_CLEARANCE_ROWS;
+      startDepth = Number.isFinite(stratum.maxDepth) ? stratum.maxDepth : startDepth;
+
+      if (minDepth > maxPlacementDepth) {
+        continue;
+      }
+
+      for (let attempt = 0; attempt < 24; attempt += 1) {
+        const depth = this.#randomInt(minDepth, maxPlacementDepth);
+        const row = this.surfaceRow + depth;
+        const column = this.#randomInt(CHEST_CLEARANCE_COLUMNS, this.columns - CHEST_CLEARANCE_COLUMNS - 1);
+        if (!this.#isChestPlacementValid(column, row)) {
+          continue;
+        }
+
+        this.#placeChest(grid, column, row, index);
+        break;
+      }
+    }
+  }
+
+  #isChestPlacementValid(column, row) {
+    if (!this.inBounds(column, row)) {
+      return false;
+    }
+
+    if (column < CHEST_CLEARANCE_COLUMNS || column >= this.columns - CHEST_CLEARANCE_COLUMNS) {
+      return false;
+    }
+
+    if (row <= this.surfaceRow + CHEST_CLEARANCE_ROWS || row >= this.rows - CHEST_CLEARANCE_ROWS) {
+      return false;
+    }
+
+    for (const chest of this.chests) {
+      if (Math.abs(chest.column - column) <= 4 && Math.abs(chest.row - row) <= 4) {
+        return false;
+      }
+    }
+
+    return !(column <= 4 && row <= this.surfaceRow + 4);
+  }
+
+  #placeChest(grid, column, row, stratumIndex) {
+    const guardType = this.#getChestGuardType(stratumIndex);
+
+    for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) {
+      for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) {
+        const targetColumn = column + columnOffset;
+        const targetRow = row + rowOffset;
+        if (!this.inBounds(targetColumn, targetRow)) {
+          continue;
+        }
+
+        grid[targetRow][targetColumn].setType(
+          rowOffset === 0 && columnOffset === 0 ? TILE_TYPES.CHEST : guardType,
+        );
+      }
+    }
+
+    const chest = Object.freeze({
+      id: `${this.seed}-${stratumIndex}-${column}-${row}`,
+      column,
+      row,
+      stratumIndex,
+      stratumName: STRATA[stratumIndex].name,
+      powerScale: 0.05 * 2 ** stratumIndex,
+    });
+    this.chests.push(chest);
+    this.chestMap.set(this.#getChestKey(column, row), chest);
+  }
+
+  #getChestGuardType(stratumIndex) {
+    const sourceStratum = STRATA[stratumIndex + 1] ?? STRATA[stratumIndex];
+    const candidateTypes = new Set([
+      ...sourceStratum.base.map((definition) => definition.type),
+      ...sourceStratum.primaryOres.map((definition) => definition.type),
+      ...sourceStratum.bonusFromPrev.map((definition) => definition.type),
+      ...sourceStratum.bonusFromNext.map((definition) => definition.type),
+    ]);
+
+    let toughestType = TILE_TYPES.BASALT;
+    let toughestHp = -1;
+    for (const type of candidateTypes) {
+      const hp = TILE_DEFINITIONS[type]?.hp ?? -1;
+      if (hp > toughestHp) {
+        toughestHp = hp;
+        toughestType = type;
+      }
+    }
+
+    return toughestType;
   }
 
   #carveStarterPocket(grid) {
@@ -233,6 +342,14 @@ export class World {
     return null;
   }
 
+  #randomInt(min, max) {
+    return min + Math.floor(this.random() * (max - min + 1));
+  }
+
+  #getChestKey(column, row) {
+    return `${column},${row}`;
+  }
+
   #createNoiseOffset() {
     return Object.freeze({
       column: this.random() * 1000,
@@ -271,6 +388,10 @@ export class World {
     return this.getTile(Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE));
   }
 
+  getChestAt(column, row) {
+    return this.chestMap.get(this.#getChestKey(column, row)) ?? null;
+  }
+
   isSolid(column, row) {
     const tile = this.getTile(column, row);
     return Boolean(tile?.solid);
@@ -283,21 +404,28 @@ export class World {
       return { hit: false, broken: false, resource: null, tile: null };
     }
 
+    const chest = tile.type === TILE_TYPES.CHEST ? this.getChestAt(column, row) : null;
+
     const broken = tile.damage(amount);
 
     if (!broken) {
       return { hit: true, broken: false, resource: null, tile };
     }
 
-    const resource = tile.definition.drop;
+    const resource = chest ? null : tile.definition.drop;
     const brokenType = tile.type;
     const dropCount = this.getOreDropCount(column, row, brokenType);
     tile.setType(TILE_TYPES.EMPTY);
+    if (chest) {
+      this.chestMap.delete(this.#getChestKey(column, row));
+      this.chests = this.chests.filter((entry) => entry.id !== chest.id);
+    }
     return {
       hit: true,
       broken: true,
       resource,
       dropCount,
+      chest,
       tile,
       brokenType,
       column,

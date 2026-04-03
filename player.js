@@ -11,15 +11,21 @@ const FOOTSTEP_DISTANCE = 56;
 const MINING_RANGE_TILES = 3;
 const MINING_SWING_INTERVAL = 0.6;
 const MINING_SWING_DAMAGE_WINDOW = 0.18;
+const DEFAULT_PLAYER_BONUSES = Object.freeze({
+  moveSpeed: 0,
+  jumpPower: 0,
+  swingRate: 0,
+  toolDamage: 0,
+});
 
 const ANIMATION_SETS = {
   idle: { start: 0, frames: 4, fps: 5 },
   walk: { start: 4, frames: 6, fps: 10 },
-  mining: { start: 10, frames: 4, fps: 4 / MINING_SWING_INTERVAL },
+  mining: { start: 10, frames: 4 },
 };
 
 export class Player {
-  constructor({ x, y, miningPower = DEFAULT_MINING_POWER }) {
+  constructor({ x, y, miningPower = DEFAULT_MINING_POWER, bonuses = DEFAULT_PLAYER_BONUSES }) {
     this.x = x;
     this.y = y;
     this.width = PLAYER_WIDTH;
@@ -33,7 +39,9 @@ export class Player {
     this.mineCooldown = 0;
     this.currentMiningTarget = null;
     this.footstepDistance = 0;
-    this.miningPower = miningPower;
+    this.baseMiningPower = miningPower;
+    this.bonuses = { ...DEFAULT_PLAYER_BONUSES };
+    this.setPermanentBonuses(bonuses);
   }
 
   update(dt, input, world) {
@@ -51,10 +59,10 @@ export class Player {
       this.facing = Math.sign(direction);
     }
 
-    this.vx = direction * MOVE_SPEED;
+    this.vx = direction * this.getMoveSpeed();
 
     if (input.wasPressed("jump") && this.grounded) {
-      this.vy = -JUMP_SPEED;
+      this.vy = -this.getJumpSpeed();
       this.grounded = false;
     }
 
@@ -132,13 +140,20 @@ export class Player {
       return { active: true, hit: false, broken: false, resource: null, target };
     }
 
-    this.mineCooldown = MINING_SWING_INTERVAL;
-    const result = world.damageTile(target.column, target.row, this.miningPower * MINING_SWING_DAMAGE_WINDOW);
+    this.mineCooldown = this.getMiningSwingInterval();
+    const result = world.damageTile(target.column, target.row, this.getMiningDamage());
     return { active: true, target, ...result };
   }
 
   setMiningPower(miningPower) {
-    this.miningPower = miningPower;
+    this.baseMiningPower = miningPower;
+  }
+
+  setPermanentBonuses(bonuses = DEFAULT_PLAYER_BONUSES) {
+    this.bonuses = {
+      ...DEFAULT_PLAYER_BONUSES,
+      ...bonuses,
+    };
   }
 
   setRendererContext(renderer) {
@@ -159,9 +174,29 @@ export class Player {
   }
 
   getAnimationFrame() {
-    const { start, frames, fps } = ANIMATION_SETS[this.animation] ?? ANIMATION_SETS.idle;
+    const animationSet = ANIMATION_SETS[this.animation] ?? ANIMATION_SETS.idle;
+    const fps = this.animation === "mining"
+      ? animationSet.frames / this.getMiningSwingInterval()
+      : animationSet.fps;
+    const { start, frames } = animationSet;
     const frame = Math.floor(this.animationTime * fps) % frames;
     return start + frame;
+  }
+
+  getMoveSpeed() {
+    return MOVE_SPEED * (1 + this.bonuses.moveSpeed);
+  }
+
+  getJumpSpeed() {
+    return JUMP_SPEED * (1 + this.bonuses.jumpPower);
+  }
+
+  getMiningSwingInterval() {
+    return MINING_SWING_INTERVAL / (1 + this.bonuses.swingRate);
+  }
+
+  getMiningDamage() {
+    return this.baseMiningPower * (1 + this.bonuses.toolDamage) * MINING_SWING_DAMAGE_WINDOW;
   }
 
   getCenter() {
