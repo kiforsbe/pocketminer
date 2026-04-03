@@ -337,6 +337,7 @@ function render() {
     roundInfo: {
       round: gameState.round,
       timeLeft: Math.ceil(gameState.timeLeft),
+      bank: gameState.bank,
       urgent: gameState.phase === "playing" && gameState.timeLeft <= 30,
       notification: gameState.notification,
     },

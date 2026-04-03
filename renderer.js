@@ -115,7 +115,6 @@ export class Renderer {
     this.#drawPickups(pickups);
     this.#drawParticles(particles);
     this.#drawPlayer(player);
-    this.#drawDepthMeter(player);
     this.#drawHud(inventory, roundInfo);
     this.#drawHotbar(inventory);
     this.#drawSurveyPanel(player, miningResult?.target ?? hoverTarget);
@@ -418,24 +417,17 @@ export class Renderer {
     this.ctx.fillRect(x + 8, y + 8, 16, 24);
   }
 
-  #drawDepthMeter(player) {
-    const depthTiles = Math.max(0, Math.floor(player.y / TILE_SIZE) - this.world.surfaceRow);
-    this.ctx.fillStyle = "rgba(9, 16, 28, 0.84)";
-    this.ctx.fillRect(this.viewport.width - 160, 18, 142, 42);
-    this.ctx.strokeStyle = "rgba(136, 185, 216, 0.35)";
-    this.ctx.strokeRect(this.viewport.width - 160, 18, 142, 42);
-    this.ctx.fillStyle = "#f2ede3";
-    this.ctx.font = "14px 'Segoe UI'";
-    this.ctx.fillText(`Depth: ${depthTiles}m`, this.viewport.width - 145, 44);
-  }
-
   #drawHud(inventory, roundInfo) {
     const timerEl = document.getElementById("round-timer");
     const timerValueEl = document.getElementById("round-timer-value");
+    const bankValueEl = document.getElementById("bank-value");
     const toastEl = document.getElementById("round-toast");
     if (timerEl && timerValueEl) {
       timerEl.setAttribute("data-urgent", roundInfo.urgent ? "true" : "false");
       timerValueEl.textContent = `${roundInfo.timeLeft}s`;
+    }
+    if (bankValueEl) {
+      bankValueEl.textContent = `${roundInfo.bank}€`;
     }
     if (toastEl) {
       if (roundInfo.notification?.message) {
