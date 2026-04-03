@@ -3,6 +3,7 @@ import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { Input } from "./input.js";
 import { Player } from "./player.js";
 import { Renderer } from "./renderer.js";
+import { DEFAULT_GAME_MODE, DEFAULT_TOOL_ID, GAME_MODE_DEFINITIONS, getToolDefinition, getToolsForGameMode } from "./tools.js";
 import { World } from "./world.js";
 
 const AUDIO_MANIFEST = [
@@ -61,15 +62,24 @@ const summaryRound = document.getElementById("summary-round");
 const summaryEarnings = document.getElementById("summary-earnings");
 const summaryBank = document.getElementById("summary-bank");
 const nextRoundButton = document.getElementById("next-round-button");
+const openStoreButton = document.getElementById("open-store-button");
+const summaryView = document.getElementById("summary-view");
+const storeView = document.getElementById("store-view");
+const backToSummaryButton = document.getElementById("back-to-summary-button");
+const storeNextRoundButton = document.getElementById("store-next-round-button");
+const storeGrid = document.getElementById("store-grid");
+const storeBank = document.getElementById("store-bank");
+const storeMode = document.getElementById("store-mode");
+const storeCurrentTool = document.getElementById("store-current-tool");
 
 const input = new Input({ keyboardTarget: window, pointerTarget: canvas });
 let world = new World();
-let player = new Player(world.getSpawnPosition());
 const renderer = new Renderer(canvas, world);
 const audio = new AudioManager();
-player.setRendererContext(renderer);
 
 const gameState = {
+  gameMode: DEFAULT_GAME_MODE,
+  equippedToolId: DEFAULT_TOOL_ID,
   inventory: new Inventory({ slotCount: 9, stackSize: STACK_SIZE }),
   miningResult: null,
   hoverTarget: null,
@@ -94,7 +104,10 @@ const gameState = {
     pendingStratumName: null,
     transitionToken: 0,
   },
+  overlayView: "summary",
 };
+
+let player = createPlayer();
 
 let lastTime = performance.now();
 
@@ -116,6 +129,41 @@ function attachRoundControls() {
       return;
     }
     startNextRound();
+  });
+
+  storeNextRoundButton?.addEventListener("click", () => {
+    if (gameState.phase !== "summary") {
+      return;
+    }
+    startNextRound();
+  });
+
+  openStoreButton?.addEventListener("click", () => {
+    if (gameState.phase !== "summary") {
+      return;
+    }
+    setOverlayView("store");
+  });
+
+  backToSummaryButton?.addEventListener("click", () => {
+    if (gameState.phase !== "summary") {
+      return;
+    }
+    setOverlayView("summary");
+  });
+
+  storeGrid?.addEventListener("click", (event) => {
+    const button = event.target instanceof HTMLElement ? event.target.closest("button[data-tool-id]") : null;
+    if (!button || gameState.phase !== "summary") {
+      return;
+    }
+
+    const { toolId } = button.dataset;
+    if (!toolId) {
+      return;
+    }
+
+    purchaseTool(toolId);
   });
 }
 
@@ -250,9 +298,12 @@ function endRound() {
   gameState.notification = null;
   gameState.countdownTickCooldown = 0;
   stopStratumMusic({ playOutro: true });
+  gameState.overlayView = "summary";
 
   gameState.bank += gameState.summary.totalEarnings;
   populateSummaryOverlay();
+  populateStoreOverlay();
+  setOverlayView("summary");
   roundOverlay?.setAttribute("data-visible", "true");
 }
 
@@ -374,16 +425,131 @@ function startNextRound() {
   gameState.music.currentStratumName = null;
   gameState.music.pendingStratumName = null;
   gameState.music.transitionToken += 1;
+  gameState.overlayView = "summary";
   gameState.lastMiningSoundAt = 0;
   world = new World();
-  player = new Player(world.getSpawnPosition());
-  player.setRendererContext(renderer);
+  player = createPlayer();
   renderer.setWorld(world);
   if (gameState.audioReady) {
     audio.stopMusic();
     syncStratumMusic({ immediate: true });
   }
+  setOverlayView("summary");
   roundOverlay?.setAttribute("data-visible", "false");
+}
+
+function createPlayer() {
+  const tool = getEquippedTool();
+  const nextPlayer = new Player({
+    ...world.getSpawnPosition(),
+    miningPower: tool.miningPower,
+  });
+  nextPlayer.setRendererContext(renderer);
+  return nextPlayer;
+}
+
+function getEquippedTool() {
+  return getToolDefinition(gameState.equippedToolId);
+}
+
+function setOverlayView(view) {
+  gameState.overlayView = view;
+  summaryView?.toggleAttribute("hidden", view !== "summary");
+  storeView?.toggleAttribute("hidden", view !== "store");
+}
+
+function populateStoreOverlay() {
+  if (!storeGrid || !storeBank || !storeMode || !storeCurrentTool) {
+    return;
+  }
+
+  const mode = GAME_MODE_DEFINITIONS[gameState.gameMode] ?? GAME_MODE_DEFINITIONS[DEFAULT_GAME_MODE];
+  const tools = getToolsForGameMode(gameState.gameMode);
+  const currentTool = getEquippedTool();
+  storeBank.textContent = `${gameState.bank}€`;
+  storeMode.textContent = mode.label;
+  storeCurrentTool.textContent = `${currentTool.label} (${currentTool.miningPower} power)`;
+  storeGrid.replaceChildren();
+
+  for (const tool of tools) {
+    const purchaseState = getToolPurchaseState(tool.id);
+    const card = document.createElement("article");
+    card.className = "store-item";
+    card.dataset.state = purchaseState;
+
+    const material = tool.materialItemId ? ITEM_DEFINITIONS[tool.materialItemId]?.label ?? tool.label : "Starter";
+    const swingTarget = tool.oneSwingBlockLabel
+      ? `One-swing ${tool.oneSwingBlockLabel.toLowerCase()}`
+      : `Mining power ${tool.miningPower}`;
+
+    const action = document.createElement("button");
+    action.className = purchaseState === "available" ? "store-buy" : "store-buy secondary-button";
+    action.dataset.toolId = tool.id;
+    action.disabled = purchaseState !== "available";
+    action.textContent = getToolActionLabel(purchaseState, tool);
+
+    card.innerHTML = `
+      <div class="store-copy">
+        <div class="store-title-row">
+          <strong>${tool.label}</strong>
+          <span class="store-price">${tool.price === 0 ? "Owned" : `${tool.price}€`}</span>
+        </div>
+        <div class="store-tagline">${material}</div>
+        <p>${tool.description}</p>
+        <p>${swingTarget}</p>
+      </div>
+    `;
+    card.append(action);
+    storeGrid.append(card);
+  }
+}
+
+function getToolPurchaseState(toolId) {
+  const tools = getToolsForGameMode(gameState.gameMode);
+  const currentIndex = tools.findIndex((tool) => tool.id === gameState.equippedToolId);
+  const targetIndex = tools.findIndex((tool) => tool.id === toolId);
+  const tool = getToolDefinition(toolId);
+
+  if (toolId === gameState.equippedToolId) {
+    return "current";
+  }
+
+  if (targetIndex > currentIndex + 1) {
+    return "locked";
+  }
+
+  if (gameState.bank < tool.price) {
+    return "poor";
+  }
+
+  return "available";
+}
+
+function getToolActionLabel(state, tool) {
+  if (state === "current") {
+    return "Equipped";
+  }
+  if (state === "locked") {
+    return "Locked";
+  }
+  if (state === "poor") {
+    return `Need ${tool.price}€`;
+  }
+  return "Buy Upgrade";
+}
+
+function purchaseTool(toolId) {
+  const state = getToolPurchaseState(toolId);
+  if (state !== "available") {
+    return;
+  }
+
+  const tool = getToolDefinition(toolId);
+  gameState.bank -= tool.price;
+  gameState.equippedToolId = tool.id;
+  player.setMiningPower(tool.miningPower);
+  summaryBank.textContent = `${gameState.bank}€`;
+  populateStoreOverlay();
 }
 
 function syncStratumMusic({ immediate = false } = {}) {

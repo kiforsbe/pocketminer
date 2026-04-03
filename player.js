@@ -6,7 +6,7 @@ const MOVE_SPEED = 200;
 const GRAVITY = 1400;
 const JUMP_SPEED = 460;
 const MAX_FALL_SPEED = 920;
-const MINING_POWER = 38;
+const DEFAULT_MINING_POWER = 60;
 const FOOTSTEP_DISTANCE = 56;
 const MINING_RANGE_TILES = 3;
 
@@ -17,7 +17,7 @@ const ANIMATION_SETS = {
 };
 
 export class Player {
-  constructor({ x, y }) {
+  constructor({ x, y, miningPower = DEFAULT_MINING_POWER }) {
     this.x = x;
     this.y = y;
     this.width = PLAYER_WIDTH;
@@ -31,6 +31,7 @@ export class Player {
     this.mineCooldown = 0;
     this.currentMiningTarget = null;
     this.footstepDistance = 0;
+    this.miningPower = miningPower;
   }
 
   update(dt, input, world) {
@@ -123,8 +124,12 @@ export class Player {
     }
 
     this.currentMiningTarget = target;
-    const result = world.damageTile(target.column, target.row, MINING_POWER * dt);
+    const result = world.damageTile(target.column, target.row, this.miningPower * dt);
     return { active: true, target, ...result };
+  }
+
+  setMiningPower(miningPower) {
+    this.miningPower = miningPower;
   }
 
   setRendererContext(renderer) {
