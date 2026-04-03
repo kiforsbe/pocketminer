@@ -1,5 +1,16 @@
 import { Tile, TILE_DEFINITIONS, TILE_SIZE, TILE_TYPES } from "./tile.js";
 
+function createSeededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state += 0x6d2b79f5;
+    let next = state;
+    next = Math.imul(next ^ (next >>> 15), next | 1);
+    next ^= next + Math.imul(next ^ (next >>> 7), next | 61);
+    return ((next ^ (next >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 const STRATA = Object.freeze([
   {
     name: "Topsoil Vein",
@@ -100,12 +111,29 @@ const STRATA = Object.freeze([
 export const WORLD_STRATA = STRATA;
 
 export class World {
-  constructor({ columns = 32, rows = 180, surfaceRow = 6 } = {}) {
+  static createRandomSeed() {
+    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+      const buffer = new Uint32Array(1);
+      crypto.getRandomValues(buffer);
+      return buffer[0];
+    }
+
+    return Math.floor(Math.random() * 0x100000000);
+  }
+
+  constructor({ columns = 32, rows = 180, surfaceRow = 6, seed = World.createRandomSeed() } = {}) {
     this.columns = columns;
     this.rows = rows;
     this.surfaceRow = surfaceRow;
+    this.seed = seed >>> 0;
+    this.random = createSeededRandom(this.seed);
     this.pixelWidth = columns * TILE_SIZE;
     this.pixelHeight = rows * TILE_SIZE;
+    this.noiseOffsets = Object.freeze({
+      stratum: this.#createNoiseOffset(),
+      vein: this.#createNoiseOffset(),
+      pocket: this.#createNoiseOffset(),
+    });
     this.grid = this.#generate();
   }
 
@@ -139,15 +167,15 @@ export class World {
     }
 
     if (row === this.surfaceRow) {
-      return Math.random() < 0.2 ? TILE_TYPES.STONE : TILE_TYPES.DIRT;
+      return this.random() < 0.2 ? TILE_TYPES.STONE : TILE_TYPES.DIRT;
     }
 
     const depth = row - this.surfaceRow;
     const profile = this.#getDepthProfile(depth);
-    const stratumNoise = this.#sampleNoise(column, row, 0.17, 0.11, 0.09);
-    const veinNoise = this.#sampleNoise(column, row, 0.63, 0.24, 0.32);
-    const pocketNoise = this.#sampleNoise(column, row, 1.14, 0.57, 0.51);
-    const roll = Math.random();
+    const stratumNoise = this.#sampleNoise(column, row, 0.17, 0.11, 0.09, this.noiseOffsets.stratum);
+    const veinNoise = this.#sampleNoise(column, row, 0.63, 0.24, 0.32, this.noiseOffsets.vein);
+    const pocketNoise = this.#sampleNoise(column, row, 1.14, 0.57, 0.51, this.noiseOffsets.pocket);
+    const roll = this.random();
     const tunnelChance = row > this.surfaceRow + 2 ? profile.tunnelChance : 0;
 
     if (roll < tunnelChance) {
@@ -162,7 +190,7 @@ export class World {
       type: ore.type,
       weight: ore.weight + Math.max(0, pocketNoise - 0.8) * 0.025,
     }));
-    const oreType = this.#rollWeighted([...oreWeights, ...bonusWeights], Math.random());
+    const oreType = this.#rollWeighted([...oreWeights, ...bonusWeights], this.random());
     if (oreType) {
       return oreType;
     }
@@ -205,10 +233,25 @@ export class World {
     return null;
   }
 
-  #sampleNoise(column, row, columnScale, rowScale, phaseOffset) {
-    const a = Math.sin(column * columnScale + row * rowScale + phaseOffset);
-    const b = Math.sin(column * (columnScale * 0.47) - row * (rowScale * 1.83) + phaseOffset * 1.7);
-    const c = Math.cos(column * (columnScale * 1.31) + row * (rowScale * 0.42) - phaseOffset * 0.6);
+  #createNoiseOffset() {
+    return Object.freeze({
+      column: this.random() * 1000,
+      row: this.random() * 1000,
+      phase: this.random() * Math.PI * 2,
+    });
+  }
+
+  #sampleNoise(column, row, columnScale, rowScale, phaseOffset, offset) {
+    const shiftedColumn = column + offset.column;
+    const shiftedRow = row + offset.row;
+    const shiftedPhase = phaseOffset + offset.phase;
+    const a = Math.sin(shiftedColumn * columnScale + shiftedRow * rowScale + shiftedPhase);
+    const b = Math.sin(
+      shiftedColumn * (columnScale * 0.47) - shiftedRow * (rowScale * 1.83) + shiftedPhase * 1.7,
+    );
+    const c = Math.cos(
+      shiftedColumn * (columnScale * 1.31) + shiftedRow * (rowScale * 0.42) - shiftedPhase * 0.6,
+    );
     return (a + b + c + 3) / 6;
   }
 

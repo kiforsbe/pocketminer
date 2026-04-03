@@ -95,7 +95,7 @@ const storeTooltipCopy = document.getElementById("store-tooltip-copy");
 const storeTooltipStats = document.getElementById("store-tooltip-stats");
 
 const input = new Input({ keyboardTarget: window, pointerTarget: canvas });
-let world = new World();
+let world = new World({ seed: World.createRandomSeed() });
 const renderer = new Renderer(canvas, world);
 const audio = new AudioManager();
 
@@ -595,7 +595,7 @@ function startNextRound() {
   gameState.music.transitionToken += 1;
   gameState.overlayView = "summary";
   gameState.lastMiningSoundAt = 0;
-  world = new World();
+  world = new World({ seed: World.createRandomSeed() });
   player = createPlayer();
   renderer.setWorld(world);
   if (gameState.audioReady) {
