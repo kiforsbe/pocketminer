@@ -15,7 +15,7 @@ const MINING_SWING_DAMAGE_WINDOW = 0.18;
 const ANIMATION_SETS = {
   idle: { start: 0, frames: 4, fps: 5 },
   walk: { start: 4, frames: 6, fps: 10 },
-  mining: { start: 10, frames: 4, fps: 4 },
+  mining: { start: 10, frames: 4, fps: 4 / MINING_SWING_INTERVAL },
 };
 
 export class Player {
