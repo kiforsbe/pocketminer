@@ -209,7 +209,7 @@
 
     .summary-row {
       display: grid;
-      grid-template-columns: 1fr auto auto;
+      grid-template-columns: 1fr auto;
       gap: 10px;
       align-items: center;
       padding: 10px 12px;
@@ -235,6 +235,27 @@
 
     .summary-ore span {
       overflow-wrap: anywhere;
+    }
+
+    .summary-breakdown {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      color: rgba(242, 237, 227, 0.92);
+    }
+
+    .summary-breakdown [data-role="count"] {
+      color: rgba(136, 185, 216, 0.9);
+      font-weight: 600;
+    }
+
+    .summary-breakdown [data-role="unit"] {
+      color: rgba(242, 237, 227, 0.74);
+    }
+
+    .summary-breakdown [data-role="value"] {
+      color: var(--accent);
+      font-weight: 700;
     }
 
     .summary-stats {

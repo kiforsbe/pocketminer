@@ -253,8 +253,13 @@ function populateSummaryOverlay() {
         <canvas width="26" height="26"></canvas>
         <span>${ITEM_DEFINITIONS[entry.itemId].label}</span>
       </div>
-      <div class="summary-count" data-role="count">0</div>
-      <div class="summary-value" data-role="value">0€</div>
+      <div class="summary-breakdown">
+        <span data-role="count">0</span>
+        <span>x</span>
+        <span data-role="unit">${entry.value}€</span>
+        <span>=</span>
+        <span data-role="value">0€</span>
+      </div>
     `;
     summaryGrid.append(row);
     paintSummaryIcon(row.querySelector("canvas"), entry.itemId);
@@ -317,7 +322,7 @@ function updateSummaryRow(entry) {
   if (!row) {
     return;
   }
-  row.querySelector('[data-role="count"]').textContent = `x${entry.displayedCount}`;
+  row.querySelector('[data-role="count"]').textContent = String(entry.displayedCount);
   row.querySelector('[data-role="value"]').textContent = `${entry.displayedValue}€`;
 }
 
