@@ -3,7 +3,17 @@ import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { Input } from "./input.js";
 import { Player } from "./player.js";
 import { Renderer } from "./renderer.js";
-import { DEFAULT_GAME_MODE, DEFAULT_TOOL_ID, GAME_MODE_DEFINITIONS, getToolBranchTools, getToolDefinition, getToolsForGameMode } from "./tools.js";
+import {
+  DEFAULT_GAME_MODE,
+  DEFAULT_SLOT_COUNT,
+  DEFAULT_STACK_SIZE,
+  DEFAULT_STORAGE_ROOT_ID,
+  DEFAULT_TOOL_ID,
+  GAME_MODE_DEFINITIONS,
+  getToolBranchTools,
+  getToolDefinition,
+  getToolsForGameMode,
+} from "./tools.js";
 import { World } from "./world.js";
 
 const AUDIO_MANIFEST = [
@@ -46,7 +56,6 @@ const PICKUP_BOB_SPEED = 6;
 const PICKUP_RADIUS = 10;
 const PICKUP_MAGNET_RANGE = 86;
 const PICKUP_COLLECT_RANGE = 20;
-const STACK_SIZE = 8;
 const ROUND_DURATION = 60;
 const SUMMARY_STEP_RATE = 16;
 const NOTIFICATION_DURATION = 3.2;
@@ -85,7 +94,9 @@ const audio = new AudioManager();
 const gameState = {
   gameMode: DEFAULT_GAME_MODE,
   equippedToolId: DEFAULT_TOOL_ID,
-  inventory: new Inventory({ slotCount: 9, stackSize: STACK_SIZE }),
+  bagUpgradeId: null,
+  capacityUpgradeId: null,
+  inventory: new Inventory({ slotCount: DEFAULT_SLOT_COUNT, stackSize: DEFAULT_STACK_SIZE }),
   miningResult: null,
   hoverTarget: null,
   audioReady: false,
@@ -351,6 +362,34 @@ function createRoundStats() {
   };
 }
 
+function getInventoryCapacity() {
+  const bagUpgrade = gameState.bagUpgradeId ? getToolDefinition(gameState.bagUpgradeId) : null;
+  const capacityUpgrade = gameState.capacityUpgradeId ? getToolDefinition(gameState.capacityUpgradeId) : null;
+
+  return {
+    slotCount: bagUpgrade?.slotCount ?? DEFAULT_SLOT_COUNT,
+    stackSize: capacityUpgrade?.stackSize ?? DEFAULT_STACK_SIZE,
+  };
+}
+
+function createInventoryForLoadout(previousInventory = null) {
+  const { slotCount, stackSize } = getInventoryCapacity();
+  const inventory = new Inventory({ slotCount, stackSize });
+
+  if (!previousInventory) {
+    return inventory;
+  }
+
+  const totals = previousInventory.getTotals();
+  for (const [itemId, count] of Object.entries(totals)) {
+    if (count > 0) {
+      inventory.addItem(itemId, count);
+    }
+  }
+
+  return inventory;
+}
+
 function endRound() {
   if (gameState.phase === "summary") {
     return;
@@ -493,7 +532,7 @@ function commitSummaryBankEarnings() {
     return;
   }
 
-  gameState.bank = gameState.summary.startingBank + gameState.summary.totalEarnings;
+  gameState.bank += gameState.summary.totalEarnings;
   gameState.summary.bankAwarded = true;
   roundSubtitle.textContent = "Choose when to begin the next shift.";
   summaryBank.textContent = `${gameState.bank}€`;
@@ -515,7 +554,7 @@ function startNextRound() {
   gameState.round += 1;
   gameState.phase = "playing";
   gameState.timeLeft = ROUND_DURATION;
-  gameState.inventory = new Inventory({ slotCount: 9, stackSize: STACK_SIZE });
+  gameState.inventory = createInventoryForLoadout();
   gameState.miningResult = null;
   gameState.hoverTarget = null;
   gameState.particles = [];
@@ -559,6 +598,22 @@ function getEquippedTool() {
   return getToolDefinition(gameState.equippedToolId);
 }
 
+function getCurrentBranchUpgradeId(branchId) {
+  if (branchId === "pickaxe") {
+    return gameState.equippedToolId;
+  }
+
+  if (branchId === "bags") {
+    return gameState.bagUpgradeId;
+  }
+
+  if (branchId === "capacity") {
+    return gameState.capacityUpgradeId;
+  }
+
+  return branchId === "storage-root" ? DEFAULT_STORAGE_ROOT_ID : null;
+}
+
 function setOverlayView(view) {
   gameState.overlayView = view;
   summaryView?.toggleAttribute("hidden", view !== "summary");
@@ -575,19 +630,20 @@ function populateStoreOverlay() {
 
   const mode = GAME_MODE_DEFINITIONS[gameState.gameMode] ?? GAME_MODE_DEFINITIONS[DEFAULT_GAME_MODE];
   const currentTool = getEquippedTool();
+  const inventoryCapacity = getInventoryCapacity();
   storeBank.textContent = `${gameState.bank}€`;
   storeMode.textContent = mode.label;
-  storeCurrentTool.textContent = `${currentTool.label} (${currentTool.miningPower} power)`;
+  storeCurrentTool.textContent = `${currentTool.label} (${currentTool.miningPower} power) | ${inventoryCapacity.slotCount} slots x ${inventoryCapacity.stackSize}`;
   storeGrid.replaceChildren();
 
   const treeRoot = document.createElement("div");
   treeRoot.className = "store-tree-root";
 
-  const rootTool = currentTool.branchId === "hands" ? currentTool : getToolDefinition(DEFAULT_TOOL_ID);
+  const rootTool = getToolDefinition(DEFAULT_STORAGE_ROOT_ID);
   const rootNode = createStoreNode(rootTool, {
-    state: currentTool.branchId === "hands" ? "current" : "owned",
+    state: gameState.equippedToolId === DEFAULT_TOOL_ID && !gameState.bagUpgradeId && !gameState.capacityUpgradeId ? "current" : "owned",
     interactive: false,
-    materialLabel: "Root",
+    materialLabel: "Starter",
     gridColumn: `1 / span ${Math.max(1, getVisibleStoreBranches().length)}`,
     gridRow: "1",
   });
@@ -678,7 +734,7 @@ function getVisibleStoreBranches() {
   const branchIds = new Set(
     getToolsForGameMode(gameState.gameMode)
       .map((tool) => tool.branchId)
-      .filter((branchId) => branchId !== "hands")
+      .filter((branchId) => branchId !== "hands" && branchId !== "storage-root")
   );
 
   for (const branchId of branchIds) {
@@ -700,17 +756,21 @@ function getVisibleStoreBranches() {
 }
 
 function getToolPurchaseState(toolId) {
-  const tools = getToolsForGameMode(gameState.gameMode);
-  const currentIndex = tools.findIndex((tool) => tool.id === gameState.equippedToolId);
-  const targetIndex = tools.findIndex((tool) => tool.id === toolId);
   const tool = getToolDefinition(toolId);
-  const currentTool = getEquippedTool();
+  const branchTools = getToolBranchTools(gameState.gameMode, tool.branchId);
+  const currentUpgradeId = getCurrentBranchUpgradeId(tool.branchId);
+  const currentIndex = branchTools.findIndex((branchTool) => branchTool.id === currentUpgradeId);
+  const targetIndex = branchTools.findIndex((branchTool) => branchTool.id === toolId);
 
-  if (toolId === gameState.equippedToolId) {
+  if (tool.isRoot) {
+    return "owned";
+  }
+
+  if (toolId === currentUpgradeId) {
     return "current";
   }
 
-  if (tool.branchId === currentTool.branchId && targetIndex < currentIndex) {
+  if (targetIndex < currentIndex) {
     return "owned";
   }
 
@@ -727,10 +787,10 @@ function getToolPurchaseState(toolId) {
 
 function getToolActionLabel(state, tool) {
   if (state === "current") {
-    return "Equipped";
+    return tool.category === "pickaxe" ? "Equipped" : "Installed";
   }
   if (state === "owned") {
-    return "Learned";
+    return "Owned";
   }
   if (state === "locked") {
     return "Locked";
@@ -742,6 +802,15 @@ function getToolActionLabel(state, tool) {
 }
 
 function getToolVisual(tool, materialLabel = null) {
+  if (tool.category === "storage-root") {
+    return {
+      text: "PK",
+      background: "linear-gradient(180deg, #7b6242, #4a3828)",
+      glow: "0 0 18px rgba(190, 144, 92, 0.28)",
+      material: materialLabel ?? "Starter",
+    };
+  }
+
   if (tool.category === "hands") {
     return {
       text: "H",
@@ -757,6 +826,24 @@ function getToolVisual(tool, materialLabel = null) {
       background: "linear-gradient(180deg, #9a6d42, #6f482d)",
       glow: "0 0 18px rgba(186, 122, 70, 0.22)",
       material: "Wood",
+    };
+  }
+
+  if (tool.category === "bag") {
+    return {
+      text: "BG",
+      background: "linear-gradient(180deg, #7c5736, #4c311f)",
+      glow: "0 0 18px rgba(180, 121, 70, 0.24)",
+      material: materialLabel ?? "Bag",
+    };
+  }
+
+  if (tool.category === "capacity") {
+    return {
+      text: `${tool.stackSize}x`.slice(0, 3),
+      background: "linear-gradient(180deg, #5b7389, #243448)",
+      glow: "0 0 18px rgba(136, 185, 216, 0.28)",
+      material: materialLabel ?? "Capacity",
     };
   }
 
@@ -781,13 +868,35 @@ function showStoreTooltip(toolId, state, event) {
   storeTooltipTitle.textContent = tool.label;
   storeTooltipState.textContent = getToolActionLabel(state, tool);
   storeTooltipCopy.textContent = tool.description;
-  storeTooltipStats.innerHTML = `
-    <div>Branch: ${tool.branchLabel}</div>
-    <div>Material: ${visual.material}</div>
-    <div>Cost: ${tool.price}€</div>
-    <div>Mining Power: ${tool.miningPower}</div>
-    <div>${tool.oneSwingBlockLabel ? `One-swing: ${tool.oneSwingBlockLabel}` : "No one-swing bonus yet"}</div>
-  `;
+  if (tool.category === "pickaxe" || tool.category === "hands") {
+    storeTooltipStats.innerHTML = `
+      <div>Branch: ${tool.branchLabel}</div>
+      <div>Material: ${visual.material}</div>
+      <div>Cost: ${tool.price}€</div>
+      <div>Mining Power: ${tool.miningPower}</div>
+      <div>${tool.oneSwingBlockLabel ? `One-swing: ${tool.oneSwingBlockLabel}` : "No one-swing bonus yet"}</div>
+    `;
+  } else if (tool.category === "bag") {
+    storeTooltipStats.innerHTML = `
+      <div>Branch: ${tool.branchLabel}</div>
+      <div>Cost: ${tool.price}€</div>
+      <div>Total Slots: ${tool.slotCount}</div>
+      <div>Bag Gain: +8 slots</div>
+    `;
+  } else if (tool.category === "capacity") {
+    storeTooltipStats.innerHTML = `
+      <div>Branch: ${tool.branchLabel}</div>
+      <div>Cost: ${tool.price}€</div>
+      <div>Stack Size: ${tool.stackSize} per slot</div>
+      <div>Effect: 2x every slot</div>
+    `;
+  } else {
+    storeTooltipStats.innerHTML = `
+      <div>Branch: ${tool.branchLabel}</div>
+      <div>Base Slots: ${tool.slotCount ?? DEFAULT_SLOT_COUNT}</div>
+      <div>Base Stack Size: ${tool.stackSize ?? DEFAULT_STACK_SIZE}</div>
+    `;
+  }
   positionStoreTooltip(event);
 }
 
@@ -849,8 +958,18 @@ function purchaseTool(toolId) {
 
   const tool = getToolDefinition(toolId);
   gameState.bank -= tool.price;
-  gameState.equippedToolId = tool.id;
-  player.setMiningPower(tool.miningPower);
+
+  if (tool.branchId === "pickaxe") {
+    gameState.equippedToolId = tool.id;
+    player.setMiningPower(tool.miningPower);
+  } else if (tool.branchId === "bags") {
+    gameState.bagUpgradeId = tool.id;
+    gameState.inventory = createInventoryForLoadout(gameState.inventory);
+  } else if (tool.branchId === "capacity") {
+    gameState.capacityUpgradeId = tool.id;
+    gameState.inventory = createInventoryForLoadout(gameState.inventory);
+  }
+
   summaryBank.textContent = `${gameState.bank}€`;
   populateStoreOverlay();
 }

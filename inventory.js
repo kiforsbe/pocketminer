@@ -58,7 +58,7 @@ export const ITEM_DEFINITIONS = Object.freeze({
 });
 
 export class Inventory {
-  constructor({ slotCount = 9, stackSize = 8 } = {}) {
+  constructor({ slotCount = 8, stackSize = 8 } = {}) {
     this.slotCount = slotCount;
     this.stackSize = stackSize;
     this.slots = Array.from({ length: slotCount }, () => null);
