@@ -16,7 +16,25 @@ import {
   getToolDefinition,
   getToolsForGameMode,
 } from "./tools.js";
-import { World } from "./world.js";
+import { World, WORLD_STRATA } from "./world.js";
+
+const STRATUM_TRACK_NAMES = [...new Set(WORLD_STRATA.map((stratum) => stratum.bgmTrack).filter(Boolean))];
+
+function createMusicManifestEntries(trackName) {
+  return [
+    { id: `music-${trackName}-intro`, src: `./assets/loops/${trackName}-intro.mp3` },
+    { id: `music-${trackName}-loop`, src: `./assets/loops/${trackName}-loop.mp3` },
+    { id: `music-${trackName}-outro`, src: `./assets/loops/${trackName}-outro.mp3` },
+  ];
+}
+
+function createMusicSet(trackName) {
+  return Object.freeze({
+    intro: `music-${trackName}-intro`,
+    loop: `music-${trackName}-loop`,
+    outro: `music-${trackName}-outro`,
+  });
+}
 
 const AUDIO_MANIFEST = [
   { id: "footsteps", src: "./assets/footstep.wav" },
@@ -25,33 +43,16 @@ const AUDIO_MANIFEST = [
   { id: "orePop", src: "./assets/ore-pop.wav" },
   { id: "coin", src: "./assets/coin.wav" },
   { id: "tick", src: "./assets/tick.wav" },
-  { id: "music-hearth-intro", src: "./assets/loops/Underground_Hearth-intro.mp3" },
-  { id: "music-hearth-loop", src: "./assets/loops/Underground_Hearth-loop.mp3" },
-  { id: "music-hearth-outro", src: "./assets/loops/Underground_Hearth-outro.mp3" },
-  { id: "music-waltz-intro", src: "./assets/loops/Pickaxe_Waltz-intro.mp3" },
-  { id: "music-waltz-loop", src: "./assets/loops/Pickaxe_Waltz-loop.mp3" },
-  { id: "music-waltz-outro", src: "./assets/loops/Pickaxe_Waltz-outro.mp3" },
+  ...STRATUM_TRACK_NAMES.flatMap(createMusicManifestEntries),
 ];
 
-const STRATUM_MUSIC_SETS = Object.freeze({
-  waltz: Object.freeze({
-    intro: "music-waltz-intro",
-    loop: "music-waltz-loop",
-    outro: "music-waltz-outro",
-  }),
-  hearth: Object.freeze({
-    intro: "music-hearth-intro",
-    loop: "music-hearth-loop",
-    outro: "music-hearth-outro",
-  }),
-});
+const STRATUM_BY_NAME = Object.freeze(
+  Object.fromEntries(WORLD_STRATA.map((stratum) => [stratum.name, stratum])),
+);
 
-const STRATUM_SONG_BY_NAME = Object.freeze({
-  "Topsoil Vein": "waltz",
-  "Shale Shelf": "hearth",
-  "Basalt Forge": "waltz",
-  "Abyssal Crown": "hearth",
-});
+const STRATUM_MUSIC_SETS = Object.freeze(
+  Object.fromEntries(STRATUM_TRACK_NAMES.map((trackName) => [trackName, createMusicSet(trackName)])),
+);
 const PARTICLE_GRAVITY = 820;
 const PICKUP_GRAVITY = 980;
 const PICKUP_BOB_SPEED = 6;
@@ -1060,8 +1061,8 @@ function syncStratumMusic({ immediate = false } = {}) {
 }
 
 function getMusicSetForStratum(stratumName) {
-  const songKey = STRATUM_SONG_BY_NAME[stratumName] ?? "waltz";
-  return STRATUM_MUSIC_SETS[songKey] ?? STRATUM_MUSIC_SETS.waltz;
+  const trackName = STRATUM_BY_NAME[stratumName]?.bgmTrack ?? STRATUM_TRACK_NAMES[0];
+  return STRATUM_MUSIC_SETS[trackName] ?? STRATUM_MUSIC_SETS[STRATUM_TRACK_NAMES[0]];
 }
 
 function startStratumMusic(stratumName, { immediate = false } = {}) {

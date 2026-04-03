@@ -3,6 +3,7 @@ import { Tile, TILE_DEFINITIONS, TILE_SIZE, TILE_TYPES } from "./tile.js";
 const STRATA = Object.freeze([
   {
     name: "Topsoil Vein",
+    bgmTrack: "Morning_Shift_at_the_Quarry",
     maxDepth: 18,
     base: [
       { type: TILE_TYPES.DIRT, weight: 0.74 },
@@ -24,6 +25,7 @@ const STRATA = Object.freeze([
   },
   {
     name: "Shale Shelf",
+    bgmTrack: "Vein_of_Obsidian",
     maxDepth: 52,
     base: [
       { type: TILE_TYPES.STONE, weight: 0.46 },
@@ -48,6 +50,7 @@ const STRATA = Object.freeze([
   },
   {
     name: "Basalt Forge",
+    bgmTrack: "Crucible_of_the_Deep",
     maxDepth: 108,
     base: [
       { type: TILE_TYPES.SHALE, weight: 0.26 },
@@ -72,6 +75,7 @@ const STRATA = Object.freeze([
   },
   {
     name: "Abyssal Crown",
+    bgmTrack: "Iron_Throat",
     maxDepth: Infinity,
     base: [
       { type: TILE_TYPES.BASALT, weight: 0.66 },
