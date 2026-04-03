@@ -5,11 +5,47 @@ export const ITEM_DEFINITIONS = Object.freeze({
     color: "#2f2a33",
     glow: "rgba(230, 204, 126, 0.35)",
   },
+  copper: {
+    label: "Copper",
+    shortLabel: "Cu",
+    color: "#c97a43",
+    glow: "rgba(237, 162, 112, 0.38)",
+  },
+  tin: {
+    label: "Tin",
+    shortLabel: "Ti",
+    color: "#d7e1e8",
+    glow: "rgba(213, 229, 236, 0.42)",
+  },
   iron: {
     label: "Iron",
     shortLabel: "I",
     color: "#cf7449",
     glow: "rgba(255, 211, 148, 0.45)",
+  },
+  silver: {
+    label: "Silver",
+    shortLabel: "Ag",
+    color: "#d7dce6",
+    glow: "rgba(234, 240, 255, 0.45)",
+  },
+  gold: {
+    label: "Gold",
+    shortLabel: "Au",
+    color: "#e0ba4e",
+    glow: "rgba(255, 226, 132, 0.48)",
+  },
+  ruby: {
+    label: "Ruby",
+    shortLabel: "Rb",
+    color: "#da4d68",
+    glow: "rgba(255, 137, 164, 0.42)",
+  },
+  sapphire: {
+    label: "Sapphire",
+    shortLabel: "Sa",
+    color: "#58a8ea",
+    glow: "rgba(128, 199, 255, 0.44)",
   },
 });
 
@@ -80,6 +116,14 @@ export class Inventory {
         totals[slot.itemId] = (totals[slot.itemId] ?? 0) + slot.count;
       }
       return totals;
-    }, { coal: 0, iron: 0 });
+    }, Object.fromEntries(Object.keys(ITEM_DEFINITIONS).map((itemId) => [itemId, 0])));
+  }
+
+  getItemCount() {
+    return this.slots.reduce((count, slot) => count + (slot?.count ?? 0), 0);
+  }
+
+  getOccupiedSlotCount() {
+    return this.slots.reduce((count, slot) => count + (slot ? 1 : 0), 0);
   }
 }

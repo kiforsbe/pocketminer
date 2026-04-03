@@ -147,7 +147,12 @@ export class Renderer {
   }
 
   #drawTileToContext(context, tile, x, y) {
-    if (this.assets?.tilesheet) {
+    const canUseTilesheet = this.assets?.tilesheet
+      && tile.sprite.x * TILE_SIZE + TILE_SIZE <= this.assets.tilesheet.width
+      && tile.sprite.y * TILE_SIZE + TILE_SIZE <= this.assets.tilesheet.height
+      && [TILE_TYPES.DIRT, TILE_TYPES.STONE, TILE_TYPES.COAL, TILE_TYPES.IRON].includes(tile.type);
+
+    if (canUseTilesheet) {
       context.drawImage(
         this.assets.tilesheet,
         tile.sprite.x * TILE_SIZE,
@@ -162,14 +167,56 @@ export class Renderer {
       return;
     }
 
-    context.fillStyle = tile.type === TILE_TYPES.DIRT
-      ? "#7f5634"
-      : tile.type === TILE_TYPES.STONE
-        ? "#677286"
-        : tile.type === TILE_TYPES.COAL
-          ? "#363338"
-          : "#9a7258";
+    this.#drawProceduralTile(context, tile, x, y);
+  }
+
+  #drawProceduralTile(context, tile, x, y) {
+    context.fillStyle = tile.definition.fill;
     context.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    context.strokeStyle = "rgba(0, 0, 0, 0.18)";
+    context.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+    context.fillStyle = tile.definition.accent;
+
+    switch (tile.definition.pattern) {
+      case "speck":
+        for (const offset of [4, 11, 18, 24]) {
+          context.fillRect(x + offset, y + 6 + (offset % 4) * 4, 4, 4);
+        }
+        break;
+      case "bands":
+        context.fillRect(x + 4, y + 6, 22, 2);
+        context.fillRect(x + 7, y + 14, 18, 2);
+        context.fillRect(x + 5, y + 22, 20, 2);
+        break;
+      case "slate":
+        context.fillRect(x + 5, y + 5, 20, 3);
+        context.fillRect(x + 9, y + 12, 16, 2);
+        context.fillRect(x + 4, y + 19, 22, 3);
+        break;
+      case "blocks":
+        context.fillRect(x + 5, y + 5, 8, 8);
+        context.fillRect(x + 17, y + 8, 9, 9);
+        context.fillRect(x + 9, y + 19, 12, 6);
+        break;
+      case "ore-cluster":
+        context.fillRect(x + 6, y + 5, 6, 6);
+        context.fillRect(x + 18, y + 8, 7, 7);
+        context.fillRect(x + 11, y + 19, 8, 8);
+        break;
+      case "ore-gem":
+        context.fillRect(x + 7, y + 6, 5, 5);
+        context.fillRect(x + 19, y + 10, 6, 6);
+        context.fillRect(x + 13, y + 18, 7, 7);
+        context.fillRect(x + 9, y + 14, 3, 3);
+        break;
+      case "gem-shard":
+        context.fillRect(x + 8, y + 6, 4, 8);
+        context.fillRect(x + 20, y + 9, 5, 9);
+        context.fillRect(x + 13, y + 19, 6, 7);
+        break;
+      default:
+        break;
+    }
   }
 
   #drawMiningHighlight(hoverTarget, miningResult) {
@@ -290,12 +337,11 @@ export class Renderer {
   #drawHud(inventory, statusText, audioReady) {
     const statusEl = document.getElementById("status-text");
     const resourceEl = document.getElementById("resource-bar");
-    const totals = inventory.getTotals();
     if (statusEl) {
       statusEl.textContent = audioReady ? statusText : `${statusText} Click or press a key to enable audio.`;
     }
     if (resourceEl) {
-      resourceEl.innerHTML = `<span>Coal: ${totals.coal}</span><span>Iron: ${totals.iron}</span><span>Stack: 8</span>`;
+      resourceEl.innerHTML = `<span>Items: ${inventory.getItemCount()}</span><span>Slots: ${inventory.getOccupiedSlotCount()}/${inventory.slotCount}</span><span>Stack: ${inventory.stackSize}</span>`;
     }
   }
 
