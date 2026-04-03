@@ -430,13 +430,9 @@ export class Renderer {
   }
 
   #drawHud(inventory, roundInfo) {
-    const resourceEl = document.getElementById("resource-bar");
     const timerEl = document.getElementById("round-timer");
     const timerValueEl = document.getElementById("round-timer-value");
     const toastEl = document.getElementById("round-toast");
-    if (resourceEl) {
-      resourceEl.innerHTML = `<span>Round: ${roundInfo.round}</span><span>Time: ${roundInfo.timeLeft}s</span><span>Items: ${inventory.getItemCount()}</span>`;
-    }
     if (timerEl && timerValueEl) {
       timerEl.setAttribute("data-urgent", roundInfo.urgent ? "true" : "false");
       timerValueEl.textContent = `${roundInfo.timeLeft}s`;

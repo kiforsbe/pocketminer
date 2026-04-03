@@ -292,59 +292,23 @@
 
     .hud,
     .status-card {
-      width: fit-content;
-      min-width: 260px;
-      padding: 12px 14px;
+      width: min(184px, calc(100vw - 36px));
+      min-width: 176px;
+      padding: 16px 16px 14px;
       border-radius: 16px;
       background: var(--panel);
       border: 1px solid var(--panel-border);
       backdrop-filter: blur(12px);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
     }
 
     .hud {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
       display: grid;
-      gap: 6px;
-      justify-self: start;
-    }
-
-    .title {
-      font-family: var(--font-display);
-      font-size: 1.15rem;
-      letter-spacing: 0.04em;
-      color: var(--accent);
-    }
-
-    .resources,
-    .controls {
-      display: flex;
-      gap: 14px;
-      flex-wrap: wrap;
-      font-size: 0.95rem;
-    }
-
-    .controls {
-      opacity: 0.86;
-      font-size: 0.85rem;
-    }
-
-    .status-card {
-      align-self: end;
-      justify-self: end;
-      text-align: left;
-      display: grid;
-      gap: 12px;
-      width: 190px;
-      min-width: 190px;
-      max-width: 190px;
-    }
-
-    .status-card strong {
-      display: block;
-      margin-bottom: 4px;
-      color: var(--accent-2);
-      font-size: 0.9rem;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      gap: 8px;
+      pointer-events: none;
     }
 
     .status-card p {
@@ -355,19 +319,28 @@
 
     .survey-section {
       display: grid;
-      gap: 8px;
-      padding-top: 2px;
+      gap: 10px;
+    }
+
+    .survey-heading {
+      margin: 0;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: rgba(136, 185, 216, 0.96);
+      line-height: 1;
     }
 
     .survey-section + .survey-section {
-      padding-top: 10px;
+      padding-top: 12px;
       border-top: 1px solid rgba(136, 185, 216, 0.14);
     }
 
     .survey-row {
       display: grid;
-      grid-template-columns: 40px 1fr;
-      gap: 8px;
+      grid-template-columns: 38px 1fr;
+      gap: 10px;
       align-items: center;
     }
 
@@ -383,17 +356,32 @@
 
     .survey-copy {
       display: grid;
-      gap: 3px;
+      gap: 4px;
       min-width: 0;
     }
 
     .survey-copy p {
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      margin: 0;
+      line-height: 1.25;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    #stratum-name,
+    #block-name {
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    #stratum-depth,
+    #block-type {
+      font-size: 0.92rem;
+      color: rgba(242, 237, 227, 0.82);
     }
 
     .survey-subheading {
-      font-size: 0.74rem;
+      font-size: 0.78rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: rgba(136, 185, 216, 0.88);
@@ -408,7 +396,7 @@
 
     .ore-groups {
       display: grid;
-      gap: 8px;
+      gap: 10px;
     }
 
     .ore-group {
@@ -440,22 +428,22 @@
 
     .compact-stats {
       display: grid;
-      gap: 5px;
+      gap: 7px;
     }
 
     .compact-stat {
       display: grid;
-      grid-template-columns: 44px 1fr;
-      gap: 4px;
+      grid-template-columns: 48px 1fr;
+      gap: 6px;
       align-items: baseline;
-      font-size: 0.78rem;
+      font-size: 0.82rem;
     }
 
     .compact-stat-label {
       color: rgba(136, 185, 216, 0.86);
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      font-size: 0.64rem;
+      font-size: 0.68rem;
     }
 
     .compact-stat-value {
@@ -482,6 +470,11 @@
       .status-card {
         min-width: 0;
       }
+
+      .hud {
+        right: 12px;
+        bottom: 12px;
+      }
     }
   </style>
 </head>
@@ -498,16 +491,8 @@
           <div id="round-toast" class="round-toast" data-visible="false" data-urgent="false"></div>
         </div>
         <div class="hud">
-          <div class="title">Pocket Miner</div>
-          <div class="resources" id="resource-bar">
-            <span>Coal: 0</span>
-            <span>Iron: 0</span>
-          </div>
-          <div class="controls">Move: A/D or Arrows | Aim: Mouse | Mine: Left Click, E, or Space | Jump: W or Up</div>
-        </div>
-        <div class="status-card">
           <section class="survey-section">
-            <strong>Survey</strong>
+            <strong class="survey-heading">Survey</strong>
             <div class="survey-row">
               <canvas id="stratum-icon" class="survey-icon" width="44" height="44"></canvas>
               
@@ -528,7 +513,7 @@
             </div>
           </section>
           <section class="survey-section">
-            <strong>Selected Block</strong>
+            <strong class="survey-heading">Selected Block</strong>
             <div class="survey-row">
               <canvas id="block-icon" class="survey-icon" width="44" height="44"></canvas>
               

@@ -67,7 +67,7 @@ const gameState = {
     halfway: false,
     thirtySeconds: false,
   },
-  lastCountdownTickSecond: null,
+  countdownTickCooldown: 0,
 };
 
 let lastTime = performance.now();
@@ -125,7 +125,7 @@ function update(dt, timeSeconds) {
   gameState.timeLeft = Math.max(0, gameState.timeLeft - dt);
   updateRoundNotification(dt);
   checkRoundMilestones();
-  playCountdownTickIfNeeded();
+  playCountdownTickIfNeeded(dt);
   gameState.hoverTarget = player.update(dt, input, world);
   gameState.miningResult = null;
   updateParticles(dt);
@@ -221,7 +221,7 @@ function endRound() {
     completed: oreEntries.length === 0,
   };
   gameState.notification = null;
-  gameState.lastCountdownTickSecond = null;
+  gameState.countdownTickCooldown = 0;
 
   gameState.bank += gameState.summary.totalEarnings;
   populateSummaryOverlay();
@@ -337,7 +337,7 @@ function startNextRound() {
     halfway: false,
     thirtySeconds: false,
   };
-  gameState.lastCountdownTickSecond = null;
+  gameState.countdownTickCooldown = 0;
   gameState.lastMiningSoundAt = 0;
   world = new World();
   player = new Player(world.getSpawnPosition());
@@ -389,22 +389,41 @@ function checkRoundMilestones() {
   }
 }
 
-function playCountdownTickIfNeeded() {
+function playCountdownTickIfNeeded(dt) {
   if (!gameState.audioReady || gameState.phase !== "playing" || gameState.timeLeft > 30 || gameState.timeLeft <= 0) {
+    gameState.countdownTickCooldown = 0;
     return;
   }
 
-  const wholeSeconds = Math.ceil(gameState.timeLeft);
-  if (gameState.lastCountdownTickSecond === wholeSeconds) {
+  gameState.countdownTickCooldown = Math.max(0, gameState.countdownTickCooldown - dt);
+  if (gameState.countdownTickCooldown > 0) {
     return;
   }
 
-  gameState.lastCountdownTickSecond = wholeSeconds;
-  const urgentFactor = wholeSeconds <= 10 ? 1.12 : 1;
+  const secondsLeft = gameState.timeLeft;
+  const interval = getCountdownTickInterval(secondsLeft);
+  const urgentFactor = secondsLeft <= 10 ? 1.12 : 1;
   audio.playSound("tick", {
-    volume: wholeSeconds <= 10 ? 0.24 : 0.18,
-    playbackRate: (1.02 + (30 - wholeSeconds) * 0.003) * urgentFactor,
+    volume: secondsLeft <= 10 ? 0.24 : 0.18,
+    playbackRate: (1.02 + (30 - secondsLeft) * 0.006) * urgentFactor,
   });
+  gameState.countdownTickCooldown = interval;
+}
+
+function getCountdownTickInterval(secondsLeft) {
+  if (secondsLeft <= 5) {
+    return 0.25;
+  }
+
+  if (secondsLeft <= 10) {
+    return 0.38;
+  }
+
+  if (secondsLeft <= 20) {
+    return 0.58;
+  }
+
+  return 0.85;
 }
 
 function spawnOreChunks(miningResult) {
