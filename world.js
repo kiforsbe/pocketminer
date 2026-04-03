@@ -125,7 +125,7 @@ export class World {
 
   getSpawnPosition() {
     return {
-      x: TILE_SIZE * 1.1,
+      x: TILE_SIZE * 2.25,
       y: TILE_SIZE * (this.surfaceRow + 2) - 28,
     };
   }
