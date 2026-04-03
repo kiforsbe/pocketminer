@@ -113,7 +113,7 @@ const gameState = {
   phase: "playing",
   round: 1,
   timeLeft: getToolDefinition(DEFAULT_TIME_ROOT_ID).durationSeconds ?? 60,
-  bank: 0,
+  bank: 90,
   roundStats: createRoundStats(),
   summary: null,
   notification: null,
@@ -750,7 +750,7 @@ function getVisibleStoreCategories() {
       const branchTools = branchId === "pickaxe"
         ? [getToolDefinition(DEFAULT_TOOL_ID), ...getToolBranchTools(gameState.gameMode, branchId)]
         : getToolBranchTools(gameState.gameMode, branchId);
-      const visibleNodes = branchTools.map((tool) => ({ tool, state: getToolPurchaseState(tool.id) }));
+      const visibleNodes = branchTools.map((tool) => ({ tool, state: getToolPurchaseState(tool.id, branchId) }));
 
       if (visibleNodes.length === 0) {
         continue;
@@ -775,10 +775,15 @@ function getVisibleStoreCategories() {
   return categories;
 }
 
-function getToolPurchaseState(toolId) {
+function getToolPurchaseState(toolId, branchIdOverride = null) {
   const tool = getToolDefinition(toolId);
-  const branchTools = getToolBranchTools(gameState.gameMode, tool.branchId);
-  const currentUpgradeId = getCurrentBranchUpgradeId(tool.branchId);
+  const branchId = branchIdOverride ?? tool.branchId;
+  const branchTools = branchId === "pickaxe"
+    ? [getToolDefinition(DEFAULT_TOOL_ID), ...getToolBranchTools(gameState.gameMode, branchId)]
+    : getToolBranchTools(gameState.gameMode, branchId);
+  const currentUpgradeId = branchId === "pickaxe"
+    ? gameState.equippedToolId
+    : getCurrentBranchUpgradeId(branchId);
   const currentIndex = branchTools.findIndex((branchTool) => branchTool.id === currentUpgradeId);
   const targetIndex = branchTools.findIndex((branchTool) => branchTool.id === toolId);
 
