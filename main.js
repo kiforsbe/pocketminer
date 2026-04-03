@@ -1,4 +1,5 @@
 import { AudioManager } from "./audio.js";
+import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { Input } from "./input.js";
 import { Player } from "./player.js";
 import { Renderer } from "./renderer.js";
@@ -15,10 +16,12 @@ const AUDIO_MANIFEST = [
 
 const LEVEL_MUSIC_IDS = ["music-hearth", "music-waltz"];
 const PARTICLE_GRAVITY = 820;
-const ORE_PARTICLE_COLORS = {
-  coal: { color: "#2f2a33", glow: "rgba(230, 204, 126, 0.35)" },
-  iron: { color: "#cf7449", glow: "rgba(255, 211, 148, 0.45)" },
-};
+const PICKUP_GRAVITY = 980;
+const PICKUP_BOB_SPEED = 6;
+const PICKUP_RADIUS = 10;
+const PICKUP_MAGNET_RANGE = 86;
+const PICKUP_COLLECT_RANGE = 20;
+const STACK_SIZE = 8;
 
 const canvas = document.getElementById("game");
 const statusText = document.getElementById("status-text");
@@ -32,10 +35,7 @@ const audio = new AudioManager();
 player.setRendererContext(renderer);
 
 const gameState = {
-  inventory: {
-    coal: 0,
-    iron: 0,
-  },
+  inventory: new Inventory({ slotCount: 9, stackSize: STACK_SIZE }),
   miningResult: null,
   hoverTarget: null,
   statusText: "Wake the camp, then start digging.",
@@ -43,6 +43,7 @@ const gameState = {
   lastMiningSoundAt: 0,
   levelMusicId: LEVEL_MUSIC_IDS[Math.floor(Math.random() * LEVEL_MUSIC_IDS.length)],
   particles: [],
+  pickups: [],
 };
 
 let lastTime = performance.now();
@@ -88,6 +89,7 @@ function update(dt, timeSeconds) {
   gameState.hoverTarget = player.update(dt, input, world);
   gameState.miningResult = null;
   updateParticles(dt);
+  updatePickups(dt);
 
   if (input.isDown("mine")) {
     const miningResult = player.mine(dt, world);
@@ -100,8 +102,8 @@ function update(dt, timeSeconds) {
 
       if (miningResult.broken) {
         if (miningResult.resource) {
-          gameState.inventory[miningResult.resource] += 1;
-          gameState.statusText = `Collected ${miningResult.resource}. Keep tunneling.`;
+          gameState.statusText = `${ITEM_DEFINITIONS[miningResult.resource].label} popped free. Pick it up.`;
+          spawnPickup(miningResult);
           spawnOreChunks(miningResult);
           audio.playSound("orePop", { playbackRate: 0.94 + Math.random() * 0.14, volume: 0.3 });
         } else {
@@ -126,13 +128,14 @@ function render() {
     miningResult: gameState.miningResult,
     hoverTarget: gameState.hoverTarget,
     particles: gameState.particles,
+    pickups: gameState.pickups,
     statusText: gameState.statusText,
     audioReady: gameState.audioReady,
   });
 }
 
 function spawnOreChunks(miningResult) {
-  const palette = ORE_PARTICLE_COLORS[miningResult.resource];
+  const palette = ITEM_DEFINITIONS[miningResult.resource];
   if (!palette) {
     return;
   }
@@ -159,6 +162,32 @@ function spawnOreChunks(miningResult) {
   }
 }
 
+function spawnPickup(miningResult) {
+  const definition = ITEM_DEFINITIONS[miningResult.resource];
+  if (!definition) {
+    return;
+  }
+
+  const originX = miningResult.column * 32 + 16;
+  const originY = miningResult.row * 32 + 18;
+  const direction = player.getCenter().x <= originX ? 1 : -1;
+
+  gameState.pickups.push({
+    itemId: miningResult.resource,
+    x: originX,
+    y: originY,
+    vx: direction * (90 + Math.random() * 80),
+    vy: -(160 + Math.random() * 80),
+    grounded: false,
+    rotation: Math.random() * Math.PI * 2,
+    angularVelocity: (Math.random() - 0.5) * 6,
+    bobTime: Math.random() * Math.PI * 2,
+    radius: PICKUP_RADIUS,
+    color: definition.color,
+    glow: definition.glow,
+  });
+}
+
 function updateParticles(dt) {
   gameState.particles = gameState.particles
     .map((particle) => {
@@ -171,6 +200,75 @@ function updateParticles(dt) {
       return nextParticle;
     })
     .filter((particle) => particle.life > 0);
+}
+
+function updatePickups(dt) {
+  const playerCenter = player.getCenter();
+  const remainingPickups = [];
+
+  for (const pickup of gameState.pickups) {
+    const nextPickup = { ...pickup, bobTime: pickup.bobTime + dt * PICKUP_BOB_SPEED };
+    const dx = playerCenter.x - nextPickup.x;
+    const dy = playerCenter.y - nextPickup.y;
+    const distance = Math.hypot(dx, dy);
+    const canCollect = gameState.inventory.hasSpaceFor(nextPickup.itemId, 1);
+
+    if (canCollect && distance < PICKUP_MAGNET_RANGE) {
+      const attraction = Math.max(90, 280 - distance * 1.7);
+      nextPickup.vx += (dx / Math.max(distance, 1)) * attraction * dt;
+      nextPickup.vy += (dy / Math.max(distance, 1)) * attraction * dt;
+    }
+
+    nextPickup.vy += PICKUP_GRAVITY * dt;
+    nextPickup.x += nextPickup.vx * dt;
+    nextPickup.y += nextPickup.vy * dt;
+    nextPickup.rotation += nextPickup.angularVelocity * dt;
+    nextPickup.grounded = false;
+
+    resolvePickupCollisions(nextPickup);
+
+    if (canCollect && distance < PICKUP_COLLECT_RANGE) {
+      const result = gameState.inventory.addItem(nextPickup.itemId, 1);
+      if (result.added > 0) {
+        gameState.statusText = `${ITEM_DEFINITIONS[nextPickup.itemId].label} stored in inventory.`;
+        audio.playSound("orePop", { playbackRate: 1.16 + Math.random() * 0.08, volume: 0.18 });
+        continue;
+      }
+    }
+
+    remainingPickups.push(nextPickup);
+  }
+
+  gameState.pickups = remainingPickups;
+}
+
+function resolvePickupCollisions(pickup) {
+  const floorTile = world.getTileAtPixel(pickup.x, pickup.y + pickup.radius + 1);
+  if (floorTile?.solid) {
+    const row = Math.floor((pickup.y + pickup.radius + 1) / 32);
+    pickup.y = row * 32 - pickup.radius - 0.01;
+    if (Math.abs(pickup.vy) > 80) {
+      pickup.vy *= -0.28;
+    } else {
+      pickup.vy = 0;
+      pickup.grounded = true;
+    }
+    pickup.vx *= 0.88;
+  }
+
+  const leftTile = world.getTileAtPixel(pickup.x - pickup.radius, pickup.y);
+  if (leftTile?.solid) {
+    const column = Math.floor((pickup.x - pickup.radius) / 32);
+    pickup.x = (column + 1) * 32 + pickup.radius;
+    pickup.vx = Math.abs(pickup.vx) * 0.35;
+  }
+
+  const rightTile = world.getTileAtPixel(pickup.x + pickup.radius, pickup.y);
+  if (rightTile?.solid) {
+    const column = Math.floor((pickup.x + pickup.radius) / 32);
+    pickup.x = column * 32 - pickup.radius;
+    pickup.vx = -Math.abs(pickup.vx) * 0.35;
+  }
 }
 
 bootstrap().catch((error) => {

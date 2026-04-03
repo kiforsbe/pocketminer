@@ -1,3 +1,4 @@
+import { ITEM_DEFINITIONS } from "./inventory.js";
 import { TILE_SIZE, TILE_TYPES } from "./tile.js";
 
 const VIEWPORT = { width: 1280, height: 720 };
@@ -82,7 +83,7 @@ export class Renderer {
     this.camera.y = Math.max(0, Math.min(targetY, this.world.pixelHeight - this.viewport.height));
   }
 
-  render({ player, world, inventory, miningResult, hoverTarget, particles, statusText, audioReady }) {
+  render({ player, world, inventory, miningResult, hoverTarget, particles, pickups, statusText, audioReady }) {
     if (this.terrainDirty) {
       this.#redrawTerrain(world);
     }
@@ -104,10 +105,12 @@ export class Renderer {
     );
 
     this.#drawMiningHighlight(hoverTarget, miningResult);
+    this.#drawPickups(pickups);
     this.#drawParticles(particles);
     this.#drawPlayer(player);
     this.#drawDepthMeter(player);
     this.#drawHud(inventory, statusText, audioReady);
+    this.#drawHotbar(inventory);
   }
 
   #drawBackground() {
@@ -229,6 +232,30 @@ export class Renderer {
     }
   }
 
+  #drawPickups(pickups = []) {
+    for (const pickup of pickups) {
+      const x = pickup.x - this.camera.x;
+      const y = pickup.y - this.camera.y + Math.sin(pickup.bobTime) * 2.5;
+      if (x < -32 || y < -32 || x > this.viewport.width + 32 || y > this.viewport.height + 32) {
+        continue;
+      }
+
+      this.ctx.save();
+      this.ctx.translate(x, y);
+      this.ctx.rotate(pickup.rotation);
+      this.ctx.fillStyle = pickup.glow;
+      this.ctx.beginPath();
+      this.ctx.arc(0, 0, pickup.radius * 1.15, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = pickup.color;
+      this.ctx.fillRect(-pickup.radius * 0.55, -pickup.radius * 0.55, pickup.radius * 1.1, pickup.radius * 1.1);
+      this.ctx.strokeStyle = "rgba(255, 240, 211, 0.5)";
+      this.ctx.lineWidth = 1.5;
+      this.ctx.strokeRect(-pickup.radius * 0.55, -pickup.radius * 0.55, pickup.radius * 1.1, pickup.radius * 1.1);
+      this.ctx.restore();
+    }
+  }
+
   #blitPlayerFrame(frame, x, y) {
     if (this.assets?.spritesheet) {
       this.ctx.drawImage(
@@ -263,11 +290,51 @@ export class Renderer {
   #drawHud(inventory, statusText, audioReady) {
     const statusEl = document.getElementById("status-text");
     const resourceEl = document.getElementById("resource-bar");
+    const totals = inventory.getTotals();
     if (statusEl) {
       statusEl.textContent = audioReady ? statusText : `${statusText} Click or press a key to enable audio.`;
     }
     if (resourceEl) {
-      resourceEl.innerHTML = `<span>Coal: ${inventory.coal}</span><span>Iron: ${inventory.iron}</span>`;
+      resourceEl.innerHTML = `<span>Coal: ${totals.coal}</span><span>Iron: ${totals.iron}</span><span>Stack: 8</span>`;
+    }
+  }
+
+  #drawHotbar(inventory) {
+    const slots = inventory.getSlots();
+    const slotSize = 52;
+    const gap = 8;
+    const totalWidth = slots.length * slotSize + (slots.length - 1) * gap;
+    const startX = (this.viewport.width - totalWidth) * 0.5;
+    const y = this.viewport.height - slotSize - 24;
+
+    for (let index = 0; index < slots.length; index += 1) {
+      const x = startX + index * (slotSize + gap);
+      const slot = slots[index];
+      this.ctx.fillStyle = "rgba(9, 16, 28, 0.82)";
+      this.ctx.fillRect(x, y, slotSize, slotSize);
+      this.ctx.strokeStyle = slot ? "rgba(242, 237, 227, 0.45)" : "rgba(136, 185, 216, 0.22)";
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(x, y, slotSize, slotSize);
+
+      if (!slot) {
+        continue;
+      }
+
+      const item = ITEM_DEFINITIONS[slot.itemId];
+      this.ctx.fillStyle = item.glow;
+      this.ctx.beginPath();
+      this.ctx.arc(x + slotSize * 0.5, y + slotSize * 0.42, 13, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = item.color;
+      this.ctx.fillRect(x + 16, y + 13, 20, 20);
+      this.ctx.strokeStyle = "rgba(255, 240, 211, 0.6)";
+      this.ctx.lineWidth = 1.5;
+      this.ctx.strokeRect(x + 16, y + 13, 20, 20);
+      this.ctx.fillStyle = "#f2ede3";
+      this.ctx.font = "bold 12px 'Segoe UI'";
+      this.ctx.fillText(item.shortLabel, x + 22, y + 27);
+      this.ctx.font = "bold 13px 'Segoe UI'";
+      this.ctx.fillText(String(slot.count), x + slotSize - 15, y + slotSize - 11);
     }
   }
 }

@@ -31,7 +31,7 @@ export class World {
     }
 
     grid[this.surfaceRow][3].setType(TILE_TYPES.DIRT);
-    grid[this.surfaceRow + 1][3].setType(TILE_TYPES.DIRT);
+    grid[this.surfaceRow + 1][3].setType(TILE_TYPES.COAL);
   }
 
   #pickType(column, row) {
