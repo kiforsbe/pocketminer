@@ -40,6 +40,13 @@ export class Renderer {
     this.resize();
   }
 
+  setWorld(world) {
+    this.world = world;
+    this.terrainCanvas = createRenderSurface(world.pixelWidth, world.pixelHeight);
+    this.terrainCtx = this.terrainCanvas.getContext("2d");
+    this.terrainDirty = true;
+  }
+
   static async loadAssets() {
     const [tilesheet, spritesheet] = await Promise.all([
       loadImage("./assets/tilesheet.png"),
@@ -83,7 +90,7 @@ export class Renderer {
     this.camera.y = Math.max(0, Math.min(targetY, this.world.pixelHeight - this.viewport.height));
   }
 
-  render({ player, world, inventory, miningResult, hoverTarget, particles, pickups, statusText, audioReady }) {
+  render({ player, world, inventory, miningResult, hoverTarget, particles, pickups, roundInfo }) {
     if (this.terrainDirty) {
       this.#redrawTerrain(world);
     }
@@ -109,7 +116,7 @@ export class Renderer {
     this.#drawParticles(particles);
     this.#drawPlayer(player);
     this.#drawDepthMeter(player);
-    this.#drawHud(inventory);
+    this.#drawHud(inventory, roundInfo);
     this.#drawHotbar(inventory);
     this.#drawSurveyPanel(player, miningResult?.target ?? hoverTarget);
   }
@@ -422,10 +429,10 @@ export class Renderer {
     this.ctx.fillText(`Depth: ${depthTiles}m`, this.viewport.width - 145, 44);
   }
 
-  #drawHud(inventory) {
+  #drawHud(inventory, roundInfo) {
     const resourceEl = document.getElementById("resource-bar");
     if (resourceEl) {
-      resourceEl.innerHTML = `<span>Items: ${inventory.getItemCount()}</span><span>Slots: ${inventory.getOccupiedSlotCount()}/${inventory.slotCount}</span><span>Stack: ${inventory.stackSize}</span>`;
+      resourceEl.innerHTML = `<span>Round: ${roundInfo.round}</span><span>Time: ${roundInfo.timeLeft}s</span><span>Items: ${inventory.getItemCount()}</span>`;
     }
   }
 

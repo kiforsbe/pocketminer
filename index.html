@@ -74,6 +74,140 @@
       padding: 18px;
     }
 
+    .round-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: linear-gradient(180deg, rgba(6, 10, 16, 0.4), rgba(4, 6, 10, 0.82));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+
+    .round-overlay[data-visible="true"] {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .round-card {
+      width: min(560px, calc(100vw - 48px));
+      padding: 22px 22px 18px;
+      border-radius: 22px;
+      border: 1px solid rgba(164, 197, 220, 0.18);
+      background: rgba(9, 16, 28, 0.94);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+      display: grid;
+      gap: 16px;
+    }
+
+    .round-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .round-header h2,
+    .round-header p {
+      margin: 0;
+    }
+
+    .round-header h2 {
+      font-family: var(--font-display);
+      color: var(--accent);
+      font-size: 1.6rem;
+    }
+
+    .summary-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .summary-ore {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .summary-ore canvas {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .summary-ore span {
+      overflow-wrap: anywhere;
+    }
+
+    .summary-stats {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      padding-top: 4px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .summary-stat {
+      display: grid;
+      gap: 3px;
+    }
+
+    .summary-stat-label {
+      color: rgba(136, 185, 216, 0.86);
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .summary-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 1.05rem;
+    }
+
+    .summary-total strong {
+      margin: 0;
+      color: var(--accent);
+      font-size: 1.3rem;
+    }
+
+    .summary-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .summary-actions button {
+      pointer-events: auto;
+      border: 0;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #e2a94b, #c88627);
+      color: #14181f;
+      font: inherit;
+      font-weight: 700;
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+
     .hud,
     .status-card {
       width: fit-content;
@@ -330,6 +464,40 @@
             </div>
           </section>
         </div>
+      </div>
+      <div id="round-overlay" class="round-overlay" data-visible="false">
+        <section class="round-card">
+          <div class="round-header">
+            <h2 id="round-title">Round Complete</h2>
+            <p id="round-subtitle">Tallying the haul...</p>
+          </div>
+          <div id="summary-grid" class="summary-grid"></div>
+          <div class="summary-stats">
+            <div class="summary-stat">
+              <div class="summary-stat-label">Blocks mined</div>
+              <div id="summary-blocks">0</div>
+            </div>
+            <div class="summary-stat">
+              <div class="summary-stat-label">Items collected</div>
+              <div id="summary-items">0</div>
+            </div>
+            <div class="summary-stat">
+              <div class="summary-stat-label">Round</div>
+              <div id="summary-round">1</div>
+            </div>
+          </div>
+          <div class="summary-total">
+            <span>Round earnings</span>
+            <strong id="summary-earnings">0€</strong>
+          </div>
+          <div class="summary-total">
+            <span>Total bank</span>
+            <strong id="summary-bank">0€</strong>
+          </div>
+          <div class="summary-actions">
+            <button id="next-round-button" type="button">Start Next Round</button>
+          </div>
+        </section>
       </div>
     </section>
   </main>

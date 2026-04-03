@@ -2,6 +2,7 @@ const DEFAULT_GAIN = {
   footsteps: 0.18,
   miningHit: 0.22,
   blockBreak: 0.26,
+  coin: 0.22,
   music: 0.12,
 };
 
