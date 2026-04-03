@@ -70,12 +70,21 @@ export class AudioManager {
     source.start();
   }
 
-  startMusic() {
+  stopMusic() {
+    if (!this.musicSource) {
+      return;
+    }
+
+    this.musicSource.stop();
+    this.musicSource = null;
+  }
+
+  startMusic(id = "music") {
     if (!this.ready || this.context.state !== "running" || this.musicSource) {
       return;
     }
 
-    const buffer = this.buffers.get("music");
+    const buffer = this.buffers.get(id);
     if (!buffer) {
       return;
     }

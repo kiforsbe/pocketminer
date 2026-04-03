@@ -68,6 +68,13 @@ export class Renderer {
     this.terrainDirty = true;
   }
 
+  screenToWorld(screenX, screenY) {
+    return {
+      x: this.camera.x + screenX,
+      y: this.camera.y + screenY,
+    };
+  }
+
   updateCamera(player) {
     const targetX = player.x - this.viewport.width * 0.5 + player.width * 0.5;
     const targetY = player.y - this.viewport.height * 0.58 + player.height * 0.5;
@@ -75,7 +82,7 @@ export class Renderer {
     this.camera.y = Math.max(0, Math.min(targetY, this.world.pixelHeight - this.viewport.height));
   }
 
-  render({ player, world, inventory, miningResult, statusText, audioReady }) {
+  render({ player, world, inventory, miningResult, hoverTarget, statusText, audioReady }) {
     if (this.terrainDirty) {
       this.#redrawTerrain(world);
     }
@@ -96,7 +103,7 @@ export class Renderer {
       this.viewport.height,
     );
 
-    this.#drawMiningHighlight(miningResult);
+    this.#drawMiningHighlight(hoverTarget, miningResult);
     this.#drawPlayer(player);
     this.#drawDepthMeter(player);
     this.#drawHud(inventory, statusText, audioReady);
@@ -161,20 +168,21 @@ export class Renderer {
     context.fillRect(x, y, TILE_SIZE, TILE_SIZE);
   }
 
-  #drawMiningHighlight(miningResult) {
-    if (!miningResult?.target) {
+  #drawMiningHighlight(hoverTarget, miningResult) {
+    const target = miningResult?.target ?? hoverTarget;
+    if (!target) {
       return;
     }
 
-    const { column, row } = miningResult.target;
+    const { column, row } = target;
     const tile = this.world.getTile(column, row);
     const x = column * TILE_SIZE - this.camera.x;
     const y = row * TILE_SIZE - this.camera.y;
-    this.ctx.strokeStyle = "rgba(255, 228, 156, 0.9)";
+    this.ctx.strokeStyle = miningResult?.target ? "rgba(255, 228, 156, 0.9)" : "rgba(136, 185, 216, 0.8)";
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
 
-    if (tile?.solid && tile.breakRatio > 0) {
+    if (miningResult?.target && tile?.solid && tile.breakRatio > 0) {
       this.ctx.fillStyle = "rgba(8, 12, 18, 0.78)";
       this.ctx.fillRect(x + 4, y + TILE_SIZE - 8, TILE_SIZE - 8, 5);
       this.ctx.fillStyle = "#e2a94b";

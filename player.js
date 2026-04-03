@@ -8,6 +8,7 @@ const JUMP_SPEED = 460;
 const MAX_FALL_SPEED = 920;
 const MINING_POWER = 38;
 const FOOTSTEP_DISTANCE = 56;
+const MINING_RANGE_TILES = 3;
 
 const ANIMATION_SETS = {
   idle: { start: 0, frames: 4, fps: 5 },
@@ -63,10 +64,15 @@ export class Player {
     this.grounded = false;
     this.#resolveVertical(world);
 
+    const hoverTarget = this.getMiningTarget(world, input.getPointerWorld?.(this.rendererContext));
     const mining = input.isDown("mine");
-    if (mining) {
+    if (hoverTarget) {
+      this.facing = hoverTarget.column * TILE_SIZE + TILE_SIZE * 0.5 >= this.getCenter().x ? 1 : -1;
+    }
+
+    if (mining && hoverTarget) {
       this.animation = "mining";
-      this.currentMiningTarget = this.getMiningTarget(world);
+      this.currentMiningTarget = hoverTarget;
     } else if (Math.abs(this.vx) > 1 && this.grounded) {
       this.animation = "walk";
       this.currentMiningTarget = null;
@@ -82,30 +88,35 @@ export class Player {
     }
 
     this.animationTime += dt;
+    return hoverTarget;
   }
 
-  getMiningTarget(world) {
-    const originX = this.facing > 0 ? this.x + this.width + 6 : this.x - 6;
-    const probeRows = [
-      this.y + this.height * 0.38,
-      this.y + this.height * 0.68,
-      this.y + this.height * 0.92,
-    ];
-
-    for (const probeY of probeRows) {
-      const column = Math.floor(originX / TILE_SIZE);
-      const row = Math.floor(probeY / TILE_SIZE);
-      const tile = world.getTile(column, row);
-      if (tile?.solid) {
-        return { column, row, tile };
-      }
+  getMiningTarget(world, pointerWorld) {
+    if (!pointerWorld) {
+      return null;
     }
 
-    return null;
+    const column = Math.floor(pointerWorld.x / TILE_SIZE);
+    const row = Math.floor(pointerWorld.y / TILE_SIZE);
+    const tile = world.getTile(column, row);
+    if (!tile?.solid) {
+      return null;
+    }
+
+    const playerCenter = this.getCenter();
+    const tileCenterX = column * TILE_SIZE + TILE_SIZE * 0.5;
+    const tileCenterY = row * TILE_SIZE + TILE_SIZE * 0.5;
+    const reach = MINING_RANGE_TILES * TILE_SIZE;
+    const distance = Math.hypot(tileCenterX - playerCenter.x, tileCenterY - playerCenter.y);
+    if (distance > reach) {
+      return null;
+    }
+
+    return { column, row, tile, distance };
   }
 
   mine(dt, world) {
-    const target = this.currentMiningTarget ?? this.getMiningTarget(world);
+    const target = this.currentMiningTarget;
 
     if (!target) {
       return { active: false, hit: false, broken: false, resource: null, target: null };
@@ -114,6 +125,10 @@ export class Player {
     this.currentMiningTarget = target;
     const result = world.damageTile(target.column, target.row, MINING_POWER * dt);
     return { active: true, target, ...result };
+  }
+
+  setRendererContext(renderer) {
+    this.rendererContext = renderer;
   }
 
   consumeFootstep() {

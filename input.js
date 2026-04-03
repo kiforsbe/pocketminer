@@ -1,10 +1,19 @@
 export class Input {
-  constructor(target = window) {
-    this.target = target;
+  constructor({ keyboardTarget = window, pointerTarget = window } = {}) {
+    this.keyboardTarget = keyboardTarget;
+    this.pointerTarget = pointerTarget;
     this.keysDown = new Set();
     this.keysPressed = new Set();
+    this.pointer = {
+      x: 0,
+      y: 0,
+      active: false,
+    };
     this.onKeyDown = (event) => this.#handleKeyDown(event);
     this.onKeyUp = (event) => this.#handleKeyUp(event);
+    this.onPointerMove = (event) => this.#handlePointerMove(event);
+    this.onPointerEnter = (event) => this.#handlePointerEnter(event);
+    this.onPointerLeave = () => this.#handlePointerLeave();
     this.bindings = {
       left: ["KeyA", "ArrowLeft"],
       right: ["KeyD", "ArrowRight"],
@@ -12,8 +21,11 @@ export class Input {
       mine: ["KeyE", "Space"],
     };
 
-    this.target.addEventListener("keydown", this.onKeyDown);
-    this.target.addEventListener("keyup", this.onKeyUp);
+    this.keyboardTarget.addEventListener("keydown", this.onKeyDown);
+    this.keyboardTarget.addEventListener("keyup", this.onKeyUp);
+    this.pointerTarget.addEventListener("pointermove", this.onPointerMove);
+    this.pointerTarget.addEventListener("pointerenter", this.onPointerEnter);
+    this.pointerTarget.addEventListener("pointerleave", this.onPointerLeave);
   }
 
   #handleKeyDown(event) {
@@ -32,6 +44,21 @@ export class Input {
     this.keysDown.delete(event.code);
   }
 
+  #handlePointerMove(event) {
+    const rect = this.pointerTarget.getBoundingClientRect();
+    this.pointer.x = event.clientX - rect.left;
+    this.pointer.y = event.clientY - rect.top;
+    this.pointer.active = true;
+  }
+
+  #handlePointerEnter(event) {
+    this.#handlePointerMove(event);
+  }
+
+  #handlePointerLeave() {
+    this.pointer.active = false;
+  }
+
   isDown(action) {
     return this.bindings[action]?.some((code) => this.keysDown.has(code)) ?? false;
   }
@@ -44,8 +71,19 @@ export class Input {
     this.keysPressed.clear();
   }
 
+  getPointerWorld(renderer) {
+    if (!this.pointer.active) {
+      return null;
+    }
+
+    return renderer.screenToWorld(this.pointer.x, this.pointer.y);
+  }
+
   destroy() {
-    this.target.removeEventListener("keydown", this.onKeyDown);
-    this.target.removeEventListener("keyup", this.onKeyUp);
+    this.keyboardTarget.removeEventListener("keydown", this.onKeyDown);
+    this.keyboardTarget.removeEventListener("keyup", this.onKeyUp);
+    this.pointerTarget.removeEventListener("pointermove", this.onPointerMove);
+    this.pointerTarget.removeEventListener("pointerenter", this.onPointerEnter);
+    this.pointerTarget.removeEventListener("pointerleave", this.onPointerLeave);
   }
 }

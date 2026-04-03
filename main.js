@@ -8,18 +8,22 @@ const AUDIO_MANIFEST = [
   { id: "footsteps", src: "./assets/footstep.wav" },
   { id: "miningHit", src: "./assets/mining-hit.wav" },
   { id: "blockBreak", src: "./assets/block-break.wav" },
-  { id: "music", src: "./assets/music-loop.wav" },
+  { id: "music-hearth", src: "./assets/Underground_Hearth.mp3" },
+  { id: "music-waltz", src: "./assets/Pickaxe_Waltz.mp3" },
 ];
+
+const LEVEL_MUSIC_IDS = ["music-hearth", "music-waltz"];
 
 const canvas = document.getElementById("game");
 const statusText = document.getElementById("status-text");
 
 const world = new World();
-const input = new Input(window);
+const input = new Input({ keyboardTarget: window, pointerTarget: canvas });
 const spawn = world.getSpawnPosition();
 const player = new Player(spawn);
 const renderer = new Renderer(canvas, world);
 const audio = new AudioManager();
+player.setRendererContext(renderer);
 
 const gameState = {
   inventory: {
@@ -27,9 +31,11 @@ const gameState = {
     iron: 0,
   },
   miningResult: null,
+  hoverTarget: null,
   statusText: "Wake the camp, then start digging.",
   audioReady: false,
   lastMiningSoundAt: 0,
+  levelMusicId: LEVEL_MUSIC_IDS[Math.floor(Math.random() * LEVEL_MUSIC_IDS.length)],
 };
 
 let lastTime = performance.now();
@@ -50,7 +56,7 @@ async function bootstrap() {
 function attachAudioUnlock() {
   const unlock = async () => {
     await audio.unlock();
-    audio.startMusic();
+    audio.startMusic(gameState.levelMusicId);
     gameState.audioReady = true;
     gameState.statusText = "Audio online. Follow the ore veins downward.";
     window.removeEventListener("pointerdown", unlock);
@@ -72,7 +78,7 @@ function frame(now) {
 }
 
 function update(dt, timeSeconds) {
-  player.update(dt, input, world);
+  gameState.hoverTarget = player.update(dt, input, world);
   gameState.miningResult = null;
 
   if (input.isDown("mine")) {
@@ -108,6 +114,7 @@ function render() {
     world,
     inventory: gameState.inventory,
     miningResult: gameState.miningResult,
+    hoverTarget: gameState.hoverTarget,
     statusText: gameState.statusText,
     audioReady: gameState.audioReady,
   });
