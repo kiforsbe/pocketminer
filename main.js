@@ -421,7 +421,7 @@ function endRound() {
       displayedCount: 0,
       displayedValue: 0,
     }))
-    .sort((left, right) => right.value - left.value);
+    .sort((left, right) => left.value - right.value);
 
   const totalItems = oreEntries.reduce((sum, entry) => sum + entry.count, 0);
   gameState.summary = {
