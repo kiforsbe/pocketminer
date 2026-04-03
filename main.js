@@ -8,11 +8,17 @@ const AUDIO_MANIFEST = [
   { id: "footsteps", src: "./assets/footstep.wav" },
   { id: "miningHit", src: "./assets/mining-hit.wav" },
   { id: "blockBreak", src: "./assets/block-break.wav" },
+  { id: "orePop", src: "./assets/ore-pop.wav" },
   { id: "music-hearth", src: "./assets/Underground_Hearth.mp3" },
   { id: "music-waltz", src: "./assets/Pickaxe_Waltz.mp3" },
 ];
 
 const LEVEL_MUSIC_IDS = ["music-hearth", "music-waltz"];
+const PARTICLE_GRAVITY = 820;
+const ORE_PARTICLE_COLORS = {
+  coal: { color: "#2f2a33", glow: "rgba(230, 204, 126, 0.35)" },
+  iron: { color: "#cf7449", glow: "rgba(255, 211, 148, 0.45)" },
+};
 
 const canvas = document.getElementById("game");
 const statusText = document.getElementById("status-text");
@@ -36,6 +42,7 @@ const gameState = {
   audioReady: false,
   lastMiningSoundAt: 0,
   levelMusicId: LEVEL_MUSIC_IDS[Math.floor(Math.random() * LEVEL_MUSIC_IDS.length)],
+  particles: [],
 };
 
 let lastTime = performance.now();
@@ -80,6 +87,7 @@ function frame(now) {
 function update(dt, timeSeconds) {
   gameState.hoverTarget = player.update(dt, input, world);
   gameState.miningResult = null;
+  updateParticles(dt);
 
   if (input.isDown("mine")) {
     const miningResult = player.mine(dt, world);
@@ -94,6 +102,8 @@ function update(dt, timeSeconds) {
         if (miningResult.resource) {
           gameState.inventory[miningResult.resource] += 1;
           gameState.statusText = `Collected ${miningResult.resource}. Keep tunneling.`;
+          spawnOreChunks(miningResult);
+          audio.playSound("orePop", { playbackRate: 0.94 + Math.random() * 0.14, volume: 0.3 });
         } else {
           gameState.statusText = "Rock cleared. Keep going.";
         }
@@ -115,9 +125,52 @@ function render() {
     inventory: gameState.inventory,
     miningResult: gameState.miningResult,
     hoverTarget: gameState.hoverTarget,
+    particles: gameState.particles,
     statusText: gameState.statusText,
     audioReady: gameState.audioReady,
   });
+}
+
+function spawnOreChunks(miningResult) {
+  const palette = ORE_PARTICLE_COLORS[miningResult.resource];
+  if (!palette) {
+    return;
+  }
+
+  const originX = miningResult.column * 32 + 16;
+  const originY = miningResult.row * 32 + 16;
+  const direction = player.getCenter().x <= originX ? 1 : -1;
+  const count = 7 + Math.floor(Math.random() * 3);
+
+  for (let index = 0; index < count; index += 1) {
+    gameState.particles.push({
+      x: originX + (Math.random() - 0.5) * 10,
+      y: originY + (Math.random() - 0.5) * 8,
+      vx: direction * (120 + Math.random() * 90) + (Math.random() - 0.5) * 45,
+      vy: -(110 + Math.random() * 120),
+      size: 6 + Math.random() * 5,
+      color: palette.color,
+      glow: palette.glow,
+      rotation: Math.random() * Math.PI * 2,
+      angularVelocity: (Math.random() - 0.5) * 9,
+      life: 0.55 + Math.random() * 0.3,
+      maxLife: 0.55 + Math.random() * 0.3,
+    });
+  }
+}
+
+function updateParticles(dt) {
+  gameState.particles = gameState.particles
+    .map((particle) => {
+      const nextParticle = { ...particle };
+      nextParticle.life -= dt;
+      nextParticle.vy += PARTICLE_GRAVITY * dt;
+      nextParticle.x += nextParticle.vx * dt;
+      nextParticle.y += nextParticle.vy * dt;
+      nextParticle.rotation += nextParticle.angularVelocity * dt;
+      return nextParticle;
+    })
+    .filter((particle) => particle.life > 0);
 }
 
 bootstrap().catch((error) => {

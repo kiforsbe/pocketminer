@@ -82,7 +82,7 @@ export class Renderer {
     this.camera.y = Math.max(0, Math.min(targetY, this.world.pixelHeight - this.viewport.height));
   }
 
-  render({ player, world, inventory, miningResult, hoverTarget, statusText, audioReady }) {
+  render({ player, world, inventory, miningResult, hoverTarget, particles, statusText, audioReady }) {
     if (this.terrainDirty) {
       this.#redrawTerrain(world);
     }
@@ -104,6 +104,7 @@ export class Renderer {
     );
 
     this.#drawMiningHighlight(hoverTarget, miningResult);
+    this.#drawParticles(particles);
     this.#drawPlayer(player);
     this.#drawDepthMeter(player);
     this.#drawHud(inventory, statusText, audioReady);
@@ -204,6 +205,28 @@ export class Renderer {
       this.#blitPlayerFrame(frame, drawX, drawY);
     }
     this.ctx.restore();
+  }
+
+  #drawParticles(particles = []) {
+    for (const particle of particles) {
+      const x = particle.x - this.camera.x;
+      const y = particle.y - this.camera.y;
+      if (x < -24 || y < -24 || x > this.viewport.width + 24 || y > this.viewport.height + 24) {
+        continue;
+      }
+
+      this.ctx.save();
+      this.ctx.translate(x, y);
+      this.ctx.rotate(particle.rotation);
+      this.ctx.globalAlpha = Math.max(0, particle.life / particle.maxLife);
+      this.ctx.fillStyle = particle.glow;
+      this.ctx.beginPath();
+      this.ctx.arc(0, 0, particle.size * 0.75, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = particle.color;
+      this.ctx.fillRect(-particle.size * 0.5, -particle.size * 0.5, particle.size, particle.size);
+      this.ctx.restore();
+    }
   }
 
   #blitPlayerFrame(frame, x, y) {

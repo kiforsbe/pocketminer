@@ -8,12 +8,15 @@ export class Input {
       x: 0,
       y: 0,
       active: false,
+      buttonsDown: new Set(),
     };
     this.onKeyDown = (event) => this.#handleKeyDown(event);
     this.onKeyUp = (event) => this.#handleKeyUp(event);
     this.onPointerMove = (event) => this.#handlePointerMove(event);
     this.onPointerEnter = (event) => this.#handlePointerEnter(event);
     this.onPointerLeave = () => this.#handlePointerLeave();
+    this.onPointerDown = (event) => this.#handlePointerDown(event);
+    this.onPointerUp = (event) => this.#handlePointerUp(event);
     this.bindings = {
       left: ["KeyA", "ArrowLeft"],
       right: ["KeyD", "ArrowRight"],
@@ -26,6 +29,8 @@ export class Input {
     this.pointerTarget.addEventListener("pointermove", this.onPointerMove);
     this.pointerTarget.addEventListener("pointerenter", this.onPointerEnter);
     this.pointerTarget.addEventListener("pointerleave", this.onPointerLeave);
+    this.pointerTarget.addEventListener("pointerdown", this.onPointerDown);
+    this.pointerTarget.addEventListener("pointerup", this.onPointerUp);
   }
 
   #handleKeyDown(event) {
@@ -57,10 +62,25 @@ export class Input {
 
   #handlePointerLeave() {
     this.pointer.active = false;
+    this.pointer.buttonsDown.clear();
+  }
+
+  #handlePointerDown(event) {
+    this.#handlePointerMove(event);
+    this.pointer.buttonsDown.add(event.button);
+  }
+
+  #handlePointerUp(event) {
+    this.pointer.buttonsDown.delete(event.button);
   }
 
   isDown(action) {
-    return this.bindings[action]?.some((code) => this.keysDown.has(code)) ?? false;
+    const keyboardMatch = this.bindings[action]?.some((code) => this.keysDown.has(code)) ?? false;
+    if (action === "mine") {
+      return keyboardMatch || this.pointer.buttonsDown.has(0);
+    }
+
+    return keyboardMatch;
   }
 
   wasPressed(action) {
@@ -85,5 +105,7 @@ export class Input {
     this.pointerTarget.removeEventListener("pointermove", this.onPointerMove);
     this.pointerTarget.removeEventListener("pointerenter", this.onPointerEnter);
     this.pointerTarget.removeEventListener("pointerleave", this.onPointerLeave);
+    this.pointerTarget.removeEventListener("pointerdown", this.onPointerDown);
+    this.pointerTarget.removeEventListener("pointerup", this.onPointerUp);
   }
 }
