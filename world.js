@@ -15,6 +15,12 @@ const STRATA = Object.freeze([
   {
     name: "Topsoil Vein",
     bgmTrack: "Morning_Shift_at_the_Quarry",
+    skyTheme: Object.freeze({
+      name: "earth",
+      horizon: "#5c6c46",
+      depth: "#2c3522",
+      glow: "#8f855c",
+    }),
     maxDepth: 18,
     base: [
       { type: TILE_TYPES.DIRT, weight: 0.74 },
@@ -37,6 +43,12 @@ const STRATA = Object.freeze([
   {
     name: "Shale Shelf",
     bgmTrack: "Vein_of_Obsidian",
+    skyTheme: Object.freeze({
+      name: "stone",
+      horizon: "#536170",
+      depth: "#252f39",
+      glow: "#788897",
+    }),
     maxDepth: 52,
     base: [
       { type: TILE_TYPES.STONE, weight: 0.46 },
@@ -62,6 +74,12 @@ const STRATA = Object.freeze([
   {
     name: "Basalt Forge",
     bgmTrack: "Crucible_of_the_Deep",
+    skyTheme: Object.freeze({
+      name: "forge",
+      horizon: "#8b472e",
+      depth: "#341711",
+      glow: "#b2764e",
+    }),
     maxDepth: 108,
     base: [
       { type: TILE_TYPES.SHALE, weight: 0.26 },
@@ -87,6 +105,12 @@ const STRATA = Object.freeze([
   {
     name: "Abyssal Crown",
     bgmTrack: "Iron_Throat",
+    skyTheme: Object.freeze({
+      name: "fire",
+      horizon: "#7f301b",
+      depth: "#220907",
+      glow: "#9b5a30",
+    }),
     maxDepth: Infinity,
     base: [
       { type: TILE_TYPES.BASALT, weight: 0.5 },
