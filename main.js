@@ -193,6 +193,7 @@ const cheatCodeController = createCheatCodeController({
   audio,
   gameState,
   input,
+  createInventoryForLoadout,
   syncPlayerBonuses,
   showRoundNotification,
 });

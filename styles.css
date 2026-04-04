@@ -576,7 +576,7 @@
 
     .summary-grid {
       display: grid;
-      gap: 12px;
+      gap: 6px;
       margin-top: 14px;
     }
 
