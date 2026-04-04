@@ -189,6 +189,7 @@ export class Tile {
     this.definition = definition;
     this.maxHp = definition.hp;
     this.hp = definition.hp;
+    this.surfaceTreatment = null;
     return this;
   }
 

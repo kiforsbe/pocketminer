@@ -151,7 +151,17 @@ export class World {
 
     this.#carveStarterPocket(grid);
     this.#placeChests(grid);
+    this.#assignSurfaceTreatments(grid);
     return grid;
+  }
+
+  #assignSurfaceTreatments(grid) {
+    for (let row = 0; row < this.rows; row += 1) {
+      for (let column = 0; column < this.columns; column += 1) {
+        const tile = grid[row][column];
+        tile.surfaceTreatment = this.#getSurfaceTreatmentForGrid(grid, tile, column, row);
+      }
+    }
   }
 
   #placeChests(grid) {
@@ -361,6 +371,72 @@ export class World {
 
     const normalizedRoll = (this.random() + this.random() + this.random()) / 3;
     return 1 + Math.round(normalizedRoll * (maxCount - 1));
+  }
+
+  #getSurfaceTreatmentForGrid(grid, tile, column, row) {
+    if (!tile?.solid || tile.type === TILE_TYPES.CHEST) {
+      return null;
+    }
+
+    const tileAbove = this.#getGridTile(grid, column, row - 1);
+    if (tileAbove?.solid) {
+      return null;
+    }
+
+    if (!this.#hasSolidNeighborsAroundAirInGrid(grid, column, row - 1)) {
+      return "grass";
+    }
+
+    if (tile.type === TILE_TYPES.DIRT) {
+      return "moss";
+    }
+
+    return this.#hasRockCeilingAboveInGrid(grid, column, row - 1) ? "rock-spires" : "rock";
+  }
+
+  #hasSolidNeighborsAroundAirInGrid(grid, column, row) {
+    for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) {
+      for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) {
+        if (columnOffset === 0 && rowOffset === 0) {
+          continue;
+        }
+
+        if (columnOffset === 0 && rowOffset === 1) {
+          continue;
+        }
+
+        if (this.#getGridTile(grid, column + columnOffset, row + rowOffset)?.solid) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  #hasRockCeilingAboveInGrid(grid, column, row) {
+    for (let scanRow = row - 1; scanRow >= 0; scanRow -= 1) {
+      const tile = this.#getGridTile(grid, column, scanRow);
+      if (!tile?.solid) {
+        continue;
+      }
+
+      return this.#isRockLikeTile(tile);
+    }
+
+    return false;
+  }
+
+  #isRockLikeTile(tile) {
+    return Boolean(tile?.solid && tile.type !== TILE_TYPES.DIRT && tile.type !== TILE_TYPES.CHEST);
+  }
+
+  #getGridTile(grid, column, row) {
+    if (column < 0 || column >= this.columns || row < 0 || row >= this.rows) {
+      return null;
+    }
+
+    return grid[row][column];
   }
 
   #getMaxChestsForDepthRange(minDepth, maxPlacementDepth) {
