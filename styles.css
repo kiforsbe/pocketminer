@@ -89,6 +89,16 @@
       max-width: min(44vw, 560px);
       pointer-events: none;
       opacity: 1;
+      isolation: isolate;
+    }
+
+    .bonus-stats::before {
+      content: "";
+      position: absolute;
+      inset: -10px -16px;
+      background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.36) 0%, rgba(0, 0, 0, 0.21) 42%, rgba(0, 0, 0, 0) 74%);
+      z-index: -1;
+      pointer-events: none;
     }
 
     .bonus-stat {
@@ -111,6 +121,16 @@
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: rgba(136, 185, 216, 0.88);
+      text-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.45),
+        1px 0 0 rgba(6, 10, 16, 0.78),
+        -1px 0 0 rgba(6, 10, 16, 0.78),
+        0 1px 0 rgba(6, 10, 16, 0.78),
+        0 -1px 0 rgba(6, 10, 16, 0.78),
+        1px 1px 0 rgba(6, 10, 16, 0.62),
+        -1px 1px 0 rgba(6, 10, 16, 0.62),
+        1px -1px 0 rgba(6, 10, 16, 0.62),
+        -1px -1px 0 rgba(6, 10, 16, 0.62);
     }
 
     .bonus-stat-value {
@@ -121,10 +141,14 @@
       font-variant-numeric: tabular-nums;
       text-shadow:
         0 2px 8px rgba(0, 0, 0, 0.45),
-        1px 0 0 rgba(6, 10, 16, 0.72),
-        -1px 0 0 rgba(6, 10, 16, 0.72),
-        0 1px 0 rgba(6, 10, 16, 0.72),
-        0 -1px 0 rgba(6, 10, 16, 0.72);
+        1px 0 0 rgba(6, 10, 16, 0.82),
+        -1px 0 0 rgba(6, 10, 16, 0.82),
+        0 1px 0 rgba(6, 10, 16, 0.82),
+        0 -1px 0 rgba(6, 10, 16, 0.82),
+        1px 1px 0 rgba(6, 10, 16, 0.68),
+        -1px 1px 0 rgba(6, 10, 16, 0.68),
+        1px -1px 0 rgba(6, 10, 16, 0.68),
+        -1px -1px 0 rgba(6, 10, 16, 0.68);
     }
 
     .top-stack {
@@ -197,10 +221,15 @@
       gap: 2px;
       text-shadow:
         0 2px 8px rgba(0, 0, 0, 0.45),
-        1px 0 0 rgba(6, 10, 16, 0.72),
-        -1px 0 0 rgba(6, 10, 16, 0.72),
-        0 1px 0 rgba(6, 10, 16, 0.72),
-        0 -1px 0 rgba(6, 10, 16, 0.72);
+        1px 0 0 rgba(6, 10, 16, 0.82),
+        -1px 0 0 rgba(6, 10, 16, 0.82),
+        0 1px 0 rgba(6, 10, 16, 0.82),
+        0 -1px 0 rgba(6, 10, 16, 0.82),
+        1px 1px 0 rgba(6, 10, 16, 0.68),
+        -1px 1px 0 rgba(6, 10, 16, 0.68),
+        1px -1px 0 rgba(6, 10, 16, 0.68),
+        -1px -1px 0 rgba(6, 10, 16, 0.68);
+      isolation: isolate;
     }
 
     .round-readout {
@@ -214,10 +243,29 @@
       text-align: right;
       text-shadow:
         0 2px 8px rgba(0, 0, 0, 0.45),
-        1px 0 0 rgba(6, 10, 16, 0.72),
-        -1px 0 0 rgba(6, 10, 16, 0.72),
-        0 1px 0 rgba(6, 10, 16, 0.72),
-        0 -1px 0 rgba(6, 10, 16, 0.72);
+        1px 0 0 rgba(6, 10, 16, 0.82),
+        -1px 0 0 rgba(6, 10, 16, 0.82),
+        0 1px 0 rgba(6, 10, 16, 0.82),
+        0 -1px 0 rgba(6, 10, 16, 0.82),
+        1px 1px 0 rgba(6, 10, 16, 0.68),
+        -1px 1px 0 rgba(6, 10, 16, 0.68),
+        1px -1px 0 rgba(6, 10, 16, 0.68),
+        -1px -1px 0 rgba(6, 10, 16, 0.68);
+      isolation: isolate;
+    }
+
+    .bank-readout::before,
+    .round-readout::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: calc(100% + 34px);
+      height: calc(100% + 18px);
+      transform: translate(-50%, -50%);
+      background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.19) 45%, rgba(0, 0, 0, 0) 76%);
+      z-index: -1;
+      pointer-events: none;
     }
 
     .bank-value {
