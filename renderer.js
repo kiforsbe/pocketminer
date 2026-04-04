@@ -873,7 +873,6 @@ export class Renderer {
   #drawSurveyPanel(player, target) {
     const stratumNameEl = document.getElementById("stratum-name");
     const stratumDepthEl = document.getElementById("stratum-depth");
-    const stratumChestsEl = document.getElementById("stratum-chests");
     const stratumCoreSwatchesEl = document.getElementById("stratum-core-swatches");
     const stratumBonusSwatchesEl = document.getElementById("stratum-bonus-swatches");
     const blockNameEl = document.getElementById("block-name");
@@ -892,11 +891,6 @@ export class Renderer {
 
     if (stratumDepthEl) {
       stratumDepthEl.textContent = `Depth ${stratum.depth}m`;
-    }
-
-    if (stratumChestsEl) {
-      const chestStats = this.world.getChestStatsForStratum(stratum.index);
-      stratumChestsEl.textContent = `Chests ${chestStats.spawned} / ${chestStats.max}`;
     }
 
     if (stratumCoreSwatchesEl) {

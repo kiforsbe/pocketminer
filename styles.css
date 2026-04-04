@@ -1023,9 +1023,18 @@
       min-width: 176px;
       padding: 16px 16px 14px;
       border-radius: 16px;
+      backdrop-filter: blur(12px);
+    }
+
+    .hud {
+      background: rgba(9, 16, 28, 0.58);
+      border: 1px solid rgba(164, 197, 220, 0.1);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+    }
+
+    .status-card {
       background: var(--panel);
       border: 1px solid var(--panel-border);
-      backdrop-filter: blur(12px);
       box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
     }
 
@@ -1055,13 +1064,13 @@
       font-weight: 700;
       letter-spacing: 0.09em;
       text-transform: uppercase;
-      color: rgba(136, 185, 216, 0.96);
+      color: rgba(136, 185, 216, 0.74);
       line-height: 1;
     }
 
     .survey-section + .survey-section {
       padding-top: 12px;
-      border-top: 1px solid rgba(136, 185, 216, 0.14);
+      border-top: 1px solid rgba(136, 185, 216, 0.08);
     }
 
     .survey-row {
@@ -1075,8 +1084,8 @@
       width: 36px;
       height: 36px;
       border-radius: 8px;
-      border: 1px solid rgba(242, 237, 227, 0.12);
-      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(242, 237, 227, 0.07);
+      background: rgba(255, 255, 255, 0.02);
       image-rendering: pixelated;
       image-rendering: crisp-edges;
     }
@@ -1098,20 +1107,20 @@
     #block-name {
       font-size: 0.98rem;
       font-weight: 600;
-      color: var(--text);
+      color: rgba(242, 237, 227, 0.82);
     }
 
     #stratum-depth,
     #block-type {
       font-size: 0.92rem;
-      color: rgba(242, 237, 227, 0.82);
+      color: rgba(242, 237, 227, 0.6);
     }
 
     .survey-subheading {
       font-size: 0.78rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      color: rgba(136, 185, 216, 0.88);
+      color: rgba(136, 185, 216, 0.68);
     }
 
     .ore-swatches {
@@ -1137,11 +1146,11 @@
       gap: 4px;
       padding: 2px 5px 2px 3px;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
       font-size: 0.7rem;
       line-height: 1;
-      color: rgba(242, 237, 227, 0.9);
+      color: rgba(242, 237, 227, 0.72);
       max-width: 100%;
     }
 
@@ -1167,7 +1176,7 @@
     }
 
     .compact-stat-label {
-      color: rgba(136, 185, 216, 0.86);
+      color: rgba(136, 185, 216, 0.64);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       font-size: 0.68rem;
@@ -1176,6 +1185,7 @@
     .compact-stat-value {
       min-width: 0;
       overflow-wrap: anywhere;
+      color: rgba(242, 237, 227, 0.76);
     }
 
     @media (max-width: 720px) {
