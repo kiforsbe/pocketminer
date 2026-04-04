@@ -1,5 +1,7 @@
 # Pocket Miner
 
+![Pocket Miner logo](assets/title.png)
+
 Pocket Miner is a browser-based mining game built as a static HTML/CSS/JavaScript project. It does not require a build step, backend, or package install to run.
 
 ## How To Play
