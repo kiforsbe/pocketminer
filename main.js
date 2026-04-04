@@ -642,10 +642,10 @@ function populateSummaryOverlay() {
 
   updateSummaryActionState();
   summaryGrid.replaceChildren();
-  roundTitle.textContent = `Round ${gameState.round} Complete`;
+  roundTitle.textContent = `Shift ${gameState.round} Complete`;
   roundSubtitle.textContent = gameState.summary.entries.length
     ? "Counting your haul..."
-    : "No ore banked this round.";
+    : "No ore banked this shift.";
   summaryBlocks.textContent = String(gameState.summary.blocksMined);
   summaryItems.textContent = String(gameState.summary.totalItems);
   summaryRound.textContent = String(gameState.round);
@@ -865,7 +865,7 @@ function populateStoreOverlay() {
   const roundDuration = getRoundDuration();
   storeBank.textContent = `${gameState.bank}€`;
   storeMode.textContent = mode.label;
-  storeCurrentTool.textContent = `${currentTool.label} (${currentTool.miningPower} power) | ${inventoryCapacity.slotCount} slots x ${inventoryCapacity.stackSize} | ${roundDuration}s rounds`;
+  storeCurrentTool.textContent = `${currentTool.label} (${currentTool.miningPower} power) | ${inventoryCapacity.slotCount} slots x ${inventoryCapacity.stackSize} | ${roundDuration}s shifts`;
   storeGrid.replaceChildren();
 
   const treeRoot = document.createElement("div");
@@ -1162,13 +1162,13 @@ function showStoreTooltip(toolId, state, event) {
     storeTooltipStats.innerHTML = `
       <div>Branch: ${tool.branchLabel}</div>
       <div>Status: Base branch ready</div>
-      <div>Round Length: ${tool.durationSeconds ?? 60}s</div>
+      <div>Shift Length: ${tool.durationSeconds ?? 60}s</div>
     `;
   } else if (tool.category === "time") {
     storeTooltipStats.innerHTML = `
       <div>Branch: ${tool.branchLabel}</div>
       <div>Cost: ${tool.price}€</div>
-      <div>Round Length: ${tool.durationSeconds}s</div>
+      <div>Shift Length: ${tool.durationSeconds}s</div>
       <div>Effect: Longer mining shift</div>
     `;
   } else {
