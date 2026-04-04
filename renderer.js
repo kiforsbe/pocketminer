@@ -34,6 +34,7 @@ export class Renderer {
     this.camera = { x: 0, y: 0 };
     this.pixelRatio = window.devicePixelRatio || 1;
     this.assets = null;
+    this.bonusStatsSignature = "";
     this.resize();
   }
 
@@ -809,27 +810,42 @@ export class Renderer {
       }
     }
 
-    if (bonusStatsEl) {
-      const bonusStats = this.#getBonusStats(roundInfo.bonuses);
-      bonusStatsEl.replaceChildren(...bonusStats.map(({ label, value, active }) => {
-        const statEl = document.createElement("div");
-        statEl.className = "bonus-stat";
-        statEl.setAttribute("data-active", active ? "true" : "false");
-
-        const labelEl = document.createElement("span");
-        labelEl.className = "bonus-stat-label";
-        labelEl.textContent = label;
-
-        const valueEl = document.createElement("strong");
-        valueEl.className = "bonus-stat-value";
-        valueEl.textContent = value;
-
-        statEl.append(labelEl, valueEl);
-        return statEl;
-      }));
-    }
+    this.#drawBonusStats(bonusStatsEl, roundInfo.bonuses);
 
     this.#drawPlatformCooldown(roundInfo.platformCooldown ?? 0);
+  }
+
+  #drawBonusStats(container, bonuses = {}) {
+    if (!container) {
+      return;
+    }
+
+    const bonusStats = this.#getBonusStats(bonuses);
+    const signature = bonusStats
+      .map(({ label, value, active }) => `${label}:${value}:${active ? 1 : 0}`)
+      .join("|");
+
+    if (signature === this.bonusStatsSignature) {
+      return;
+    }
+
+    this.bonusStatsSignature = signature;
+    container.replaceChildren(...bonusStats.map(({ label, value, active }) => {
+      const statEl = document.createElement("div");
+      statEl.className = "bonus-stat";
+      statEl.setAttribute("data-active", active ? "true" : "false");
+
+      const labelEl = document.createElement("span");
+      labelEl.className = "bonus-stat-label";
+      labelEl.textContent = label;
+
+      const valueEl = document.createElement("strong");
+      valueEl.className = "bonus-stat-value";
+      valueEl.textContent = value;
+
+      statEl.append(labelEl, valueEl);
+      return statEl;
+    }));
   }
 
   #getBonusStats(bonuses = {}) {
