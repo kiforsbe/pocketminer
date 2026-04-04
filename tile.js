@@ -1,8 +1,10 @@
 export const TILE_SIZE = 32;
+export const PLATFORM_SURFACE_OFFSET = 0;
 
 export const TILE_TYPES = Object.freeze({
   EMPTY: "empty",
   CHEST: "chest",
+  PLATFORM: "platform",
   DIRT: "dirt",
   STONE: "stone",
   SHALE: "shale",
@@ -48,6 +50,15 @@ export const TILE_DEFINITIONS = Object.freeze({
     fill: "#70491f",
     accent: "#f0c45a",
     pattern: "chest",
+  }),
+  [TILE_TYPES.PLATFORM]: createDefinition({
+    id: 19,
+    hp: 16,
+    sprite: { x: 0, y: 0 },
+    label: "Platform",
+    fill: "#6f5031",
+    accent: "#d7b07b",
+    pattern: "platform",
   }),
   [TILE_TYPES.DIRT]: createDefinition({
     id: 1,

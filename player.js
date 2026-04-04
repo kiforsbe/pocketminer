@@ -1,4 +1,4 @@
-import { TILE_SIZE } from "./tile.js";
+import { PLATFORM_SURFACE_OFFSET, TILE_SIZE } from "./tile.js";
 
 const PLAYER_WIDTH = 22;
 const PLAYER_HEIGHT = 28;
@@ -80,9 +80,10 @@ export class Player {
     this.#clampHorizontal(world);
     const movedX = Math.abs(this.x - previousX);
 
+    const previousY = this.y;
     this.y += this.vy * dt;
     this.grounded = false;
-    this.#resolveVertical(world);
+    this.#resolveVertical(world, previousY);
 
     if (!wasGrounded && this.grounded) {
       this.jumpLockout = JUMP_LAND_DELAY;
@@ -257,7 +258,7 @@ export class Player {
     }
   }
 
-  #resolveVertical(world) {
+  #resolveVertical(world, previousY) {
     if (this.vy === 0) {
       return;
     }
@@ -267,21 +268,31 @@ export class Player {
     const startColumn = Math.floor((this.x + 2) / TILE_SIZE);
     const endColumn = Math.floor((this.x + this.width - 2) / TILE_SIZE);
     const row = Math.floor(checkY / TILE_SIZE);
+    const previousBottom = previousY + this.height;
 
     for (let column = startColumn; column <= endColumn; column += 1) {
-      if (!world.isSolid(column, row)) {
-        continue;
+      if (movingDown && world.isPlatform(column, row)) {
+        const platformY = row * TILE_SIZE + PLATFORM_SURFACE_OFFSET;
+        const currentBottom = this.y + this.height;
+        if (previousBottom <= platformY && currentBottom >= platformY) {
+          this.y = platformY - this.height - 0.01;
+          this.grounded = true;
+          this.vy = 0;
+          break;
+        }
       }
 
-      if (movingDown) {
-        this.y = row * TILE_SIZE - this.height - 0.01;
-        this.grounded = true;
-      } else {
-        this.y = (row + 1) * TILE_SIZE + 0.01;
-      }
+      if (world.isSolid(column, row)) {
+        if (movingDown) {
+          this.y = row * TILE_SIZE - this.height - 0.01;
+          this.grounded = true;
+        } else {
+          this.y = (row + 1) * TILE_SIZE + 0.01;
+        }
 
-      this.vy = 0;
-      break;
+        this.vy = 0;
+        break;
+      }
     }
   }
 

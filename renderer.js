@@ -1,5 +1,5 @@
 import { ITEM_DEFINITIONS } from "./inventory.js";
-import { TILE_DEFINITIONS, TILE_SIZE, TILE_TYPES } from "./tile.js";
+import { PLATFORM_SURFACE_OFFSET, TILE_DEFINITIONS, TILE_SIZE, TILE_TYPES } from "./tile.js";
 
 const VIEWPORT = { width: 1280, height: 720 };
 const PLAYER_FRAME_WIDTH = 32;
@@ -116,10 +116,16 @@ export class Renderer {
 
   #drawVisibleTerrain(world) {
     const bounds = world.getVisibleTileBounds(this.camera, this.viewport.width, this.viewport.height);
+    const platforms = [];
     for (let row = bounds.startRow; row < bounds.endRow; row += 1) {
       for (let column = bounds.startColumn; column < bounds.endColumn; column += 1) {
         const tile = world.getTile(column, row);
         if (!tile || (tile.type === TILE_TYPES.EMPTY && !tile.debrisType)) {
+          continue;
+        }
+
+        if (tile.type === TILE_TYPES.PLATFORM) {
+          platforms.push({ tile, column, row });
           continue;
         }
 
@@ -132,6 +138,10 @@ export class Renderer {
           row,
         );
       }
+    }
+
+    for (const platform of platforms) {
+      this.#drawPlatformTile(platform.tile, platform.column, platform.row);
     }
   }
 
@@ -176,7 +186,7 @@ export class Renderer {
     }
 
     if (tile.debrisType) {
-      this.#drawDebris(context, x, y + TILE_SIZE - 8, tile.debrisType, tile.debrisVariant ?? 0);
+      this.#drawDebris(context, x, this.#getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
     }
 
     if (tile.breakRatio > 0) {
@@ -220,6 +230,16 @@ export class Renderer {
         context.fillStyle = tile.definition.accent;
         context.fillRect(x + 14, y + 13, 4, 8);
         context.fillRect(x + 5, y + 16, 22, 2);
+        break;
+      case "platform":
+        context.fillRect(x + 4, y + 1, 24, 5);
+        context.fillRect(x + 6, y + 6, 20, 2);
+        context.fillStyle = "#4f3720";
+        context.fillRect(x + 8, y + 8, 3, 6);
+        context.fillRect(x + 15, y + 8, 3, 6);
+        context.fillRect(x + 22, y + 8, 3, 6);
+        context.fillStyle = tile.definition.accent;
+        context.fillRect(x + 6, y + 2, 20, 1);
         break;
       case "ore-cluster":
         context.fillRect(x + 6, y + 5, 6, 6);
@@ -284,6 +304,16 @@ export class Renderer {
         context.fillStyle = definition.accent;
         context.fillRect(14 * unit, 13 * unit, 4 * unit, 8 * unit);
         context.fillRect(5 * unit, 16 * unit, 22 * unit, 2 * unit);
+        break;
+      case "platform":
+        context.fillRect(4 * unit, 1 * unit, 24 * unit, 5 * unit);
+        context.fillRect(6 * unit, 6 * unit, 20 * unit, 2 * unit);
+        context.fillStyle = "#4f3720";
+        context.fillRect(8 * unit, 8 * unit, 3 * unit, 6 * unit);
+        context.fillRect(15 * unit, 8 * unit, 3 * unit, 6 * unit);
+        context.fillRect(22 * unit, 8 * unit, 3 * unit, 6 * unit);
+        context.fillStyle = definition.accent;
+        context.fillRect(6 * unit, 2 * unit, 20 * unit, 1 * unit);
         break;
       case "ore-cluster":
         context.fillRect(6 * unit, 5 * unit, 6 * unit, 6 * unit);
@@ -455,6 +485,37 @@ export class Renderer {
     for (const piece of pieces) {
       context.strokeRect(x + piece.x, y + piece.y, piece.w, piece.h);
     }
+  }
+
+  #drawPlatformTile(tile, column, row) {
+    const x = column * TILE_SIZE - this.camera.x;
+    const y = row * TILE_SIZE - this.camera.y;
+
+    this.ctx.fillStyle = tile.definition.fill;
+    this.ctx.fillRect(x + 4, y + 1, 24, 5);
+    this.ctx.fillRect(x + 6, y + 6, 20, 2);
+    this.ctx.fillStyle = "#4f3720";
+    this.ctx.fillRect(x + 8, y + 8, 3, 6);
+    this.ctx.fillRect(x + 15, y + 8, 3, 6);
+    this.ctx.fillRect(x + 22, y + 8, 3, 6);
+    this.ctx.fillStyle = tile.definition.accent;
+    this.ctx.fillRect(x + 6, y + 2, 20, 1);
+
+    if (tile.debrisType) {
+      this.#drawDebris(this.ctx, x, this.#getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
+    }
+
+    if (tile.breakRatio > 0) {
+      this.#drawDamageCracks(this.ctx, x, y, tile.breakRatio);
+    }
+  }
+
+  #getDebrisDrawY(tile, y) {
+    if (tile.type === TILE_TYPES.PLATFORM) {
+      return y;
+    }
+
+    return y + TILE_SIZE - 8;
   }
 
   #drawFallingDebris(fallingDebris = []) {
@@ -707,6 +768,8 @@ export class Renderer {
         toastEl.setAttribute("data-urgent", "false");
       }
     }
+
+    this.#drawPlatformCooldown(roundInfo.platformCooldown ?? 0);
   }
 
   #drawSurveyPanel(player, target) {
@@ -829,6 +892,52 @@ export class Renderer {
       this.ctx.fillStyle = "#f2ede3";
       this.ctx.fillText(String(slot.count), x + slotSize - 15, y + slotSize - 11);
     }
+  }
+
+  #drawPlatformCooldown(cooldownProgress) {
+    const slots = 8;
+    const slotSize = 52;
+    const gap = 8;
+    const totalWidth = slots * slotSize + (slots - 1) * gap;
+    const startX = (this.viewport.width - totalWidth) * 0.5;
+    const startY = this.viewport.height - slotSize - 24;
+    const centerX = startX - 42;
+    const centerY = startY + slotSize * 0.5;
+    const radius = 26;
+    const ready = cooldownProgress <= 0;
+    const remainingArc = Math.max(0, Math.min(1, cooldownProgress));
+
+    this.ctx.save();
+    this.ctx.translate(centerX, centerY);
+    this.ctx.fillStyle = "rgba(10, 16, 28, 0.9)";
+    this.ctx.beginPath();
+    this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.strokeStyle = ready ? "rgba(241, 208, 77, 0.8)" : "rgba(136, 185, 216, 0.5)";
+    this.ctx.lineWidth = 2.5;
+    this.ctx.stroke();
+
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, 0);
+    this.ctx.fillStyle = "rgba(120, 132, 148, 0.4)";
+    this.ctx.arc(-0.0001, -0.0001, radius - 2, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * remainingArc, false);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    this.#drawPlatformClockIcon();
+    this.ctx.restore();
+  }
+
+  #drawPlatformClockIcon() {
+    this.ctx.fillStyle = "#d7b07b";
+    this.ctx.fillRect(-12, 2, 24, 6);
+    this.ctx.fillRect(-10, -1, 20, 3);
+    this.ctx.fillStyle = "#4f3720";
+    this.ctx.fillRect(-9, 8, 3, 5);
+    this.ctx.fillRect(-1, 8, 3, 5);
+    this.ctx.fillRect(7, 8, 3, 5);
+    this.ctx.fillStyle = "rgba(255, 246, 208, 0.75)";
+    this.ctx.fillRect(-10, 0, 20, 1);
   }
 
   #drawHotbarItemIcon(x, y, size, itemId) {

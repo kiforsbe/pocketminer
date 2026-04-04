@@ -9,6 +9,7 @@ export class Input {
       y: 0,
       active: false,
       buttonsDown: new Set(),
+      buttonsPressed: new Set(),
     };
     this.onKeyDown = (event) => this.#handleKeyDown(event);
     this.onKeyUp = (event) => this.#handleKeyUp(event);
@@ -22,6 +23,7 @@ export class Input {
       right: ["KeyD", "ArrowRight"],
       jump: ["KeyW", "ArrowUp"],
       mine: ["KeyE", "Space"],
+      placePlatform: ["KeyQ"],
       rewardPrev: ["KeyA", "ArrowLeft", "KeyW", "ArrowUp"],
       rewardNext: ["KeyD", "ArrowRight", "KeyS", "ArrowDown"],
       rewardConfirm: ["Enter", "Space", "KeyE"],
@@ -37,6 +39,7 @@ export class Input {
     this.pointerTarget.addEventListener("pointerleave", this.onPointerLeave);
     this.pointerTarget.addEventListener("pointerdown", this.onPointerDown);
     this.pointerTarget.addEventListener("pointerup", this.onPointerUp);
+    this.pointerTarget.addEventListener("contextmenu", (event) => event.preventDefault());
   }
 
   #handleKeyDown(event) {
@@ -69,10 +72,12 @@ export class Input {
   #handlePointerLeave() {
     this.pointer.active = false;
     this.pointer.buttonsDown.clear();
+    this.pointer.buttonsPressed.clear();
   }
 
   #handlePointerDown(event) {
     this.#handlePointerMove(event);
+    this.pointer.buttonsPressed.add(event.button);
     this.pointer.buttonsDown.add(event.button);
   }
 
@@ -86,15 +91,25 @@ export class Input {
       return keyboardMatch || this.pointer.buttonsDown.has(0);
     }
 
+    if (action === "placePlatform") {
+      return keyboardMatch || this.pointer.buttonsDown.has(2);
+    }
+
     return keyboardMatch;
   }
 
   wasPressed(action) {
+    if (action === "placePlatform") {
+      const keyboardMatch = this.bindings[action]?.some((code) => this.keysPressed.has(code)) ?? false;
+      return keyboardMatch || this.pointer.buttonsPressed.has(2);
+    }
+
     return this.bindings[action]?.some((code) => this.keysPressed.has(code)) ?? false;
   }
 
   endFrame() {
     this.keysPressed.clear();
+    this.pointer.buttonsPressed.clear();
   }
 
   getPointerWorld(renderer) {

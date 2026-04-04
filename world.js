@@ -1,4 +1,4 @@
-import { Tile, TILE_DEFINITIONS, TILE_SIZE, TILE_TYPES } from "./tile.js";
+import { PLATFORM_SURFACE_OFFSET, Tile, TILE_DEFINITIONS, TILE_SIZE, TILE_TYPES } from "./tile.js";
 
 function createSeededRandom(seed) {
   let state = seed >>> 0;
@@ -497,13 +497,36 @@ export class World {
     return this.getTile(Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE));
   }
 
+  canPlacePlatform(column, row) {
+    const tile = this.getTile(column, row);
+    return Boolean(tile && tile.type === TILE_TYPES.EMPTY && !tile.debrisType);
+  }
+
+  placePlatform(column, row) {
+    const tile = this.getTile(column, row);
+    if (!tile || tile.type !== TILE_TYPES.EMPTY || tile.debrisType) {
+      return false;
+    }
+
+    tile.setType(TILE_TYPES.PLATFORM);
+    return true;
+  }
+
   getChestAt(column, row) {
     return this.chestMap.get(this.#getChestKey(column, row)) ?? null;
   }
 
   isSolid(column, row) {
     const tile = this.getTile(column, row);
-    return Boolean(tile?.solid);
+    return Boolean(tile?.solid && tile.type !== TILE_TYPES.PLATFORM);
+  }
+
+  isPlatform(column, row) {
+    return this.getTile(column, row)?.type === TILE_TYPES.PLATFORM;
+  }
+
+  getPlatformSurfaceY(row) {
+    return row * TILE_SIZE + PLATFORM_SURFACE_OFFSET;
   }
 
   damageTile(column, row, amount) {
@@ -524,6 +547,7 @@ export class World {
     const resource = chest ? null : tile.definition.drop;
     const brokenType = tile.type;
     const dropCount = this.getOreDropCount(column, row, brokenType);
+    this.#clearDebrisAt(column, row);
     this.#clearDebrisAbove(column, row);
     tile.setType(TILE_TYPES.EMPTY);
     this.#dropDebris(column, row, brokenType);
@@ -544,6 +568,16 @@ export class World {
     };
   }
 
+  #clearDebrisAt(column, row) {
+    const tile = this.getTile(column, row);
+    if (!tile?.debrisType) {
+      return;
+    }
+
+    tile.debrisType = null;
+    tile.debrisVariant = 0;
+  }
+
   #clearDebrisAbove(column, row) {
     const tileAbove = this.getTile(column, row - 1);
     if (!tileAbove || tileAbove.solid || !tileAbove.debrisType) {
@@ -555,14 +589,19 @@ export class World {
   }
 
   #dropDebris(column, row, brokenType) {
-    const supportTile = this.#findFirstSolidBelow(column, row + 1);
+    const supportTile = this.#findFirstSupportBelow(column, row + 1);
     if (!supportTile) {
       return;
     }
 
-    const restingRow = supportTile.row - 1;
+    const targetIsPlatform = supportTile.tile.type === TILE_TYPES.PLATFORM;
+    const restingRow = targetIsPlatform ? supportTile.row : supportTile.row - 1;
     const restingTile = this.getTile(column, restingRow);
-    if (!restingTile || restingTile.solid) {
+    if (!restingTile) {
+      return;
+    }
+
+    if (!targetIsPlatform && restingTile.solid) {
       return;
     }
 
@@ -577,14 +616,17 @@ export class World {
       y: row * TILE_SIZE,
       vy: 0,
       targetRow: restingRow,
-      targetY: restingRow * TILE_SIZE + TILE_SIZE - DEBRIS_REST_HEIGHT,
+      targetIsPlatform,
+      targetY: targetIsPlatform
+        ? this.getPlatformSurfaceY(supportTile.row)
+        : restingRow * TILE_SIZE + TILE_SIZE - DEBRIS_REST_HEIGHT,
     });
   }
 
-  #findFirstSolidBelow(column, startRow) {
+  #findFirstSupportBelow(column, startRow) {
     for (let row = startRow; row < this.rows; row += 1) {
       const tile = this.getTile(column, row);
-      if (tile?.solid) {
+      if (tile?.solid || tile?.type === TILE_TYPES.PLATFORM) {
         return { tile, row };
       }
     }
@@ -613,7 +655,15 @@ export class World {
     this.fallingDebris = this.fallingDebris.filter((debris) => !settledDebris.includes(debris));
     for (const debris of settledDebris) {
       const tile = this.getTile(debris.column, debris.targetRow);
-      if (!tile || tile.solid) {
+      if (!tile) {
+        continue;
+      }
+
+      if (debris.targetIsPlatform) {
+        if (tile.type !== TILE_TYPES.PLATFORM) {
+          continue;
+        }
+      } else if (tile.solid) {
         continue;
       }
 
