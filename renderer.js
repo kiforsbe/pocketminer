@@ -156,8 +156,13 @@ export class Renderer {
       this.#drawProceduralTile(context, tile, x, y);
     }
 
-    if (this.#shouldDrawGrassCap(tile, column, row)) {
+    const surfaceTreatment = this.#getSurfaceTreatment(tile, column, row);
+    if (surfaceTreatment === "grass") {
       this.#drawGrassCap(context, x, y);
+    } else if (surfaceTreatment === "moss") {
+      this.#drawMossCap(context, x, y);
+    } else if (surfaceTreatment === "rock") {
+      this.#drawRockCap(context, x, y);
     }
   }
 
@@ -283,13 +288,46 @@ export class Renderer {
     }
   }
 
-  #shouldDrawGrassCap(tile, column, row) {
+  #getSurfaceTreatment(tile, column, row) {
     if (!tile?.solid || tile.type === TILE_TYPES.CHEST) {
-      return false;
+      return null;
     }
 
     const tileAbove = this.world.getTile(column, row - 1);
-    return !tileAbove?.solid;
+    if (tileAbove?.solid) {
+      return null;
+    }
+
+    if (!this.#hasSolidNeighborsAroundAir(column, row - 1)) {
+      return "grass";
+    }
+
+    if (tile.type === TILE_TYPES.DIRT) {
+      return "moss";
+    }
+
+    return "rock";
+  }
+
+  #hasSolidNeighborsAroundAir(column, row) {
+    for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) {
+      for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) {
+        if (columnOffset === 0 && rowOffset === 0) {
+          continue;
+        }
+
+        // Ignore the supporting tile below the air pocket; the user asked about other surrounding blocks.
+        if (columnOffset === 0 && rowOffset === 1) {
+          continue;
+        }
+
+        if (this.world.getTile(column + columnOffset, row + rowOffset)?.solid) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   #drawGrassCap(context, x, y) {
@@ -301,6 +339,55 @@ export class Renderer {
     context.fillRect(x + 9, y + 5, 4, 3);
     context.fillRect(x + 17, y + 4, 3, 4);
     context.fillRect(x + 24, y + 5, 4, 3);
+  }
+
+  #drawMossCap(context, x, y) {
+    context.fillStyle = "#2f4a24";
+    context.fillRect(x, y, TILE_SIZE, 4);
+    context.fillStyle = "#456736";
+    context.fillRect(x + 2, y + 1, TILE_SIZE - 4, 2);
+    context.fillRect(x + 4, y + 4, 5, 2);
+    context.fillRect(x + 13, y + 3, 6, 3);
+    context.fillRect(x + 23, y + 4, 4, 2);
+  }
+
+  #drawRockCap(context, x, y) {
+    context.fillStyle = "#232934";
+    context.fillRect(x, y, TILE_SIZE, 4);
+    context.fillStyle = "rgba(188, 198, 214, 0.25)";
+    context.fillRect(x + 3, y + 1, 7, 1);
+    context.fillRect(x + 14, y + 2, 5, 1);
+    context.fillRect(x + 23, y + 1, 4, 1);
+    context.fillStyle = "#5b6577";
+    context.beginPath();
+    context.moveTo(x + 4, y + 4);
+    context.lineTo(x + 7, y - 1);
+    context.lineTo(x + 10, y + 4);
+    context.closePath();
+    context.fill();
+    context.beginPath();
+    context.moveTo(x + 14, y + 4);
+    context.lineTo(x + 17, y - 3);
+    context.lineTo(x + 20, y + 4);
+    context.closePath();
+    context.fill();
+    context.beginPath();
+    context.moveTo(x + 23, y + 4);
+    context.lineTo(x + 26, y);
+    context.lineTo(x + 29, y + 4);
+    context.closePath();
+    context.fill();
+    context.strokeStyle = "rgba(18, 22, 29, 0.72)";
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(x + 6, y + 4);
+    context.lineTo(x + 10, y + 7);
+    context.moveTo(x + 15, y + 4);
+    context.lineTo(x + 13, y + 8);
+    context.lineTo(x + 18, y + 10);
+    context.moveTo(x + 24, y + 4);
+    context.lineTo(x + 27, y + 8);
+    context.stroke();
   }
 
   #paintIcon(canvasId, tileType) {
