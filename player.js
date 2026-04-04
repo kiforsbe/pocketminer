@@ -12,6 +12,7 @@ const MINING_RANGE_TILES = 3;
 const MINING_SWING_INTERVAL = 0.6;
 const MINING_SWING_DAMAGE_WINDOW = 0.18;
 const JUMP_LAND_DELAY = 0.1;
+const DROP_THROUGH_HOLD_TIME = 0.075;
 const DEFAULT_PLAYER_BONUSES = Object.freeze({
   moveSpeed: 0,
   jumpPower: 0,
@@ -39,6 +40,8 @@ export class Player {
     this.animationTime = 0;
     this.mineCooldown = 0;
     this.jumpLockout = 0;
+    this.dropThroughHoldTime = 0;
+    this.dropThroughPlatformRow = null;
     this.jumpedThisFrame = false;
     this.currentMiningTarget = null;
     this.footstepDistance = 0;
@@ -67,6 +70,8 @@ export class Player {
     }
 
     this.vx = direction * this.getMoveSpeed();
+
+    this.#updatePlatformDropState(dt, input, world);
 
     if (input.wasPressed("jump") && this.#canJump()) {
       this.#jump();
@@ -271,7 +276,7 @@ export class Player {
     const previousBottom = previousY + this.height;
 
     for (let column = startColumn; column <= endColumn; column += 1) {
-      if (movingDown && world.isPlatform(column, row)) {
+      if (movingDown && !this.#shouldIgnorePlatformCollision(row) && world.isPlatform(column, row)) {
         const platformY = row * TILE_SIZE + PLATFORM_SURFACE_OFFSET;
         const currentBottom = this.y + this.height;
         if (previousBottom <= platformY && currentBottom >= platformY) {
@@ -305,6 +310,57 @@ export class Player {
     this.vy = -this.getJumpSpeed();
     this.grounded = false;
     this.jumpedThisFrame = true;
+  }
+
+  #getStandingPlatformRow(world) {
+    if (!this.grounded) {
+      return null;
+    }
+
+    const feetY = this.y + this.height + 1;
+    const row = Math.floor(feetY / TILE_SIZE);
+    const startColumn = Math.floor((this.x + 2) / TILE_SIZE);
+    const endColumn = Math.floor((this.x + this.width - 2) / TILE_SIZE);
+
+    for (let column = startColumn; column <= endColumn; column += 1) {
+      if (!world.isPlatform(column, row)) {
+        continue;
+      }
+
+      const platformY = row * TILE_SIZE + PLATFORM_SURFACE_OFFSET;
+      const feetBottom = this.y + this.height;
+      if (Math.abs(feetBottom - platformY) <= 1.5) {
+        return row;
+      }
+    }
+
+    return null;
+  }
+
+  #updatePlatformDropState(dt, input, world) {
+    const standingPlatformRow = this.#getStandingPlatformRow(world);
+    if (standingPlatformRow !== null && input.isDown("dropPlatform")) {
+      this.dropThroughHoldTime += dt;
+      if (this.dropThroughPlatformRow === null && this.dropThroughHoldTime >= DROP_THROUGH_HOLD_TIME) {
+        this.dropThroughPlatformRow = standingPlatformRow;
+        this.grounded = false;
+        this.vy = Math.max(this.vy, 80);
+        this.y += 2;
+      }
+    } else {
+      this.dropThroughHoldTime = 0;
+    }
+
+    if (this.dropThroughPlatformRow !== null) {
+      const platformBottomY = (this.dropThroughPlatformRow + 1) * TILE_SIZE;
+      if (this.y >= platformBottomY) {
+        this.dropThroughPlatformRow = null;
+      }
+    }
+  }
+
+  #shouldIgnorePlatformCollision(row) {
+    return this.dropThroughPlatformRow === row;
   }
 
   #canJump() {

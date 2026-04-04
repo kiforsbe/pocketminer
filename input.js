@@ -22,6 +22,7 @@ export class Input {
       left: ["KeyA", "ArrowLeft"],
       right: ["KeyD", "ArrowRight"],
       jump: ["KeyW", "ArrowUp"],
+      dropPlatform: ["KeyS", "ArrowDown"],
       mine: ["KeyE", "Space"],
       placePlatform: ["KeyQ"],
       rewardPrev: ["KeyA", "ArrowLeft", "KeyW", "ArrowUp"],
