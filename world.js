@@ -753,11 +753,7 @@ export class World {
 
     const stratum = this.getStratumAtRow(row);
     const isCoreOre = stratum.primaryOres.some((ore) => ore.type === tileType);
-    if (!isCoreOre) {
-      return 1;
-    }
-
-    const { base, variance } = stratum.coreYield;
+    const { base, variance } = isCoreOre ? stratum.coreYield : { base: 1, variance: 0 };
     const luck = Math.max(0, bonuses.luck ?? 0);
     const normalizedRoll = (this.random() + this.random() + this.random()) / 3;
     const baseBias = -0.12;
@@ -777,11 +773,7 @@ export class World {
 
     const stratum = this.getStratumAtRow(row);
     const isCoreOre = stratum.primaryOres.some((ore) => ore.type === tileType);
-    if (!isCoreOre) {
-      return { min: 1, max: 1 };
-    }
-
-    const { base, variance } = stratum.coreYield;
+    const { base, variance } = isCoreOre ? stratum.coreYield : { base: 1, variance: 0 };
     const luck = Math.max(0, bonuses.luck ?? 0);
     const baseBias = -0.12;
     const luckBias = baseBias + 0.62 * (luck / (1 + luck));
