@@ -420,6 +420,7 @@ function update(dt, timeSeconds) {
           if (miningResult.resource) {
             const quantity = miningResult.dropCount || 1;
             spawnPickups(miningResult, quantity);
+            spawnLuckBonusFloatingText(miningResult);
             spawnOreChunks(miningResult);
             audio.playSound("orePop", { playbackRate: 0.94 + Math.random() * 0.14, volume: 0.3 });
           }
@@ -1468,6 +1469,28 @@ function spawnFloatingCombatText(miningResult) {
     life: FLOATING_TEXT_LIFETIME,
     maxLife: FLOATING_TEXT_LIFETIME,
     color: miningResult.critical ? "#f2d15f" : "#f2ede3",
+    outlineColor: "rgba(13, 21, 34, 0.96)",
+  });
+}
+
+function spawnLuckBonusFloatingText(miningResult) {
+  if ((miningResult.bonusDropCount ?? 0) <= 0) {
+    return;
+  }
+
+  const originX = miningResult.column * 32 + 16;
+  const originY = miningResult.row * 32 + 10;
+  const angle = Math.random() * Math.PI * 2;
+  const radius = 4 + Math.random() * 6;
+  gameState.floatingTexts.push({
+    text: `+${miningResult.bonusDropCount}`,
+    x: originX + Math.cos(angle) * radius,
+    y: originY + Math.sin(angle) * radius,
+    vx: (Math.random() - 0.5) * 12,
+    vy: -(54 + Math.random() * 14),
+    life: FLOATING_TEXT_LIFETIME * 0.95,
+    maxLife: FLOATING_TEXT_LIFETIME * 0.95,
+    color: "#72d66a",
     outlineColor: "rgba(13, 21, 34, 0.96)",
   });
 }

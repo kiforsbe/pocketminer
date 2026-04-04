@@ -542,7 +542,7 @@ export class World {
     const tile = this.getTile(column, row);
 
     if (!tile || !tile.solid) {
-      return { hit: false, broken: false, resource: null, tile: null, damageDealt: 0 };
+      return { hit: false, broken: false, resource: null, tile: null, damageDealt: 0, bonusDropCount: 0 };
     }
 
     const chest = tile.type === TILE_TYPES.CHEST ? this.getChestAt(column, row) : null;
@@ -557,7 +557,8 @@ export class World {
 
     const resource = chest ? null : tile.definition.drop;
     const brokenType = tile.type;
-    const dropCount = this.getOreDropCount(column, row, brokenType, bonuses);
+    const dropOutcome = this.getOreDropOutcome(row, brokenType, bonuses);
+    const dropCount = dropOutcome.count;
     this.#clearDebrisAt(column, row);
     this.#clearDebrisAbove(column, row);
     tile.setType(TILE_TYPES.EMPTY);
@@ -574,6 +575,7 @@ export class World {
       chest,
       tile,
       damageDealt,
+      bonusDropCount: dropOutcome.overflowOre,
       brokenType,
       column,
       row,
@@ -748,10 +750,10 @@ export class World {
     };
   }
 
-  getOreDropCount(column, row, tileType, bonuses = {}) {
+  getOreDropOutcome(row, tileType, bonuses = {}) {
     const definition = this.getTileDefinition(tileType);
     if (!definition.drop) {
-      return 0;
+      return { count: 0, overflowOre: 0 };
     }
 
     const stratum = this.getStratumAtRow(row);
@@ -765,7 +767,14 @@ export class World {
     const cappedRoll = Math.min(1, biasedRoll);
     const swing = Math.round((cappedRoll * 2 - 1) * variance);
     const overflowOre = getLuckOverflowOre(biasedRoll - 1);
-    return Math.max(1, base + swing + overflowOre);
+    return {
+      count: Math.max(1, base + swing + overflowOre),
+      overflowOre,
+    };
+  }
+
+  getOreDropCount(column, row, tileType, bonuses = {}) {
+    return this.getOreDropOutcome(row, tileType, bonuses).count;
   }
 
   getOreDropRange(row, tileType, bonuses = {}) {
