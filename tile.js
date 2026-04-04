@@ -191,6 +191,8 @@ export class Tile {
     this.hp = definition.hp;
     this.surfaceTreatment = null;
     this.surfaceVariant = 0;
+    this.debrisType = null;
+    this.debrisVariant = 0;
     return this;
   }
 

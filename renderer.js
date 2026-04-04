@@ -88,6 +88,7 @@ export class Renderer {
     this.#drawBackground();
     this.updateCamera(player);
     this.#drawVisibleTerrain(world);
+    this.#drawFallingDebris(world.getFallingDebris?.() ?? []);
 
     this.#drawMiningHighlight(hoverTarget, miningResult);
     this.#drawPickups(pickups);
@@ -118,7 +119,7 @@ export class Renderer {
     for (let row = bounds.startRow; row < bounds.endRow; row += 1) {
       for (let column = bounds.startColumn; column < bounds.endColumn; column += 1) {
         const tile = world.getTile(column, row);
-        if (!tile || tile.type === TILE_TYPES.EMPTY) {
+        if (!tile || (tile.type === TILE_TYPES.EMPTY && !tile.debrisType)) {
           continue;
         }
 
@@ -135,6 +136,13 @@ export class Renderer {
   }
 
   #drawTileToContext(context, tile, x, y, column, row) {
+    if (tile.type === TILE_TYPES.EMPTY) {
+      if (tile.debrisType) {
+        this.#drawDebris(context, x, y + TILE_SIZE - 8, tile.debrisType, tile.debrisVariant ?? 0);
+      }
+      return;
+    }
+
     const canUseTilesheet = this.assets?.tilesheet
       && tile.sprite.x * TILE_SIZE + TILE_SIZE <= this.assets.tilesheet.width
       && tile.sprite.y * TILE_SIZE + TILE_SIZE <= this.assets.tilesheet.height
@@ -165,6 +173,10 @@ export class Renderer {
       this.#drawRockCap(context, x, y, { drawStalagmites: false });
     } else if (surfaceTreatment === "rock-spires") {
       this.#drawRockCap(context, x, y, { drawStalagmites: true });
+    }
+
+    if (tile.debrisType) {
+      this.#drawDebris(context, x, y + TILE_SIZE - 8, tile.debrisType, tile.debrisVariant ?? 0);
     }
 
     if (tile.breakRatio > 0) {
@@ -405,6 +417,56 @@ export class Renderer {
     context.moveTo(x + 24, y + 4);
     context.lineTo(x + 27, y + 8);
     context.stroke();
+  }
+
+  #drawDebris(context, x, y, debrisType, debrisVariant) {
+    const definition = TILE_DEFINITIONS[debrisType] ?? TILE_DEFINITIONS[TILE_TYPES.STONE];
+    const layouts = [
+      [
+        { x: 4, y: 3, w: 5, h: 3 },
+        { x: 12, y: 2, w: 6, h: 4 },
+        { x: 22, y: 3, w: 4, h: 3 },
+      ],
+      [
+        { x: 6, y: 2, w: 4, h: 4 },
+        { x: 14, y: 3, w: 5, h: 3 },
+        { x: 21, y: 2, w: 6, h: 4 },
+      ],
+      [
+        { x: 5, y: 3, w: 6, h: 3 },
+        { x: 15, y: 1, w: 4, h: 5 },
+        { x: 23, y: 3, w: 3, h: 3 },
+      ],
+    ];
+    const pieces = layouts[debrisVariant % layouts.length];
+
+    context.fillStyle = definition.fill;
+    for (const piece of pieces) {
+      context.fillRect(x + piece.x, y + piece.y, piece.w, piece.h);
+    }
+
+    context.fillStyle = definition.accent;
+    for (const piece of pieces) {
+      context.fillRect(x + piece.x + 1, y + piece.y, Math.max(1, piece.w - 2), 1);
+    }
+
+    context.strokeStyle = "rgba(0, 0, 0, 0.28)";
+    context.lineWidth = 1;
+    for (const piece of pieces) {
+      context.strokeRect(x + piece.x, y + piece.y, piece.w, piece.h);
+    }
+  }
+
+  #drawFallingDebris(fallingDebris = []) {
+    for (const debris of fallingDebris) {
+      const x = debris.x - this.camera.x;
+      const y = debris.y - this.camera.y;
+      if (x < -TILE_SIZE || y < -TILE_SIZE || x > this.viewport.width || y > this.viewport.height + TILE_SIZE) {
+        continue;
+      }
+
+      this.#drawDebris(this.ctx, x, y, debris.type, debris.variant);
+    }
   }
 
   #drawDamageCracks(context, x, y, breakRatio) {

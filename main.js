@@ -390,6 +390,7 @@ function update(dt, timeSeconds) {
   gameState.hoverTarget = player.update(dt, input, world);
   syncStratumMusic();
   gameState.miningResult = null;
+  world.updateFallingDebris(dt);
   updateParticles(dt);
   updatePickups(dt);
 

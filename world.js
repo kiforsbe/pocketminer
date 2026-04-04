@@ -112,6 +112,8 @@ const CHEST_CLEARANCE_COLUMNS = 3;
 const CHEST_CLEARANCE_ROWS = 4;
 const CHEST_BLOCKS_PER_SPAWN = 40 * 8;
 const DEFAULT_WORLD_COLUMNS = 32 * 6;
+const DEBRIS_FALL_GRAVITY = 1800;
+const DEBRIS_REST_HEIGHT = 8;
 
 export const WORLD_STRATA = STRATA;
 
@@ -136,6 +138,7 @@ export class World {
     this.pixelHeight = rows * TILE_SIZE;
     this.chestMap = new Map();
     this.chests = [];
+    this.fallingDebris = [];
     this.noiseOffsets = Object.freeze({
       stratum: this.#createNoiseOffset(),
       vein: this.#createNoiseOffset(),
@@ -521,7 +524,9 @@ export class World {
     const resource = chest ? null : tile.definition.drop;
     const brokenType = tile.type;
     const dropCount = this.getOreDropCount(column, row, brokenType);
+    this.#clearDebrisAbove(column, row);
     tile.setType(TILE_TYPES.EMPTY);
+    this.#dropDebris(column, row, brokenType);
     if (chest) {
       this.chestMap.delete(this.#getChestKey(column, row));
       this.chests = this.chests.filter((entry) => entry.id !== chest.id);
@@ -537,6 +542,88 @@ export class World {
       column,
       row,
     };
+  }
+
+  #clearDebrisAbove(column, row) {
+    const tileAbove = this.getTile(column, row - 1);
+    if (!tileAbove || tileAbove.solid || !tileAbove.debrisType) {
+      return;
+    }
+
+    tileAbove.debrisType = null;
+    tileAbove.debrisVariant = 0;
+  }
+
+  #dropDebris(column, row, brokenType) {
+    const supportTile = this.#findFirstSolidBelow(column, row + 1);
+    if (!supportTile) {
+      return;
+    }
+
+    const restingRow = supportTile.row - 1;
+    const restingTile = this.getTile(column, restingRow);
+    if (!restingTile || restingTile.solid) {
+      return;
+    }
+
+    const debrisVariant = ((this.seed ^ (column * 73856093) ^ (supportTile.row * 19349663)) >>> 0) % 3;
+    restingTile.debrisType = null;
+    restingTile.debrisVariant = 0;
+    this.fallingDebris.push({
+      column,
+      type: brokenType,
+      variant: debrisVariant,
+      x: column * TILE_SIZE,
+      y: row * TILE_SIZE,
+      vy: 0,
+      targetRow: restingRow,
+      targetY: restingRow * TILE_SIZE + TILE_SIZE - DEBRIS_REST_HEIGHT,
+    });
+  }
+
+  #findFirstSolidBelow(column, startRow) {
+    for (let row = startRow; row < this.rows; row += 1) {
+      const tile = this.getTile(column, row);
+      if (tile?.solid) {
+        return { tile, row };
+      }
+    }
+
+    return null;
+  }
+
+  updateFallingDebris(dt) {
+    if (this.fallingDebris.length === 0) {
+      return;
+    }
+
+    const settledDebris = [];
+    for (const debris of this.fallingDebris) {
+      debris.vy += DEBRIS_FALL_GRAVITY * dt;
+      debris.y = Math.min(debris.targetY, debris.y + debris.vy * dt);
+      if (debris.y >= debris.targetY) {
+        settledDebris.push(debris);
+      }
+    }
+
+    if (settledDebris.length === 0) {
+      return;
+    }
+
+    this.fallingDebris = this.fallingDebris.filter((debris) => !settledDebris.includes(debris));
+    for (const debris of settledDebris) {
+      const tile = this.getTile(debris.column, debris.targetRow);
+      if (!tile || tile.solid) {
+        continue;
+      }
+
+      tile.debrisType = debris.type;
+      tile.debrisVariant = debris.variant;
+    }
+  }
+
+  getFallingDebris() {
+    return this.fallingDebris;
   }
 
   getVisibleTileBounds(camera, viewportWidth, viewportHeight) {
