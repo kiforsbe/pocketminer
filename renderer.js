@@ -33,18 +33,12 @@ export class Renderer {
     this.viewport = { ...VIEWPORT };
     this.camera = { x: 0, y: 0 };
     this.pixelRatio = window.devicePixelRatio || 1;
-    this.terrainCanvas = createRenderSurface(world.pixelWidth, world.pixelHeight);
-    this.terrainCtx = this.terrainCanvas.getContext("2d");
     this.assets = null;
-    this.terrainDirty = true;
     this.resize();
   }
 
   setWorld(world) {
     this.world = world;
-    this.terrainCanvas = createRenderSurface(world.pixelWidth, world.pixelHeight);
-    this.terrainCtx = this.terrainCanvas.getContext("2d");
-    this.terrainDirty = true;
   }
 
   static async loadAssets() {
@@ -69,11 +63,10 @@ export class Renderer {
 
   setAssets(assets) {
     this.assets = assets;
-    this.terrainDirty = true;
   }
 
   markTerrainDirty() {
-    this.terrainDirty = true;
+    // Terrain is rendered directly from visible tile bounds each frame.
   }
 
   screenToWorld(screenX, screenY) {
@@ -91,25 +84,10 @@ export class Renderer {
   }
 
   render({ player, world, inventory, miningResult, hoverTarget, particles, pickups, roundInfo }) {
-    if (this.terrainDirty) {
-      this.#redrawTerrain(world);
-    }
-
     this.ctx.clearRect(0, 0, this.viewport.width, this.viewport.height);
     this.#drawBackground();
     this.updateCamera(player);
-
-    this.ctx.drawImage(
-      this.terrainCanvas,
-      this.camera.x,
-      this.camera.y,
-      this.viewport.width,
-      this.viewport.height,
-      0,
-      0,
-      this.viewport.width,
-      this.viewport.height,
-    );
+    this.#drawVisibleTerrain(world);
 
     this.#drawMiningHighlight(hoverTarget, miningResult);
     this.#drawPickups(pickups);
@@ -135,22 +113,23 @@ export class Renderer {
     }
   }
 
-  #redrawTerrain(world) {
-    this.terrainCtx.clearRect(0, 0, world.pixelWidth, world.pixelHeight);
-    this.terrainCtx.imageSmoothingEnabled = false;
-
-    for (let row = 0; row < world.rows; row += 1) {
-      for (let column = 0; column < world.columns; column += 1) {
+  #drawVisibleTerrain(world) {
+    const bounds = world.getVisibleTileBounds(this.camera, this.viewport.width, this.viewport.height);
+    for (let row = bounds.startRow; row < bounds.endRow; row += 1) {
+      for (let column = bounds.startColumn; column < bounds.endColumn; column += 1) {
         const tile = world.getTile(column, row);
         if (!tile || tile.type === TILE_TYPES.EMPTY) {
           continue;
         }
 
-        this.#drawTileToContext(this.terrainCtx, tile, column * TILE_SIZE, row * TILE_SIZE);
+        this.#drawTileToContext(
+          this.ctx,
+          tile,
+          column * TILE_SIZE - this.camera.x,
+          row * TILE_SIZE - this.camera.y,
+        );
       }
     }
-
-    this.terrainDirty = false;
   }
 
   #drawTileToContext(context, tile, x, y) {

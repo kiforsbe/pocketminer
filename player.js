@@ -71,6 +71,7 @@ export class Player {
     const previousX = this.x;
     this.x += this.vx * dt;
     this.#resolveHorizontal(world);
+    this.#clampHorizontal(world);
     const movedX = Math.abs(this.x - previousX);
 
     this.y += this.vy * dt;
@@ -259,5 +260,10 @@ export class Player {
       this.vy = 0;
       break;
     }
+  }
+
+  #clampHorizontal(world) {
+    const maxX = Math.max(0, world.pixelWidth - this.width);
+    this.x = Math.max(0, Math.min(this.x, maxX));
   }
 }

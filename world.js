@@ -110,6 +110,7 @@ const STRATA = Object.freeze([
 
 const CHEST_CLEARANCE_COLUMNS = 3;
 const CHEST_CLEARANCE_ROWS = 4;
+const DEFAULT_WORLD_COLUMNS = 32 * 6;
 
 export const WORLD_STRATA = STRATA;
 
@@ -124,7 +125,7 @@ export class World {
     return Math.floor(Math.random() * 0x100000000);
   }
 
-  constructor({ columns = 32, rows = 180, surfaceRow = 6, seed = World.createRandomSeed() } = {}) {
+  constructor({ columns = DEFAULT_WORLD_COLUMNS, rows = 180, surfaceRow = 6, seed = World.createRandomSeed() } = {}) {
     this.columns = columns;
     this.rows = rows;
     this.surfaceRow = surfaceRow;
