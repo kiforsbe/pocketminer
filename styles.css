@@ -252,10 +252,12 @@
     .timer-pill {
       min-width: 158px;
       padding: 8px 14px;
+      border: 2px solid rgba(255, 255, 255, 0.9);
       border-radius: 999px;
       display: grid;
       justify-items: center;
       gap: 2px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38);
       transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
     }
 
