@@ -5,6 +5,7 @@ import { createFloatingTextSystem } from "./floatingText.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { Input } from "./input.js";
 import { Player } from "./player.js";
+import { createPickupSystem } from "./pickups.js";
 import { Renderer } from "./renderer.js";
 import { createStoreController } from "./storeSystem.js";
 import { TILE_TYPES } from "./tile.js";
@@ -65,11 +66,6 @@ const STRATUM_MUSIC_SETS = Object.freeze(
   Object.fromEntries(MUSIC_TRACK_NAMES.map((trackName) => [trackName, createMusicSet(trackName)])),
 );
 const PARTICLE_GRAVITY = 820;
-const PICKUP_GRAVITY = 980;
-const PICKUP_BOB_SPEED = 6;
-const PICKUP_RADIUS = 10;
-const PICKUP_MAGNET_RANGE = 86;
-const PICKUP_COLLECT_RANGE = 20;
 const PLATFORM_PLACE_RANGE_TILES = 6;
 const PLATFORM_COOLDOWN_SECONDS = 3;
 const SUMMARY_MIN_STEP_RATE = 4;
@@ -169,6 +165,24 @@ const floatingTextSystem = createFloatingTextSystem({
   getFloatingTexts: () => gameState.floatingTexts,
   setFloatingTexts: (floatingTexts) => {
     gameState.floatingTexts = floatingTexts;
+  },
+});
+
+const pickupSystem = createPickupSystem({
+  getPickups: () => gameState.pickups,
+  setPickups: (pickups) => {
+    gameState.pickups = pickups;
+  },
+  getPlayer: () => player,
+  getWorld: () => world,
+  getInventory: () => gameState.inventory,
+  floatingTextSystem,
+  audio,
+  onItemCollected: (itemId) => {
+    gameState.roundStats.collected[itemId] += 1;
+  },
+  onTreasureCollected: (chest) => {
+    chestRewardController.openChestReward(chest);
   },
 });
 
@@ -287,7 +301,7 @@ function update(dt, timeSeconds) {
   gameState.miningResult = null;
   world.updateFallingDebris(dt);
   updateParticles(dt);
-  updatePickups(dt);
+  pickupSystem.update(dt);
   floatingTextSystem.update(dt);
   updatePlatformPlacement();
 
@@ -306,14 +320,14 @@ function update(dt, timeSeconds) {
       if (miningResult.broken) {
         gameState.roundStats.blocksMined += 1;
         if (miningResult.chest) {
-          spawnTreasurePickup(miningResult.chest, miningResult.column, miningResult.row);
+          pickupSystem.spawnTreasure(miningResult.chest, miningResult.column, miningResult.row);
           renderer.markTerrainDirty();
           audio.playSound("blockBreak", { playbackRate: 0.92, volume: 0.24 });
           showRoundNotification("Treasure dropped. Pick it up.");
         } else {
           if (miningResult.resource) {
             const quantity = miningResult.dropCount || 1;
-            spawnPickups(miningResult, quantity);
+            pickupSystem.spawnResources(miningResult, quantity);
             floatingTextSystem.spawnOreYieldText(miningResult);
             floatingTextSystem.spawnLuckBonusText(miningResult);
             spawnOreChunks(miningResult);
@@ -923,57 +937,6 @@ function spawnOreChunks(miningResult) {
   }
 }
 
-function spawnPickups(miningResult, quantity) {
-  const definition = ITEM_DEFINITIONS[miningResult.resource];
-  if (!definition) {
-    return;
-  }
-
-  const originX = miningResult.column * 32 + 16;
-  const originY = miningResult.row * 32 + 18;
-  const direction = player.getCenter().x <= originX ? 1 : -1;
-
-  for (let index = 0; index < quantity; index += 1) {
-    gameState.pickups.push({
-      itemId: miningResult.resource,
-      x: originX + (Math.random() - 0.5) * 8,
-      y: originY + (Math.random() - 0.5) * 6,
-      vx: direction * (70 + Math.random() * 90) + (Math.random() - 0.5) * 45,
-      vy: -(140 + Math.random() * 95),
-      grounded: false,
-      rotation: Math.random() * Math.PI * 2,
-      angularVelocity: (Math.random() - 0.5) * 6,
-      bobTime: Math.random() * Math.PI * 2,
-      radius: PICKUP_RADIUS,
-      color: definition.color,
-      glow: definition.glow,
-    });
-  }
-}
-
-function spawnTreasurePickup(chest, column, row) {
-  const originX = column * 32 + 16;
-  const originY = row * 32 + 18;
-  const direction = player.getCenter().x <= originX ? 1 : -1;
-
-  gameState.pickups.push({
-    kind: "treasure",
-    chest,
-    x: originX,
-    y: originY,
-    vx: direction * (84 + Math.random() * 40),
-    vy: -(150 + Math.random() * 70),
-    grounded: false,
-    rotation: Math.random() * Math.PI * 2,
-    angularVelocity: (Math.random() - 0.5) * 4,
-    bobTime: Math.random() * Math.PI * 2,
-    radius: PICKUP_RADIUS + 4,
-    color: "#f4c65c",
-    glow: "rgba(244, 198, 92, 0.45)",
-    accent: "#fff2c4",
-  });
-}
-
 function updateParticles(dt) {
   gameState.particles = gameState.particles
     .map((particle) => {
@@ -986,90 +949,6 @@ function updateParticles(dt) {
       return nextParticle;
     })
     .filter((particle) => particle.life > 0);
-}
-
-function updatePickups(dt) {
-  const playerCenter = player.getCenter();
-  const remainingPickups = [];
-
-  for (const pickup of gameState.pickups) {
-    const nextPickup = { ...pickup, bobTime: pickup.bobTime + dt * PICKUP_BOB_SPEED };
-    const dx = playerCenter.x - nextPickup.x;
-    const dy = playerCenter.y - nextPickup.y;
-    const distance = Math.hypot(dx, dy);
-    const isTreasure = nextPickup.kind === "treasure";
-    const canCollect = isTreasure || gameState.inventory.hasSpaceFor(nextPickup.itemId, 1);
-
-    if (canCollect && distance < PICKUP_MAGNET_RANGE) {
-      const attraction = isTreasure
-        ? Math.max(140, 340 - distance * 1.4)
-        : Math.max(90, 280 - distance * 1.7);
-      nextPickup.vx += (dx / Math.max(distance, 1)) * attraction * dt;
-      nextPickup.vy += (dy / Math.max(distance, 1)) * attraction * dt;
-    }
-
-    nextPickup.vy += PICKUP_GRAVITY * dt;
-    nextPickup.x += nextPickup.vx * dt;
-    nextPickup.y += nextPickup.vy * dt;
-    nextPickup.rotation += nextPickup.angularVelocity * dt;
-    nextPickup.grounded = false;
-
-    resolvePickupCollisions(nextPickup);
-
-    if (canCollect && distance < (isTreasure ? PICKUP_COLLECT_RANGE + 8 : PICKUP_COLLECT_RANGE)) {
-      if (isTreasure) {
-        audio.playSound("treasureChest", { volume: 0.24 });
-        chestRewardController.openChestReward(nextPickup.chest);
-        continue;
-      }
-
-      const result = gameState.inventory.addItem(nextPickup.itemId, 1);
-      if (result.added > 0) {
-        gameState.roundStats.collected[nextPickup.itemId] += 1;
-        const playerCenter = player.getCenter();
-        floatingTextSystem.spawnPickupText({
-          itemId: nextPickup.itemId,
-          originX: playerCenter.x,
-          originY: player.y - 12,
-        });
-        audio.playSound("orePop", { playbackRate: 1.16 + Math.random() * 0.08, volume: 0.18 });
-        continue;
-      }
-    }
-
-    remainingPickups.push(nextPickup);
-  }
-
-  gameState.pickups = remainingPickups;
-}
-
-function resolvePickupCollisions(pickup) {
-  const floorTile = world.getTileAtPixel(pickup.x, pickup.y + pickup.radius + 1);
-  if (floorTile?.solid) {
-    const row = Math.floor((pickup.y + pickup.radius + 1) / 32);
-    pickup.y = row * 32 - pickup.radius - 0.01;
-    if (Math.abs(pickup.vy) > 80) {
-      pickup.vy *= -0.28;
-    } else {
-      pickup.vy = 0;
-      pickup.grounded = true;
-    }
-    pickup.vx *= 0.88;
-  }
-
-  const leftTile = world.getTileAtPixel(pickup.x - pickup.radius, pickup.y);
-  if (leftTile?.solid) {
-    const column = Math.floor((pickup.x - pickup.radius) / 32);
-    pickup.x = (column + 1) * 32 + pickup.radius;
-    pickup.vx = Math.abs(pickup.vx) * 0.35;
-  }
-
-  const rightTile = world.getTileAtPixel(pickup.x + pickup.radius, pickup.y);
-  if (rightTile?.solid) {
-    const column = Math.floor((pickup.x + pickup.radius) / 32);
-    pickup.x = column * 32 - pickup.radius;
-    pickup.vx = -Math.abs(pickup.vx) * 0.35;
-  }
 }
 
 bootstrap().catch((error) => {
