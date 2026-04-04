@@ -26,6 +26,12 @@ const CHEST_REWARD_DEFINITIONS = Object.freeze([
     description: "Cut the wait before placing the next platform.",
   }),
   Object.freeze({
+    id: "luck",
+    title: "Prospector's Charm",
+    statLabel: "Luck",
+    description: "Bias ore drops toward the high end of each vein's yield.",
+  }),
+  Object.freeze({
     id: "toolDamage",
     title: "Honed Edge",
     statLabel: "Tool damage",
@@ -39,6 +45,7 @@ export function createPlayerBonuses() {
     jumpPower: 0,
     swingRate: 0,
     platformCooldown: 0,
+    luck: 0,
     toolDamage: 0,
   };
 }

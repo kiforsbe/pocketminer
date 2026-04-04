@@ -17,6 +17,7 @@ const DEFAULT_PLAYER_BONUSES = Object.freeze({
   moveSpeed: 0,
   jumpPower: 0,
   swingRate: 0,
+  luck: 0,
   toolDamage: 0,
 });
 
@@ -162,7 +163,7 @@ export class Player {
     }
 
     this.mineCooldown = this.getMiningSwingInterval();
-    const result = world.damageTile(target.column, target.row, this.getMiningDamage());
+    const result = world.damageTile(target.column, target.row, this.getMiningDamage(), { luck: this.bonuses.luck });
     return { active: true, target, ...result };
   }
 

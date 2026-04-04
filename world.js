@@ -529,7 +529,7 @@ export class World {
     return row * TILE_SIZE + PLATFORM_SURFACE_OFFSET;
   }
 
-  damageTile(column, row, amount) {
+  damageTile(column, row, amount, bonuses = {}) {
     const tile = this.getTile(column, row);
 
     if (!tile || !tile.solid) {
@@ -546,7 +546,7 @@ export class World {
 
     const resource = chest ? null : tile.definition.drop;
     const brokenType = tile.type;
-    const dropCount = this.getOreDropCount(column, row, brokenType);
+    const dropCount = this.getOreDropCount(column, row, brokenType, bonuses);
     this.#clearDebrisAt(column, row);
     this.#clearDebrisAbove(column, row);
     tile.setType(TILE_TYPES.EMPTY);
@@ -736,7 +736,7 @@ export class World {
     };
   }
 
-  getOreDropCount(column, row, tileType) {
+  getOreDropCount(column, row, tileType, bonuses = {}) {
     const definition = this.getTileDefinition(tileType);
     if (!definition.drop) {
       return 0;
@@ -749,7 +749,12 @@ export class World {
     }
 
     const { base, variance } = stratum.coreYield;
-    const swing = Math.floor(Math.random() * (variance * 2 + 1)) - variance;
+    const luck = Math.max(0, bonuses.luck ?? 0);
+    const normalizedRoll = (this.random() + this.random() + this.random()) / 3;
+    const baseBias = -0.12;
+    const luckBias = baseBias + 0.62 * (luck / (1 + luck));
+    const biasedRoll = Math.max(0, Math.min(1, normalizedRoll + luckBias));
+    const swing = Math.round((biasedRoll * 2 - 1) * variance);
     return Math.max(1, base + swing);
   }
 
