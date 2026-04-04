@@ -48,8 +48,8 @@ export class Renderer {
 
   static async loadAssets() {
     const [tilesheet, spritesheet] = await Promise.all([
-      loadImage("./assets/tilesheet.png"),
-      loadImage("./assets/player-spritesheet.png"),
+      loadImage("./assets/tiles/tilesheet.png"),
+      loadImage("./assets/sprites/player-spritesheet.png"),
     ]);
 
     return { tilesheet, spritesheet };

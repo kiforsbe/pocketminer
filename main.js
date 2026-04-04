@@ -26,18 +26,18 @@ import {
 import { World, WORLD_STRATA } from "./world.js";
 
 const AUDIO_MANIFEST = [
-  { id: "footsteps", src: "./assets/footstep.wav" },
-  { id: "jump", src: "./assets/jump.wav" },
-  { id: "miningHitDirt", src: "./assets/mining-hit-dirt.wav" },
-  { id: "miningHitSoft", src: "./assets/mining-hit-soft.wav" },
-  { id: "miningHit", src: "./assets/mining-hit.wav" },
-  { id: "blockBreak", src: "./assets/block-break.wav" },
-  { id: "cashRegister", src: "./assets/cash-register.wav" },
-  { id: "cheatCode", src: "./assets/cheat-code.wav" },
-  { id: "orePop", src: "./assets/ore-pop.wav" },
-  { id: "coin", src: "./assets/coin.wav" },
-  { id: "tick", src: "./assets/tick.wav" },
-  { id: "treasureChest", src: "./assets/treasure-chest.wav" },
+  { id: "footsteps", src: "./assets/sfx/footstep.wav" },
+  { id: "jump", src: "./assets/sfx/jump.wav" },
+  { id: "miningHitDirt", src: "./assets/sfx/mining-hit-dirt.wav" },
+  { id: "miningHitSoft", src: "./assets/sfx/mining-hit-soft.wav" },
+  { id: "miningHit", src: "./assets/sfx/mining-hit.wav" },
+  { id: "blockBreak", src: "./assets/sfx/block-break.wav" },
+  { id: "cashRegister", src: "./assets/sfx/cash-register.wav" },
+  { id: "cheatCode", src: "./assets/sfx/cheat-code.wav" },
+  { id: "orePop", src: "./assets/sfx/ore-pop.wav" },
+  { id: "coin", src: "./assets/sfx/coin.wav" },
+  { id: "tick", src: "./assets/sfx/tick.wav" },
+  { id: "treasureChest", src: "./assets/sfx/treasure-chest.wav" },
   ...createMusicManifest(WORLD_STRATA),
 ];
 const PLATFORM_COOLDOWN_SECONDS = 3;
