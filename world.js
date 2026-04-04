@@ -114,16 +114,41 @@ const CHEST_BLOCKS_PER_SPAWN = 40 * 8;
 const DEFAULT_WORLD_COLUMNS = 32 * 6;
 const DEBRIS_FALL_GRAVITY = 1800;
 const DEBRIS_REST_HEIGHT = 8;
-const LUCK_OVERFLOW_STEP = 0.2;
+const LUCK_BASE_BIAS = -0.08;
+const LUCK_BIAS_STRENGTH = 0.16;
+const LUCK_BIAS_SATURATION = 0.5;
 
 export const WORLD_STRATA = STRATA;
 
-function getLuckOverflowOre(overflowRoll) {
-  if (overflowRoll <= 0) {
+function getLuckBias(luck) {
+  return LUCK_BASE_BIAS + LUCK_BIAS_STRENGTH * (luck / (LUCK_BIAS_SATURATION + luck));
+}
+
+function getEffectiveLuckBonus(luck) {
+  if (luck <= 0) {
     return 0;
   }
 
-  return 1 + Math.floor(overflowRoll / LUCK_OVERFLOW_STEP);
+  if (luck <= 1) {
+    return luck;
+  }
+
+  return 1 + (luck - 1) * 0.4;
+}
+
+function getLuckBonusOre(luck, random) {
+  const effectiveLuck = getEffectiveLuckBonus(luck);
+  if (effectiveLuck <= 0) {
+    return 0;
+  }
+
+  const guaranteedBonus = Math.floor(effectiveLuck);
+  const fractionalBonus = effectiveLuck - guaranteedBonus;
+  return guaranteedBonus + (random < fractionalBonus ? 1 : 0);
+}
+
+function getLuckBonusOreMax(luck) {
+  return Math.ceil(getEffectiveLuckBonus(luck));
 }
 
 export class World {
@@ -572,6 +597,7 @@ export class World {
       broken: true,
       resource,
       dropCount,
+      normalDropCount: dropOutcome.normalCount,
       chest,
       tile,
       damageDealt,
@@ -761,15 +787,15 @@ export class World {
     const { base, variance } = isCoreOre ? stratum.coreYield : { base: 1, variance: 0 };
     const luck = Math.max(0, bonuses.luck ?? 0);
     const normalizedRoll = (this.random() + this.random() + this.random()) / 3;
-    const baseBias = -0.12;
-    const luckBias = baseBias + 0.62 * (luck / (1 + luck));
+    const luckBias = getLuckBias(luck);
     const biasedRoll = Math.max(0, normalizedRoll + luckBias);
     const cappedRoll = Math.min(1, biasedRoll);
     const swing = Math.round((cappedRoll * 2 - 1) * variance);
-    const overflowOre = getLuckOverflowOre(biasedRoll - 1);
+    const bonusOre = getLuckBonusOre(luck, this.random());
     return {
-      count: Math.max(1, base + swing + overflowOre),
-      overflowOre,
+      count: Math.max(1, base + swing + bonusOre),
+      normalCount: base,
+      overflowOre: bonusOre,
     };
   }
 
@@ -787,14 +813,17 @@ export class World {
     const isCoreOre = stratum.primaryOres.some((ore) => ore.type === tileType);
     const { base, variance } = isCoreOre ? stratum.coreYield : { base: 1, variance: 0 };
     const luck = Math.max(0, bonuses.luck ?? 0);
-    const baseBias = -0.12;
-    const luckBias = baseBias + 0.62 * (luck / (1 + luck));
+    const luckBias = getLuckBias(luck);
     const minRoll = Math.max(0, luckBias);
-    const maxRoll = 1 + luckBias;
-    const overflowMax = getLuckOverflowOre(maxRoll - 1);
+    const normalMin = Math.max(1, base + Math.round((minRoll * 2 - 1) * variance));
+    const normalMax = Math.max(1, base + variance);
+    const bonusMax = getLuckBonusOreMax(luck);
     return {
-      min: Math.max(1, base + Math.round((minRoll * 2 - 1) * variance)),
-      max: Math.max(1, base + variance + overflowMax),
+      min: normalMin,
+      max: Math.max(1, normalMax + bonusMax),
+      normalMin,
+      normalMax,
+      bonusMax,
     };
   }
 }

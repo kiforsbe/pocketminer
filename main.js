@@ -72,6 +72,9 @@ const PICKUP_RADIUS = 10;
 const PICKUP_MAGNET_RANGE = 86;
 const PICKUP_COLLECT_RANGE = 20;
 const FLOATING_TEXT_LIFETIME = 0.65;
+const FLOATING_TEXT_SPAWN_RADIUS = 32 * 0.12;
+const SHOW_ORE_YIELD_FLOATING_TEXT = false;
+const SHOW_ORE_PICKUP_FLOATING_TEXT = true;
 const PLATFORM_PLACE_RANGE_TILES = 6;
 const PLATFORM_COOLDOWN_SECONDS = 3;
 const SUMMARY_MIN_STEP_RATE = 4;
@@ -420,6 +423,7 @@ function update(dt, timeSeconds) {
           if (miningResult.resource) {
             const quantity = miningResult.dropCount || 1;
             spawnPickups(miningResult, quantity);
+            spawnOreYieldFloatingText(miningResult);
             spawnLuckBonusFloatingText(miningResult);
             spawnOreChunks(miningResult);
             audio.playSound("orePop", { playbackRate: 0.94 + Math.random() * 0.14, volume: 0.3 });
@@ -1456,15 +1460,13 @@ function spawnFloatingCombatText(miningResult) {
     return;
   }
 
-  const originX = miningResult.target.column * 32 + 16;
-  const originY = miningResult.target.row * 32 + 16;
-  const angle = Math.random() * Math.PI * 2;
-  const radius = Math.random() * 8;
+  const originX = miningResult.target.column * 32 - FLOATING_TEXT_SPAWN_RADIUS;
+  const originY = miningResult.target.row * 32 - FLOATING_TEXT_SPAWN_RADIUS;
   gameState.floatingTexts.push({
     text: String(Math.ceil(miningResult.damageDealt)),
-    x: originX + Math.cos(angle) * radius,
-    y: originY + Math.sin(angle) * radius,
-    vx: (Math.random() - 0.5) * 18,
+    x: originX,
+    y: originY,
+    vx: -(10 + Math.random() * 18),
     vy: -(42 + Math.random() * 18),
     life: FLOATING_TEXT_LIFETIME,
     maxLife: FLOATING_TEXT_LIFETIME,
@@ -1473,20 +1475,74 @@ function spawnFloatingCombatText(miningResult) {
   });
 }
 
+function spawnOreCountFloatingText({
+  count,
+  itemId,
+  normalCount,
+  originX,
+  originY,
+  color,
+  vx,
+  vy,
+  life = FLOATING_TEXT_LIFETIME,
+}) {
+  if (!itemId || count <= 0) {
+    return;
+  }
+
+  const resolvedNormalCount = normalCount ?? count;
+  const resolvedColor = color ?? (count < resolvedNormalCount
+    ? "#f1bb81"
+    : count > resolvedNormalCount
+    ? "#9be38d"
+    : "#f2ede3");
+  gameState.floatingTexts.push({
+    text: String(count),
+    x: originX,
+    y: originY,
+    vx,
+    vy,
+    life,
+    maxLife: life,
+    color: resolvedColor,
+    outlineColor: "rgba(13, 21, 34, 0.96)",
+    iconItemId: itemId,
+  });
+}
+
+function spawnOreYieldFloatingText(miningResult) {
+  if (!miningResult.resource || (miningResult.dropCount ?? 0) <= 0) {
+    return;
+  }
+
+  const isLuckCriticalYield = (miningResult.bonusDropCount ?? 0) > 0;
+  if (!SHOW_ORE_YIELD_FLOATING_TEXT && !isLuckCriticalYield) {
+    return;
+  }
+
+  spawnOreCountFloatingText({
+    count: miningResult.dropCount,
+    itemId: miningResult.resource,
+    normalCount: miningResult.normalDropCount ?? miningResult.dropCount ?? 1,
+    originX: (miningResult.column + 1) * 32 + FLOATING_TEXT_SPAWN_RADIUS,
+    originY: miningResult.row * 32 - FLOATING_TEXT_SPAWN_RADIUS,
+    vx: 10 + Math.random() * 18,
+    vy: -(40 + Math.random() * 16),
+  });
+}
+
 function spawnLuckBonusFloatingText(miningResult) {
   if ((miningResult.bonusDropCount ?? 0) <= 0) {
     return;
   }
 
-  const originX = miningResult.column * 32 + 16;
-  const originY = miningResult.row * 32 + 10;
-  const angle = Math.random() * Math.PI * 2;
-  const radius = 4 + Math.random() * 6;
+  const originX = (miningResult.column + 1) * 32 + FLOATING_TEXT_SPAWN_RADIUS;
+  const originY = miningResult.row * 32 - FLOATING_TEXT_SPAWN_RADIUS;
   gameState.floatingTexts.push({
     text: `+${miningResult.bonusDropCount}`,
-    x: originX + Math.cos(angle) * radius,
-    y: originY + Math.sin(angle) * radius,
-    vx: (Math.random() - 0.5) * 12,
+    x: originX,
+    y: originY,
+    vx: 8 + Math.random() * 14,
     vy: -(54 + Math.random() * 14),
     life: FLOATING_TEXT_LIFETIME * 0.95,
     maxLife: FLOATING_TEXT_LIFETIME * 0.95,
@@ -1610,6 +1666,20 @@ function updatePickups(dt) {
       const result = gameState.inventory.addItem(nextPickup.itemId, 1);
       if (result.added > 0) {
         gameState.roundStats.collected[nextPickup.itemId] += 1;
+        if (SHOW_ORE_PICKUP_FLOATING_TEXT) {
+          const playerCenter = player.getCenter();
+          spawnOreCountFloatingText({
+            count: 1,
+            itemId: nextPickup.itemId,
+            normalCount: 1,
+            originX: playerCenter.x,
+            originY: player.y - 12,
+            color: "#9be38d",
+            vx: 8 + Math.random() * 12,
+            vy: -(34 + Math.random() * 14),
+            life: FLOATING_TEXT_LIFETIME * 0.85,
+          });
+        }
         audio.playSound("orePop", { playbackRate: 1.16 + Math.random() * 0.08, volume: 0.18 });
         continue;
       }

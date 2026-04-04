@@ -93,11 +93,11 @@ export class Renderer {
     this.#drawMiningHighlight(hoverTarget, miningResult);
     this.#drawPickups(pickups);
     this.#drawParticles(particles);
-    this.#drawFloatingTexts(floatingTexts);
     this.#drawPlayer(player);
     this.#drawHud(inventory, roundInfo);
     this.#drawHotbar(inventory);
     this.#drawSurveyPanel(player, miningResult?.target ?? hoverTarget);
+    this.#drawFloatingTexts(floatingTexts);
   }
 
   #drawBackground() {
@@ -724,7 +724,6 @@ export class Renderer {
 
   #drawFloatingTexts(floatingTexts = []) {
     this.ctx.save();
-    this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
     this.ctx.lineJoin = "round";
     this.ctx.font = "700 20.5px 'Segoe UI'";
@@ -738,11 +737,24 @@ export class Renderer {
 
       const lifeRatio = Math.max(0, floatingText.life / floatingText.maxLife);
       this.ctx.globalAlpha = 1 - (1 - lifeRatio) ** 4;
+      const hasIcon = Boolean(floatingText.iconItemId && ITEM_DEFINITIONS[floatingText.iconItemId]);
+      const iconSize = 11;
+      const iconGap = hasIcon ? 7 : 0;
+      const textWidth = this.ctx.measureText(floatingText.text).width;
+      const totalWidth = textWidth + (hasIcon ? iconGap + iconSize : 0);
+      const startX = x - totalWidth * 0.5;
+
       this.ctx.lineWidth = 4;
       this.ctx.strokeStyle = floatingText.outlineColor ?? "rgba(14, 21, 33, 0.95)";
-      this.ctx.strokeText(floatingText.text, x, y);
+      this.ctx.textAlign = "left";
+      this.ctx.strokeText(floatingText.text, startX, y);
       this.ctx.fillStyle = floatingText.color;
-      this.ctx.fillText(floatingText.text, x, y);
+      this.ctx.fillText(floatingText.text, startX, y);
+
+      if (hasIcon) {
+        const iconX = startX + textWidth + iconGap;
+        this.#drawHotbarItemIcon(iconX, y - iconSize * 0.5, iconSize, floatingText.iconItemId);
+      }
     }
 
     this.ctx.restore();
@@ -881,8 +893,20 @@ export class Renderer {
     blockYieldEl.textContent = tile.type === TILE_TYPES.CHEST
       ? "1 card pick"
       : dropRange
-      ? (dropRange.min === dropRange.max ? `${dropRange.min}` : `${dropRange.min}-${dropRange.max}`)
+      ? this.#formatOreDropRange(dropRange)
       : "--";
+  }
+
+  #formatOreDropRange(dropRange) {
+    const normalRange = dropRange.normalMin === dropRange.normalMax
+      ? `${dropRange.normalMin}`
+      : `${dropRange.normalMin}-${dropRange.normalMax}`;
+
+    if (!dropRange.bonusMax) {
+      return normalRange;
+    }
+
+    return `${normalRange} (+${dropRange.bonusMax})`;
   }
 
   #drawHotbar(inventory) {
