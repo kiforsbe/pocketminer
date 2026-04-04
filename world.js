@@ -160,8 +160,17 @@ export class World {
       for (let column = 0; column < this.columns; column += 1) {
         const tile = grid[row][column];
         tile.surfaceTreatment = this.#getSurfaceTreatmentForGrid(grid, tile, column, row);
+        tile.surfaceVariant = this.#getSurfaceVariantForGrid(tile, column, row);
       }
     }
+  }
+
+  #getSurfaceVariantForGrid(tile, column, row) {
+    if (tile.surfaceTreatment !== "grass") {
+      return 0;
+    }
+
+    return Math.abs(((this.seed ^ (column * 73856093) ^ (row * 19349663)) >>> 0)) % 3;
   }
 
   #placeChests(grid) {
@@ -383,7 +392,8 @@ export class World {
       return null;
     }
 
-    if (!this.#hasSolidNeighborsAroundAirInGrid(grid, column, row - 1)) {
+    const coveringTile = this.#findFirstSolidAboveInGrid(grid, column, row - 1);
+    if (!coveringTile) {
       return "grass";
     }
 
@@ -391,40 +401,18 @@ export class World {
       return "moss";
     }
 
-    return this.#hasRockCeilingAboveInGrid(grid, column, row - 1) ? "rock-spires" : "rock";
+    return this.#isRockLikeTile(coveringTile) ? "rock-spires" : "rock";
   }
 
-  #hasSolidNeighborsAroundAirInGrid(grid, column, row) {
-    for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) {
-      for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) {
-        if (columnOffset === 0 && rowOffset === 0) {
-          continue;
-        }
-
-        if (columnOffset === 0 && rowOffset === 1) {
-          continue;
-        }
-
-        if (this.#getGridTile(grid, column + columnOffset, row + rowOffset)?.solid) {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  #hasRockCeilingAboveInGrid(grid, column, row) {
-    for (let scanRow = row - 1; scanRow >= 0; scanRow -= 1) {
+  #findFirstSolidAboveInGrid(grid, column, row) {
+    for (let scanRow = row; scanRow >= 0; scanRow -= 1) {
       const tile = this.#getGridTile(grid, column, scanRow);
-      if (!tile?.solid) {
-        continue;
+      if (tile?.solid) {
+        return tile;
       }
-
-      return this.#isRockLikeTile(tile);
     }
 
-    return false;
+    return null;
   }
 
   #isRockLikeTile(tile) {

@@ -158,7 +158,7 @@ export class Renderer {
 
     const surfaceTreatment = tile.surfaceTreatment;
     if (surfaceTreatment === "grass") {
-      this.#drawGrassCap(context, x, y);
+      this.#drawGrassCap(context, x, y, tile.surfaceVariant ?? 0);
     } else if (surfaceTreatment === "moss") {
       this.#drawMossCap(context, x, y);
     } else if (surfaceTreatment === "rock") {
@@ -294,15 +294,55 @@ export class Renderer {
     }
   }
 
-  #drawGrassCap(context, x, y) {
-    context.fillStyle = "#4f8f34";
+  #drawGrassCap(context, x, y, variant) {
+    context.fillStyle = "#4a922f";
     context.fillRect(x, y, TILE_SIZE, 5);
-    context.fillStyle = "#73b84b";
+    context.fillStyle = "#7dcb4f";
     context.fillRect(x, y, TILE_SIZE, 2);
     context.fillRect(x + 3, y + 4, 3, 3);
     context.fillRect(x + 9, y + 5, 4, 3);
     context.fillRect(x + 17, y + 4, 3, 4);
     context.fillRect(x + 24, y + 5, 4, 3);
+
+    const flowerPalettes = [
+      {
+        petal: "#f1d04d",
+        center: "#fff4a3",
+        flowers: [
+          { x: 7, y: 1, stem: 4 },
+          { x: 20, y: 2, stem: 4 },
+        ],
+      },
+      {
+        petal: "#b277e8",
+        center: "#f4d7ff",
+        flowers: [
+          { x: 6, y: 2, stem: 3 },
+          { x: 14, y: 1, stem: 4 },
+          { x: 23, y: 2, stem: 3 },
+        ],
+      },
+      {
+        petal: "#58a8ea",
+        center: "#d8f2ff",
+        flowers: [
+          { x: 8, y: 1, stem: 4 },
+          { x: 18, y: 2, stem: 3 },
+          { x: 25, y: 1, stem: 4 },
+        ],
+      },
+    ];
+
+    const palette = flowerPalettes[variant % flowerPalettes.length];
+    context.fillStyle = palette.petal;
+    for (const flower of palette.flowers) {
+      context.fillRect(x + flower.x, y + flower.y, 2, 2);
+      context.fillRect(x + flower.x + 1, y + flower.y - 1, 1, flower.stem);
+    }
+    context.fillStyle = palette.center;
+    for (const flower of palette.flowers) {
+      context.fillRect(x + flower.x + 1, y + flower.y, 1, 1);
+    }
   }
 
   #drawMossCap(context, x, y) {
@@ -313,6 +353,15 @@ export class Renderer {
     context.fillRect(x + 4, y + 4, 5, 2);
     context.fillRect(x + 13, y + 3, 6, 3);
     context.fillRect(x + 23, y + 4, 4, 2);
+    context.fillStyle = "#d8d1c6";
+    context.fillRect(x + 8, y + 2, 2, 3);
+    context.fillRect(x + 22, y + 1, 2, 4);
+    context.fillStyle = "#7a685f";
+    context.fillRect(x + 7, y + 1, 4, 2);
+    context.fillRect(x + 21, y, 4, 2);
+    context.fillStyle = "#efe6db";
+    context.fillRect(x + 8, y + 1, 1, 1);
+    context.fillRect(x + 22, y, 1, 1);
   }
 
   #drawRockCap(context, x, y, { drawStalagmites }) {
