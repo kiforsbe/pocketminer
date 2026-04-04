@@ -166,6 +166,10 @@ export class Renderer {
     } else if (surfaceTreatment === "rock-spires") {
       this.#drawRockCap(context, x, y, { drawStalagmites: true });
     }
+
+    if (tile.breakRatio > 0) {
+      this.#drawDamageCracks(context, x, y, tile.breakRatio);
+    }
   }
 
   #drawProceduralTile(context, tile, x, y) {
@@ -354,6 +358,62 @@ export class Renderer {
     context.stroke();
   }
 
+  #drawDamageCracks(context, x, y, breakRatio) {
+    const crackLevel = Math.min(4, Math.max(1, Math.ceil(breakRatio * 4)));
+    context.strokeStyle = "rgba(16, 18, 24, 0.72)";
+    context.lineWidth = 1.5;
+    context.lineCap = "round";
+
+    context.beginPath();
+    context.moveTo(x + 16, y + 3);
+    context.lineTo(x + 14, y + 10);
+    context.lineTo(x + 11, y + 16);
+    if (crackLevel >= 2) {
+      context.lineTo(x + 12, y + 23);
+      context.lineTo(x + 9, y + 29);
+    }
+    context.moveTo(x + 14, y + 10);
+    context.lineTo(x + 20, y + 13);
+    if (crackLevel >= 3) {
+      context.lineTo(x + 25, y + 10);
+    }
+    context.stroke();
+
+    if (crackLevel >= 2) {
+      context.beginPath();
+      context.moveTo(x + 20, y + 13);
+      context.lineTo(x + 22, y + 19);
+      context.lineTo(x + 26, y + 24);
+      context.moveTo(x + 11, y + 16);
+      context.lineTo(x + 6, y + 18);
+      context.lineTo(x + 4, y + 24);
+      context.stroke();
+    }
+
+    if (crackLevel >= 3) {
+      context.beginPath();
+      context.moveTo(x + 12, y + 23);
+      context.lineTo(x + 18, y + 26);
+      context.lineTo(x + 22, y + 30);
+      context.moveTo(x + 22, y + 19);
+      context.lineTo(x + 27, y + 17);
+      context.stroke();
+    }
+
+    if (crackLevel >= 4) {
+      context.beginPath();
+      context.moveTo(x + 10, y + 8);
+      context.lineTo(x + 6, y + 11);
+      context.moveTo(x + 17, y + 6);
+      context.lineTo(x + 23, y + 4);
+      context.moveTo(x + 7, y + 25);
+      context.lineTo(x + 4, y + 29);
+      context.moveTo(x + 25, y + 24);
+      context.lineTo(x + 28, y + 28);
+      context.stroke();
+    }
+  }
+
   #paintIcon(canvasId, tileType) {
     const canvas = document.getElementById(canvasId);
     if (!(canvas instanceof HTMLCanvasElement)) {
@@ -399,13 +459,6 @@ export class Renderer {
     this.ctx.strokeStyle = miningResult?.target ? "rgba(255, 228, 156, 0.9)" : "rgba(136, 185, 216, 0.8)";
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-
-    if (miningResult?.target && tile?.solid && tile.breakRatio > 0) {
-      this.ctx.fillStyle = "rgba(8, 12, 18, 0.78)";
-      this.ctx.fillRect(x + 4, y + TILE_SIZE - 8, TILE_SIZE - 8, 5);
-      this.ctx.fillStyle = "#e2a94b";
-      this.ctx.fillRect(x + 4, y + TILE_SIZE - 8, (TILE_SIZE - 8) * (1 - tile.breakRatio), 5);
-    }
   }
 
   #drawPlayer(player) {
