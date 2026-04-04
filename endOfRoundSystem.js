@@ -111,14 +111,18 @@ export function createEndOfRoundSystem({
       row.innerHTML = `
       <div class="summary-ore">
         <canvas width="26" height="26"></canvas>
-        <span>${ITEM_DEFINITIONS[entry.itemId].label}</span>
+        <span class="summary-ore-label">${ITEM_DEFINITIONS[entry.itemId].label}</span>
       </div>
       <div class="summary-breakdown">
-        <span data-role="count">0</span>
-        <span>x</span>
-        <span data-role="unit">${entry.value}€</span>
-        <span>=</span>
-        <span data-role="value">0€</span>
+        <span class="summary-breakdown-detail">
+          <span data-role="count">0</span>
+          <span>x</span>
+          <span data-role="unit">${entry.value}€</span>
+        </span>
+        <span class="summary-breakdown-total">
+          <span>=</span>
+          <span data-role="value">0€</span>
+        </span>
       </div>
     `;
       summaryGrid.append(row);

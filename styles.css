@@ -542,11 +542,17 @@
       gap: 16px;
     }
 
+    #summary-view {
+      display: grid;
+      gap: 0;
+    }
+
     .round-header {
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      align-items: baseline;
+      align-items: center;
+      padding-bottom: 4px;
     }
 
     .round-header h2,
@@ -560,9 +566,14 @@
       font-size: 1.6rem;
     }
 
+    .round-header p {
+      text-align: right;
+    }
+
     .summary-grid {
       display: grid;
-      gap: 10px;
+      gap: 12px;
+      margin-top: 14px;
     }
 
     .summary-row {
@@ -595,11 +606,26 @@
       overflow-wrap: anywhere;
     }
 
+    .summary-ore-label {
+      line-height: 1.2;
+    }
+
     .summary-breakdown {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
       text-align: right;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
       color: rgba(242, 237, 227, 0.92);
+    }
+
+    .summary-breakdown-detail,
+    .summary-breakdown-total {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
 
     .summary-breakdown [data-role="count"] {
@@ -619,31 +645,62 @@
     .summary-stats {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       gap: 14px;
       flex-wrap: wrap;
-      padding-top: 4px;
+      margin-top: 18px;
+      padding-top: 9px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .summary-stat {
       display: grid;
-      gap: 3px;
+      align-content: start;
+      gap: 1px;
     }
 
     .summary-stat-label {
+      display: block;
       color: rgba(136, 185, 216, 0.86);
       font-size: 0.72rem;
+      line-height: 1;
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
 
+    .summary-stat > :last-child {
+      display: block;
+      line-height: 1;
+      margin-top: 2px;
+    }
+
     .summary-total {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       justify-content: space-between;
       align-items: center;
-      padding-top: 6px;
+      align-content: center;
+      gap: 12px;
+      min-height: 0;
+      padding: 6px 0;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
       font-size: 1.05rem;
+    }
+
+    .summary-stats + .summary-total {
+      margin-top: 10px;
+    }
+
+    .summary-total + .summary-total {
+      margin-top: 0;
+    }
+
+    .summary-total span,
+    .summary-total strong {
+      display: flex;
+      align-items: center;
+      line-height: 1;
+      transform: translateY(1px);
     }
 
     .summary-total strong {
@@ -655,8 +712,10 @@
     .summary-actions {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       gap: 10px;
       flex-wrap: wrap;
+      padding-top: 12px;
     }
 
     .summary-actions button,
