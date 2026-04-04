@@ -27,6 +27,12 @@ import {
 import { World, WORLD_STRATA } from "./world.js";
 
 const INTRO_TITLE_IMAGE_SRC = "./assets/title.png";
+const SHIFT_COUNTDOWN_STEPS = Object.freeze([
+  { label: "3", durationMs: 1000, playbackRate: 0.96, volume: 0.2 },
+  { label: "2", durationMs: 1000, playbackRate: 1.01, volume: 0.2 },
+  { label: "1", durationMs: 1000, playbackRate: 1.06, volume: 0.22 },
+  { label: "GO!", durationMs: 700, playbackRate: 1.18, volume: 0.26 },
+]);
 
 const AUDIO_MANIFEST = [
   { id: "footsteps", src: "./assets/sfx/footstep.wav" },
@@ -42,6 +48,7 @@ const AUDIO_MANIFEST = [
   { id: "coin", src: "./assets/sfx/coin.wav" },
   { id: "halfwaySiren", src: "./assets/sfx/halfway-siren.wav" },
   { id: "introStart", src: "./assets/sfx/intro-start.wav" },
+  { id: "shiftCountdown", src: "./assets/sfx/shift-countdown.wav" },
   { id: "tick", src: "./assets/sfx/tick.wav" },
   { id: "treasureChest", src: "./assets/sfx/treasure-chest.wav" },
   ...createMusicManifest(WORLD_STRATA),
@@ -55,9 +62,11 @@ const cardTitle = document.getElementById("card-title");
 const cardSubtitle = document.getElementById("card-subtitle");
 const cardChoiceGrid = document.getElementById("card-choice-grid");
 const cardFooter = document.getElementById("card-footer");
+const shiftCountdownOverlay = document.getElementById("shift-countdown-overlay");
+const shiftCountdownValue = document.getElementById("shift-countdown-value");
 
 function isMusicActivePhase(phase = gameState.phase) {
-  return phase === "playing" || phase === "reward" || phase === "summary";
+  return phase === "countdown" || phase === "playing" || phase === "reward" || phase === "summary";
 }
 
 function getPlatformCooldownDuration() {
@@ -127,6 +136,11 @@ const gameState = {
     tickSampleElapsed: 0,
     tickSampleCount: 0,
     displayedTickRate: 0,
+  },
+  shiftCountdown: {
+    active: false,
+    stepIndex: -1,
+    remainingMs: 0,
   },
 };
 
@@ -232,7 +246,7 @@ const endOfRoundSystem = createEndOfRoundSystem({
   storeController,
   getWorld: () => world,
   onStartSummaryMusic: () => {
-    musicSystem.startSummary({ immediate: true });
+    return musicSystem.startSummary({ immediate: true });
   },
 });
 
@@ -291,10 +305,69 @@ function startGameFromIntro() {
   introScreenController.startExit({
     durationMs: introScreenFadeDurationMs,
     onComplete: () => {
-      gameState.phase = "playing";
       gameState.introExiting = false;
+      beginShiftCountdown();
     },
   });
+}
+
+function setShiftCountdownVisibility(visible) {
+  if (!shiftCountdownOverlay) {
+    return;
+  }
+
+  if (visible) {
+    shiftCountdownOverlay.removeAttribute("hidden");
+    shiftCountdownOverlay.setAttribute("data-visible", "true");
+    return;
+  }
+
+  shiftCountdownOverlay.setAttribute("data-visible", "false");
+  shiftCountdownOverlay.setAttribute("hidden", "true");
+}
+
+function advanceShiftCountdownStep() {
+  gameState.shiftCountdown.stepIndex += 1;
+  const step = SHIFT_COUNTDOWN_STEPS[gameState.shiftCountdown.stepIndex];
+  if (!step) {
+    gameState.shiftCountdown.active = false;
+    gameState.shiftCountdown.stepIndex = -1;
+    gameState.shiftCountdown.remainingMs = 0;
+    setShiftCountdownVisibility(false);
+    gameState.phase = "playing";
+    return;
+  }
+
+  gameState.shiftCountdown.remainingMs = step.durationMs;
+  if (shiftCountdownValue) {
+    shiftCountdownValue.textContent = step.label;
+  }
+  setShiftCountdownVisibility(true);
+  if (gameState.audioReady) {
+    audio.playSound("shiftCountdown", {
+      volume: step.volume,
+      playbackRate: step.playbackRate,
+    });
+  }
+}
+
+function beginShiftCountdown() {
+  gameState.phase = "countdown";
+  gameState.shiftCountdown.active = true;
+  gameState.shiftCountdown.stepIndex = -1;
+  gameState.shiftCountdown.remainingMs = 0;
+  advanceShiftCountdownStep();
+}
+
+function updateShiftCountdown(dt) {
+  if (!gameState.shiftCountdown.active) {
+    return;
+  }
+
+  gameState.shiftCountdown.remainingMs -= dt * 1000;
+  while (gameState.shiftCountdown.active && gameState.shiftCountdown.remainingMs <= 0) {
+    advanceShiftCountdownStep();
+  }
 }
 
 function frame(now) {
@@ -311,6 +384,11 @@ function update(dt, timeSeconds) {
   updateTickRateCounter(dt);
 
   if (gameState.phase === "intro") {
+    return;
+  }
+
+  if (gameState.phase === "countdown") {
+    updateShiftCountdown(dt);
     return;
   }
 
@@ -468,7 +546,7 @@ function createInventoryForLoadout(previousInventory = null) {
 
 function startNextRound() {
   gameState.round += 1;
-  gameState.phase = "playing";
+  gameState.phase = "countdown";
   gameState.timeLeft = getRoundDuration();
   gameState.inventory = createInventoryForLoadout();
   gameState.miningResult = null;
@@ -494,6 +572,7 @@ function startNextRound() {
   storeController.reset();
   musicSystem.resetForNextRound({ immediate: true });
   endOfRoundSystem.reset();
+  beginShiftCountdown();
 }
 
 function createPlayer() {

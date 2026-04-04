@@ -11,6 +11,7 @@ const DEFAULT_GAIN = {
   coin: 0.22,
   halfwaySiren: 0.24,
   introStart: 0.22,
+  shiftCountdown: 0.2,
   treasureChest: 0.24,
   music: 0.12,
 };
@@ -22,6 +23,7 @@ export class AudioManager {
     this.musicGain = null;
     this.buffers = new Map();
     this.musicLayers = new Map();
+    this.musicLayerCounter = 0;
     this.musicToken = 0;
     this.ready = false;
   }
@@ -173,7 +175,7 @@ export class AudioManager {
     }, normalizedDurationMs);
   }
 
-  playMusicSegment(id, { loop = false, onended = null, layer = "main", fadeInMs = 0, volume = 1 } = {}) {
+  playMusicSegment(id, { loop = false, onended = null, layer = "main", fadeInMs = 0, crossfadeOutMs = 0, volume = 1 } = {}) {
     if (!this.ready || this.context.state !== "running") {
       return null;
     }
@@ -184,7 +186,15 @@ export class AudioManager {
     }
 
     const token = ++this.musicToken;
-    this.stopMusicLayer(layer);
+    const existingLayer = this.musicLayers.get(layer);
+    if (existingLayer && crossfadeOutMs > 0) {
+      const fadingLayerId = `${layer}#fade-${++this.musicLayerCounter}`;
+      this.musicLayers.delete(layer);
+      this.musicLayers.set(fadingLayerId, existingLayer);
+      this.fadeOutMusicLayer(fadingLayerId, crossfadeOutMs);
+    } else {
+      this.stopMusicLayer(layer);
+    }
 
     const source = this.context.createBufferSource();
     const gainNode = this.context.createGain();

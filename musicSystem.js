@@ -4,6 +4,9 @@ const INTRO_MUSIC_KEY = "__intro__";
 const INTRO_TRACK_NAMES = Object.freeze(["Pocket Miner Theme", "Pocket Miner Theme 2"]);
 export const INTRO_GAMEPLAY_CROSSFADE_MS = 10000;
 const INTRO_LOOP_TO_OUTRO_CROSSFADE_MS = 1000;
+const GENERAL_BGM_CROSSFADE_MS = 3000;
+const SUMMARY_TRANSITION_MAX_DELAY_MS = 1500;
+export const SUMMARY_FADE_IN_MS = 1500;
 
 function createMusicManifestEntries(trackName) {
   return [
@@ -31,6 +34,7 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
   const stratumTrackNames = [...new Set(worldStrata.map((stratum) => stratum.bgmTrack).filter(Boolean))];
   const musicTrackNames = [...stratumTrackNames, SUMMARY_TRACK_NAME, ...INTRO_TRACK_NAMES];
   let introGameplayTimeoutId = null;
+  let queuedMusicStartTimeoutId = null;
   const stratumByName = Object.freeze(
     Object.fromEntries(worldStrata.map((stratum) => [stratum.name, stratum])),
   );
@@ -50,6 +54,15 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
 
     window.clearTimeout(introGameplayTimeoutId);
     introGameplayTimeoutId = null;
+  }
+
+  function clearQueuedMusicStartTimeout() {
+    if (queuedMusicStartTimeoutId === null) {
+      return;
+    }
+
+    window.clearTimeout(queuedMusicStartTimeoutId);
+    queuedMusicStartTimeoutId = null;
   }
 
   function isMusicKeyActive(musicKey) {
@@ -77,8 +90,14 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
     return stratumMusicSets[trackName] ?? stratumMusicSets[SUMMARY_TRACK_NAME];
   }
 
-  function startMusicTrack(musicKey, { immediate = false, trackName } = {}) {
+  function startMusicTrack(musicKey, {
+    immediate = false,
+    trackName,
+    fadeInMs = 0,
+    crossfadeOutMs = 0,
+  } = {}) {
     const token = ++gameState.music.transitionToken;
+    clearQueuedMusicStartTimeout();
     gameState.music.currentStratumName = musicKey;
     gameState.music.currentTrackName = trackName ?? getMusicTrackName(musicKey);
     gameState.music.pendingStratumName = null;
@@ -88,36 +107,71 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
       if (token !== gameState.music.transitionToken || !isMusicKeyActive(musicKey)) {
         return;
       }
-      audio.playMusicSegment(musicSet.loop, { loop: true });
+      audio.playMusicSegment(musicSet.loop, {
+        layer: "main",
+        loop: true,
+      });
     };
 
-    if (immediate) {
-      audio.playMusicSegment(musicSet.intro, { onended: startLoop });
-      return;
-    }
-
-    audio.playMusicSegment(musicSet.intro, { onended: startLoop });
+    audio.playMusicSegment(musicSet.intro, {
+      layer: "main",
+      fadeInMs,
+      crossfadeOutMs,
+      onended: startLoop,
+    });
   }
 
-  function transitionMusicTrack(nextMusicKey) {
+  function transitionMusicTrack(nextMusicKey, {
+    crossfadeMs: requestedCrossfadeMs = GENERAL_BGM_CROSSFADE_MS,
+    maxAudibleDelayMs = Number.POSITIVE_INFINITY,
+  } = {}) {
     const currentStratumName = gameState.music.currentStratumName;
     if (!currentStratumName) {
       startMusicTrack(nextMusicKey);
-      return;
+      return {
+        fadeDelayMs: 0,
+        fadeDurationMs: 0,
+      };
     }
 
     const token = ++gameState.music.transitionToken;
     gameState.music.pendingStratumName = nextMusicKey;
     const currentMusicSet = getMusicSetForKey(currentStratumName);
+    const outroDurationMs = Math.round(audio.getBufferDuration(currentMusicSet.outro) * 1000);
+  const crossfadeMs = Math.min(requestedCrossfadeMs, outroDurationMs || requestedCrossfadeMs);
+  const desiredDelayMs = Math.max(0, outroDurationMs - crossfadeMs);
+  const nextTrackDelayMs = Math.min(desiredDelayMs, Math.max(0, maxAudibleDelayMs));
 
+    clearQueuedMusicStartTimeout();
     audio.playMusicSegment(currentMusicSet.outro, {
-      onended: () => {
-        if (token !== gameState.music.transitionToken || !isMusicKeyActive(currentStratumName)) {
-          return;
-        }
-        startMusicTrack(nextMusicKey);
-      },
+      layer: "main",
     });
+
+    const queueNextTrack = () => {
+      queuedMusicStartTimeoutId = null;
+      if (token !== gameState.music.transitionToken || !isMusicKeyActive(currentStratumName)) {
+        return;
+      }
+
+      startMusicTrack(nextMusicKey, {
+        fadeInMs: crossfadeMs,
+        crossfadeOutMs: crossfadeMs,
+      });
+    };
+
+    if (nextTrackDelayMs === 0) {
+      queueNextTrack();
+      return {
+        fadeDelayMs: 0,
+        fadeDurationMs: crossfadeMs,
+      };
+    }
+
+    queuedMusicStartTimeoutId = window.setTimeout(queueNextTrack, nextTrackDelayMs);
+    return {
+      fadeDelayMs: nextTrackDelayMs,
+      fadeDurationMs: crossfadeMs,
+    };
   }
 
   return {
@@ -215,22 +269,56 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
 
     startSummary({ immediate = true } = {}) {
       if (!gameState.audioReady || gameState.music.currentStratumName === SUMMARY_MUSIC_KEY) {
-        return;
+        return {
+          fadeDelayMs: 0,
+          fadeDurationMs: 0,
+        };
       }
 
-      startMusicTrack(SUMMARY_MUSIC_KEY, { immediate });
+      if (gameState.music.currentStratumName) {
+        return transitionMusicTrack(SUMMARY_MUSIC_KEY, {
+          crossfadeMs: SUMMARY_FADE_IN_MS,
+          maxAudibleDelayMs: SUMMARY_TRANSITION_MAX_DELAY_MS,
+        });
+      }
+
+      startMusicTrack(SUMMARY_MUSIC_KEY, {
+        immediate,
+        fadeInMs: SUMMARY_FADE_IN_MS,
+      });
+      return {
+        fadeDelayMs: 0,
+        fadeDurationMs: SUMMARY_FADE_IN_MS,
+      };
     },
 
     resetForNextRound({ immediate = true } = {}) {
       clearIntroGameplayTimeout();
+      clearQueuedMusicStartTimeout();
+
+      if (!gameState.audioReady) {
+        gameState.music.currentStratumName = null;
+        gameState.music.currentTrackName = null;
+        gameState.music.pendingStratumName = null;
+        gameState.music.transitionToken += 1;
+        return;
+      }
+
+      if (gameState.music.currentStratumName === SUMMARY_MUSIC_KEY) {
+        const world = getWorld();
+        const player = getPlayer();
+        const stratumName = world.getStratumAtPixel(player.getCenter().y).name;
+        transitionMusicTrack(stratumName, {
+          crossfadeMs: GENERAL_BGM_CROSSFADE_MS,
+          maxAudibleDelayMs: GENERAL_BGM_CROSSFADE_MS,
+        });
+        return;
+      }
+
       gameState.music.currentStratumName = null;
       gameState.music.currentTrackName = null;
       gameState.music.pendingStratumName = null;
       gameState.music.transitionToken += 1;
-
-      if (!gameState.audioReady) {
-        return;
-      }
 
       audio.stopMusic();
       this.sync({ immediate });

@@ -20,6 +20,39 @@ export function createEndOfRoundSystem({
   const summaryEarnings = document.getElementById("summary-earnings");
   const summaryBank = document.getElementById("summary-bank");
   const nextRoundButton = document.getElementById("next-round-button");
+  let overlayFadeTimeoutId = null;
+
+  function clearOverlayFadeTimeout() {
+    if (overlayFadeTimeoutId === null) {
+      return;
+    }
+
+    window.clearTimeout(overlayFadeTimeoutId);
+    overlayFadeTimeoutId = null;
+  }
+
+  function showRoundOverlayWithMusicFade({ fadeDelayMs = 0, fadeDurationMs = 0 } = {}) {
+    if (!roundOverlay) {
+      return;
+    }
+
+    clearOverlayFadeTimeout();
+    roundOverlay.style.setProperty("--round-overlay-fade-duration", `${Math.max(0, Math.round(fadeDurationMs))}ms`);
+    roundOverlay.removeAttribute("hidden");
+    roundOverlay.setAttribute("data-visible", "false");
+
+    const reveal = () => {
+      overlayFadeTimeoutId = null;
+      roundOverlay.setAttribute("data-visible", "true");
+    };
+
+    if (fadeDelayMs <= 0) {
+      reveal();
+      return;
+    }
+
+    overlayFadeTimeoutId = window.setTimeout(reveal, Math.max(0, Math.round(fadeDelayMs)));
+  }
 
   function updateSummaryActionState() {
     const enabled = Boolean(gameState.summary?.completed);
@@ -212,7 +245,7 @@ export function createEndOfRoundSystem({
       };
       gameState.notification = null;
       gameState.countdownTickCooldown = 0;
-      onStartSummaryMusic();
+      const summaryFadeTiming = onStartSummaryMusic() ?? { fadeDelayMs: 0, fadeDurationMs: 0 };
 
       if (gameState.summary.completed) {
         commitSummaryBankEarnings();
@@ -220,11 +253,11 @@ export function createEndOfRoundSystem({
       populateSummaryOverlay();
       storeController.populateOverlay();
       storeController.setOverlayView("summary");
-      roundOverlay?.removeAttribute("hidden");
-      roundOverlay?.setAttribute("data-visible", "true");
+      showRoundOverlayWithMusicFade(summaryFadeTiming);
     },
 
     reset() {
+      clearOverlayFadeTimeout();
       roundOverlay?.setAttribute("data-visible", "false");
       roundOverlay?.setAttribute("hidden", "true");
     },
