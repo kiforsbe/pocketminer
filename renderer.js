@@ -920,7 +920,7 @@ export class Renderer {
     this.ctx.beginPath();
     this.ctx.moveTo(0, 0);
     this.ctx.fillStyle = "rgba(120, 132, 148, 0.4)";
-    this.ctx.arc(-0.0001, -0.0001, radius - 2, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * remainingArc, false);
+    this.ctx.arc(-0.0001, -0.0001, radius - 2, -Math.PI * 0.5, -Math.PI * 0.5 - Math.PI * 2 * remainingArc, true);
     this.ctx.closePath();
     this.ctx.fill();
 
