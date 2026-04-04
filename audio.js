@@ -26,6 +26,19 @@ export class AudioManager {
     this.ready = false;
   }
 
+  #disposeMusicLayer(layerId, source) {
+    const activeLayer = this.musicLayers.get(layerId);
+    if (activeLayer?.source !== source) {
+      return;
+    }
+
+    if (activeLayer.stopTimeoutId !== null) {
+      window.clearTimeout(activeLayer.stopTimeoutId);
+    }
+
+    this.musicLayers.delete(layerId);
+  }
+
   async preload(manifest) {
     const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext;
     this.context = new AudioContextCtor({ latencyHint: "interactive" });
@@ -97,6 +110,9 @@ export class AudioManager {
   stopMusic() {
     this.musicToken += 1;
     for (const [layerId, layer] of this.musicLayers.entries()) {
+      if (layer.stopTimeoutId !== null) {
+        window.clearTimeout(layer.stopTimeoutId);
+      }
       layer.source.onended = null;
       layer.source.stop();
       this.musicLayers.delete(layerId);
@@ -109,9 +125,52 @@ export class AudioManager {
       return;
     }
 
+    if (layer.stopTimeoutId !== null) {
+      window.clearTimeout(layer.stopTimeoutId);
+    }
+
     layer.source.onended = null;
     layer.source.stop();
     this.musicLayers.delete(layerId);
+  }
+
+  fadeOutMusicLayer(layerId, durationMs) {
+    if (!this.ready || !this.context) {
+      this.stopMusicLayer(layerId);
+      return;
+    }
+
+    const layer = this.musicLayers.get(layerId);
+    if (!layer) {
+      return;
+    }
+
+    const normalizedDurationMs = Math.max(0, Math.round(durationMs));
+    if (normalizedDurationMs === 0) {
+      this.stopMusicLayer(layerId);
+      return;
+    }
+
+    if (layer.stopTimeoutId !== null) {
+      window.clearTimeout(layer.stopTimeoutId);
+    }
+
+    const now = this.context.currentTime;
+    const currentGain = layer.gainNode.gain.value;
+    layer.gainNode.gain.cancelScheduledValues(now);
+    layer.gainNode.gain.setValueAtTime(currentGain, now);
+    layer.gainNode.gain.linearRampToValueAtTime(0, now + (normalizedDurationMs / 1000));
+    layer.stopTimeoutId = window.setTimeout(() => {
+      const activeLayer = this.musicLayers.get(layerId);
+      if (activeLayer?.source !== layer.source) {
+        return;
+      }
+
+      layer.stopTimeoutId = null;
+      layer.source.onended = null;
+      layer.source.stop();
+      this.#disposeMusicLayer(layerId, layer.source);
+    }, normalizedDurationMs);
   }
 
   playMusicSegment(id, { loop = false, onended = null, layer = "main", fadeInMs = 0, volume = 1 } = {}) {
@@ -139,12 +198,9 @@ export class AudioManager {
     source.connect(gainNode);
     gainNode.connect(this.musicGain);
     source.start();
-    this.musicLayers.set(layer, { source, gainNode, token });
+    this.musicLayers.set(layer, { source, gainNode, token, stopTimeoutId: null });
     source.onended = () => {
-      const activeLayer = this.musicLayers.get(layer);
-      if (activeLayer?.source === source) {
-        this.musicLayers.delete(layer);
-      }
+      this.#disposeMusicLayer(layer, source);
       if (token === this.musicToken) {
         onended?.();
       }

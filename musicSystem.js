@@ -3,6 +3,7 @@ const SUMMARY_TRACK_NAME = "Grand_Payout";
 const INTRO_MUSIC_KEY = "__intro__";
 const INTRO_TRACK_NAMES = Object.freeze(["Pocket Miner Theme", "Pocket Miner Theme 2"]);
 export const INTRO_GAMEPLAY_CROSSFADE_MS = 10000;
+const INTRO_LOOP_TO_OUTRO_CROSSFADE_MS = 1000;
 
 function createMusicManifestEntries(trackName) {
   return [
@@ -148,9 +149,11 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
       gameState.music.currentTrackName = getMusicTrackName(stratumName);
       gameState.music.pendingStratumName = null;
       clearIntroGameplayTimeout();
+      audio.fadeOutMusicLayer("main", INTRO_LOOP_TO_OUTRO_CROSSFADE_MS);
 
       audio.playMusicSegment(introMusicSet.outro, {
         layer: "overlay",
+        fadeInMs: Math.min(INTRO_LOOP_TO_OUTRO_CROSSFADE_MS, durationMs || INTRO_LOOP_TO_OUTRO_CROSSFADE_MS),
         onended: () => {
           if (token !== gameState.music.transitionToken) {
             return;
