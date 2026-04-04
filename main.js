@@ -41,6 +41,7 @@ const AUDIO_MANIFEST = [
   { id: "orePop", src: "./assets/sfx/ore-pop.wav" },
   { id: "coin", src: "./assets/sfx/coin.wav" },
   { id: "halfwaySiren", src: "./assets/sfx/halfway-siren.wav" },
+  { id: "introStart", src: "./assets/sfx/intro-start.wav" },
   { id: "tick", src: "./assets/sfx/tick.wav" },
   { id: "treasureChest", src: "./assets/sfx/treasure-chest.wav" },
   ...createMusicManifest(WORLD_STRATA),
@@ -108,6 +109,7 @@ const gameState = {
   summary: null,
   chestReward: null,
   notification: null,
+  introExiting: false,
   playerBonuses: createPlayerBonuses(),
   alertFlags: {
     halfway: false,
@@ -155,7 +157,7 @@ const musicSystem = createMusicSystem({
 const introScreenController = createIntroScreenController({
   titleImageSrc: INTRO_TITLE_IMAGE_SRC,
   onStartAttempt: () => {
-    if (gameState.phase !== "intro" || !gameState.audioReady) {
+    if (gameState.phase !== "intro" || !gameState.audioReady || gameState.introExiting) {
       return;
     }
 
@@ -278,15 +280,23 @@ function attachAudioUnlock() {
 }
 
 function startGameFromIntro() {
-  if (gameState.phase !== "intro") {
+  if (gameState.phase !== "intro" || gameState.introExiting) {
     return;
   }
 
-  introScreenController.hide();
-  gameState.phase = "playing";
-  if (gameState.audioReady) {
-    musicSystem.resetForNextRound({ immediate: true });
-  }
+  audio.playSound("introStart", { volume: 0.24 });
+  const fadeDurationMs = gameState.audioReady ? musicSystem.endIntro() : 0;
+  gameState.introExiting = true;
+  introScreenController.startExit({
+    durationMs: fadeDurationMs,
+    onComplete: () => {
+      gameState.phase = "playing";
+      gameState.introExiting = false;
+      if (gameState.audioReady) {
+        musicSystem.resetForNextRound({ immediate: true });
+      }
+    },
+  });
 }
 
 function frame(now) {

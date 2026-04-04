@@ -120,6 +120,29 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
       });
     },
 
+    endIntro() {
+      if (!gameState.audioReady || gameState.music.currentStratumName !== INTRO_MUSIC_KEY) {
+        return 0;
+      }
+
+      const introMusicSet = getMusicSetForKey(INTRO_MUSIC_KEY);
+      const durationMs = Math.round(audio.getBufferDuration(introMusicSet.outro) * 1000);
+      const token = ++gameState.music.transitionToken;
+      gameState.music.pendingStratumName = null;
+      audio.playMusicSegment(introMusicSet.outro, {
+        onended: () => {
+          if (token !== gameState.music.transitionToken) {
+            return;
+          }
+
+          gameState.music.currentStratumName = null;
+          gameState.music.currentTrackName = null;
+          gameState.music.pendingStratumName = null;
+        },
+      });
+      return durationMs;
+    },
+
     sync({ immediate = false } = {}) {
       if (!gameState.audioReady || !isMusicActivePhase()) {
         return;

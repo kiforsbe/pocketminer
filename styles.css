@@ -68,6 +68,7 @@
     }
 
     .intro-overlay {
+      --intro-fade-duration: 220ms;
       position: absolute;
       inset: 0;
       display: grid;
@@ -78,7 +79,7 @@
         linear-gradient(180deg, rgba(14, 22, 34, 0.2), rgba(3, 5, 9, 0.72));
       opacity: 0;
       pointer-events: none;
-      transition: opacity 220ms ease;
+      transition: opacity var(--intro-fade-duration) linear;
       z-index: 20;
     }
 

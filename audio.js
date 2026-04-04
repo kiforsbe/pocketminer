@@ -10,6 +10,7 @@ const DEFAULT_GAIN = {
   cheatCode: 0.28,
   coin: 0.22,
   halfwaySiren: 0.24,
+  introStart: 0.22,
   treasureChest: 0.24,
   music: 0.12,
 };
@@ -86,6 +87,11 @@ export class AudioManager {
 
   playCheatCodeActivated() {
     this.playSound("cheatCode");
+  }
+
+  getBufferDuration(id) {
+    const buffer = this.buffers.get(id);
+    return buffer?.duration ?? 0;
   }
 
   stopMusic() {
