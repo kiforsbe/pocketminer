@@ -127,12 +127,14 @@ export class Renderer {
           tile,
           column * TILE_SIZE - this.camera.x,
           row * TILE_SIZE - this.camera.y,
+          column,
+          row,
         );
       }
     }
   }
 
-  #drawTileToContext(context, tile, x, y) {
+  #drawTileToContext(context, tile, x, y, column, row) {
     const canUseTilesheet = this.assets?.tilesheet
       && tile.sprite.x * TILE_SIZE + TILE_SIZE <= this.assets.tilesheet.width
       && tile.sprite.y * TILE_SIZE + TILE_SIZE <= this.assets.tilesheet.height
@@ -150,10 +152,13 @@ export class Renderer {
         TILE_SIZE,
         TILE_SIZE,
       );
-      return;
+    } else {
+      this.#drawProceduralTile(context, tile, x, y);
     }
 
-    this.#drawProceduralTile(context, tile, x, y);
+    if (this.#shouldDrawGrassCap(tile, column, row)) {
+      this.#drawGrassCap(context, x, y);
+    }
   }
 
   #drawProceduralTile(context, tile, x, y) {
@@ -276,6 +281,26 @@ export class Renderer {
       default:
         break;
     }
+  }
+
+  #shouldDrawGrassCap(tile, column, row) {
+    if (!tile?.solid || tile.type === TILE_TYPES.CHEST) {
+      return false;
+    }
+
+    const tileAbove = this.world.getTile(column, row - 1);
+    return !tileAbove?.solid;
+  }
+
+  #drawGrassCap(context, x, y) {
+    context.fillStyle = "#4f8f34";
+    context.fillRect(x, y, TILE_SIZE, 5);
+    context.fillStyle = "#73b84b";
+    context.fillRect(x, y, TILE_SIZE, 2);
+    context.fillRect(x + 3, y + 4, 3, 3);
+    context.fillRect(x + 9, y + 5, 4, 3);
+    context.fillRect(x + 17, y + 4, 3, 4);
+    context.fillRect(x + 24, y + 5, 4, 3);
   }
 
   #paintIcon(canvasId, tileType) {
