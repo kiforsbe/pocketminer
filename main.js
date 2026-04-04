@@ -190,6 +190,12 @@ const gameState = {
     startScrollLeft: 0,
     startScrollTop: 0,
   },
+  performance: {
+    visible: false,
+    tickSampleElapsed: 0,
+    tickSampleCount: 0,
+    displayedTickRate: 0,
+  },
 };
 
 const chestRewardController = createChestRewardController({
@@ -212,6 +218,12 @@ const cheatCodeController = createCheatCodeController({
   input,
   syncPlayerBonuses,
   showRoundNotification,
+});
+
+input.addKeyPressListener((event) => {
+  if (event.code === "KeyR") {
+    gameState.performance.visible = !gameState.performance.visible;
+  }
 });
 
 let player = createPlayer();
@@ -373,6 +385,8 @@ function frame(now) {
 }
 
 function update(dt, timeSeconds) {
+  updateTickRateCounter(dt);
+
   if (gameState.phase === "reward") {
     chestRewardController.updateSelection();
     return;
@@ -459,11 +473,25 @@ function render() {
       timeLeft: Math.ceil(gameState.timeLeft),
       bank: gameState.bank,
       bonuses: gameState.playerBonuses,
+      showPerformance: gameState.performance.visible,
+      tickRate: gameState.performance.displayedTickRate,
       platformCooldown: gameState.platformCooldown / getPlatformCooldownDuration(),
       urgent: gameState.phase === "playing" && gameState.timeLeft <= 30,
       notification: gameState.notification,
     },
   });
+}
+
+function updateTickRateCounter(dt) {
+  gameState.performance.tickSampleElapsed += dt;
+  gameState.performance.tickSampleCount += 1;
+  if (gameState.performance.tickSampleElapsed >= 0.25) {
+    gameState.performance.displayedTickRate = Math.round(
+      gameState.performance.tickSampleCount / gameState.performance.tickSampleElapsed,
+    );
+    gameState.performance.tickSampleElapsed = 0;
+    gameState.performance.tickSampleCount = 0;
+  }
 }
 
 function updatePlatformPlacement() {

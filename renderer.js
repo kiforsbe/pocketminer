@@ -35,6 +35,10 @@ export class Renderer {
     this.pixelRatio = window.devicePixelRatio || 1;
     this.assets = null;
     this.bonusStatsSignature = "";
+    this.lastFrameTimestamp = 0;
+    this.fpsSampleElapsed = 0;
+    this.fpsSampleFrames = 0;
+    this.displayedFps = 0;
     this.resize();
   }
 
@@ -85,6 +89,7 @@ export class Renderer {
   }
 
   render({ player, world, inventory, miningResult, hoverTarget, particles, pickups, floatingTexts, roundInfo }) {
+    this.#updateFrameRateCounter();
     this.ctx.clearRect(0, 0, this.viewport.width, this.viewport.height);
     this.#drawBackground();
     this.updateCamera(player);
@@ -99,6 +104,46 @@ export class Renderer {
     this.#drawHotbar(inventory);
     this.#drawSurveyPanel(player, miningResult?.target ?? hoverTarget);
     this.#drawFloatingTexts(floatingTexts);
+    this.#drawPerformanceCounters(roundInfo);
+  }
+
+  #updateFrameRateCounter() {
+    const now = performance.now();
+    if (this.lastFrameTimestamp > 0) {
+      const deltaMs = now - this.lastFrameTimestamp;
+      this.fpsSampleElapsed += deltaMs;
+      this.fpsSampleFrames += 1;
+      if (this.fpsSampleElapsed >= 250) {
+        this.displayedFps = Math.round((this.fpsSampleFrames * 1000) / this.fpsSampleElapsed);
+        this.fpsSampleElapsed = 0;
+        this.fpsSampleFrames = 0;
+      }
+    }
+
+    this.lastFrameTimestamp = now;
+  }
+
+  #drawPerformanceCounters(roundInfo = {}) {
+    if (!roundInfo.showPerformance) {
+      return;
+    }
+
+    this.ctx.save();
+    this.ctx.font = '600 10px "Segoe UI", "Trebuchet MS", sans-serif';
+    this.ctx.textAlign = "right";
+    this.ctx.textBaseline = "top";
+    this.ctx.fillStyle = "rgba(242, 237, 227, 0.72)";
+    this.ctx.strokeStyle = "rgba(6, 10, 16, 0.82)";
+    this.ctx.lineWidth = 3;
+    this.ctx.lineJoin = "round";
+    const x = this.viewport.width - 18;
+    const lines = [`FPS ${this.displayedFps}`, `TPS ${roundInfo.tickRate ?? 0}`];
+    lines.forEach((text, index) => {
+      const y = 18 + index * 12;
+      this.ctx.strokeText(text, x, y);
+      this.ctx.fillText(text, x, y);
+    });
+    this.ctx.restore();
   }
 
   #drawBackground() {
