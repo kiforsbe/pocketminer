@@ -4,6 +4,7 @@ import { createCheatCodeController } from "./cheatCodes.js";
 import { createEndOfRoundSystem } from "./endOfRoundSystem.js";
 import { createFloatingTextSystem } from "./floatingText.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
+import { createIntroScreenController } from "./introScreen.js";
 import { Input } from "./input.js";
 import { createMusicManifest, createMusicSystem } from "./musicSystem.js";
 import { createParticleSystem } from "./particleSystem.js";
@@ -24,6 +25,8 @@ import {
   getToolDefinition,
 } from "./tools.js";
 import { World, WORLD_STRATA } from "./world.js";
+
+const INTRO_TITLE_IMAGE_SRC = "./assets/title.png";
 
 const AUDIO_MANIFEST = [
   { id: "footsteps", src: "./assets/sfx/footstep.wav" },
@@ -97,7 +100,7 @@ const gameState = {
   pickups: [],
   floatingTexts: [],
   platformCooldown: 0,
-  phase: "playing",
+  phase: "intro",
   round: 1,
   timeLeft: getToolDefinition(DEFAULT_TIME_ROOT_ID).durationSeconds ?? 60,
   bank: 0,
@@ -113,6 +116,7 @@ const gameState = {
   countdownTickCooldown: 0,
   music: {
     currentStratumName: null,
+    currentTrackName: null,
     pendingStratumName: null,
     transitionToken: 0,
   },
@@ -146,6 +150,17 @@ const musicSystem = createMusicSystem({
   getPlayer: () => player,
   worldStrata: WORLD_STRATA,
   isMusicActivePhase,
+});
+
+const introScreenController = createIntroScreenController({
+  titleImageSrc: INTRO_TITLE_IMAGE_SRC,
+  onStartAttempt: () => {
+    if (gameState.phase !== "intro" || !gameState.audioReady) {
+      return;
+    }
+
+    startGameFromIntro();
+  },
 });
 
 const platformPlacementSystem = createPlatformPlacementSystem({
@@ -235,6 +250,7 @@ async function bootstrap() {
     audio.preload(AUDIO_MANIFEST),
   ]);
   renderer.setAssets(assets);
+  introScreenController.init();
   attachAudioUnlock();
   endOfRoundSystem.attachControls(startNextRound);
   storeController.attachControls();
@@ -248,13 +264,29 @@ function attachAudioUnlock() {
   const unlock = async () => {
     await audio.unlock();
     gameState.audioReady = true;
-    musicSystem.sync({ immediate: true });
+    if (gameState.phase === "intro") {
+      musicSystem.startIntro({ immediate: true });
+    } else {
+      musicSystem.sync({ immediate: true });
+    }
     window.removeEventListener("pointerdown", unlock);
     window.removeEventListener("keydown", unlock);
   };
 
   window.addEventListener("pointerdown", unlock, { once: true });
   window.addEventListener("keydown", unlock, { once: true });
+}
+
+function startGameFromIntro() {
+  if (gameState.phase !== "intro") {
+    return;
+  }
+
+  introScreenController.hide();
+  gameState.phase = "playing";
+  if (gameState.audioReady) {
+    musicSystem.resetForNextRound({ immediate: true });
+  }
 }
 
 function frame(now) {
@@ -269,6 +301,10 @@ function frame(now) {
 
 function update(dt, timeSeconds) {
   updateTickRateCounter(dt);
+
+  if (gameState.phase === "intro") {
+    return;
+  }
 
   if (gameState.phase === "reward") {
     chestRewardController.updateSelection();

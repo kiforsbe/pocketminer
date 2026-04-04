@@ -1,5 +1,7 @@
 const SUMMARY_MUSIC_KEY = "__summary__";
 const SUMMARY_TRACK_NAME = "Grand_Payout";
+const INTRO_MUSIC_KEY = "__intro__";
+const INTRO_TRACK_NAMES = Object.freeze(["Pocket Miner Theme", "Pocket Miner Theme 2"]);
 
 function createMusicManifestEntries(trackName) {
   return [
@@ -19,13 +21,13 @@ function createMusicSet(trackName) {
 
 export function createMusicManifest(worldStrata) {
   const stratumTrackNames = [...new Set(worldStrata.map((stratum) => stratum.bgmTrack).filter(Boolean))];
-  const musicTrackNames = [...stratumTrackNames, SUMMARY_TRACK_NAME];
+  const musicTrackNames = [...stratumTrackNames, SUMMARY_TRACK_NAME, ...INTRO_TRACK_NAMES];
   return musicTrackNames.flatMap(createMusicManifestEntries);
 }
 
 export function createMusicSystem({ audio, gameState, getWorld, getPlayer, worldStrata, isMusicActivePhase }) {
   const stratumTrackNames = [...new Set(worldStrata.map((stratum) => stratum.bgmTrack).filter(Boolean))];
-  const musicTrackNames = [...stratumTrackNames, SUMMARY_TRACK_NAME];
+  const musicTrackNames = [...stratumTrackNames, SUMMARY_TRACK_NAME, ...INTRO_TRACK_NAMES];
   const stratumByName = Object.freeze(
     Object.fromEntries(worldStrata.map((stratum) => [stratum.name, stratum])),
   );
@@ -33,7 +35,24 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
     Object.fromEntries(musicTrackNames.map((trackName) => [trackName, createMusicSet(trackName)])),
   );
 
+  function pickIntroTrackName() {
+    const index = Math.floor(Math.random() * INTRO_TRACK_NAMES.length);
+    return INTRO_TRACK_NAMES[index] ?? INTRO_TRACK_NAMES[0];
+  }
+
+  function isMusicKeyActive(musicKey) {
+    if (musicKey === INTRO_MUSIC_KEY) {
+      return gameState.phase === "intro";
+    }
+
+    return isMusicActivePhase();
+  }
+
   function getMusicTrackName(musicKey) {
+    if (musicKey === INTRO_MUSIC_KEY) {
+      return gameState.music.currentTrackName ?? INTRO_TRACK_NAMES[0];
+    }
+
     if (musicKey === SUMMARY_MUSIC_KEY) {
       return SUMMARY_TRACK_NAME;
     }
@@ -46,14 +65,15 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
     return stratumMusicSets[trackName] ?? stratumMusicSets[SUMMARY_TRACK_NAME];
   }
 
-  function startMusicTrack(musicKey, { immediate = false } = {}) {
+  function startMusicTrack(musicKey, { immediate = false, trackName } = {}) {
     const token = ++gameState.music.transitionToken;
     gameState.music.currentStratumName = musicKey;
+    gameState.music.currentTrackName = trackName ?? getMusicTrackName(musicKey);
     gameState.music.pendingStratumName = null;
     const musicSet = getMusicSetForKey(musicKey);
 
     const startLoop = () => {
-      if (token !== gameState.music.transitionToken || !isMusicActivePhase()) {
+      if (token !== gameState.music.transitionToken || !isMusicKeyActive(musicKey)) {
         return;
       }
       audio.playMusicSegment(musicSet.loop, { loop: true });
@@ -80,7 +100,7 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
 
     audio.playMusicSegment(currentMusicSet.outro, {
       onended: () => {
-        if (token !== gameState.music.transitionToken || !isMusicActivePhase()) {
+        if (token !== gameState.music.transitionToken || !isMusicKeyActive(currentStratumName)) {
           return;
         }
         startMusicTrack(nextMusicKey);
@@ -89,6 +109,17 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
   }
 
   return {
+    startIntro({ immediate = true } = {}) {
+      if (!gameState.audioReady || gameState.phase !== "intro") {
+        return;
+      }
+
+      startMusicTrack(INTRO_MUSIC_KEY, {
+        immediate,
+        trackName: pickIntroTrackName(),
+      });
+    },
+
     sync({ immediate = false } = {}) {
       if (!gameState.audioReady || !isMusicActivePhase()) {
         return;
@@ -119,6 +150,7 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
 
     resetForNextRound({ immediate = true } = {}) {
       gameState.music.currentStratumName = null;
+      gameState.music.currentTrackName = null;
       gameState.music.pendingStratumName = null;
       gameState.music.transitionToken += 1;
 
