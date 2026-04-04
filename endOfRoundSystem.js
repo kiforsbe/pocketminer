@@ -54,6 +54,10 @@ export function createEndOfRoundSystem({
     overlayFadeTimeoutId = window.setTimeout(reveal, Math.max(0, Math.round(fadeDelayMs)));
   }
 
+  function getSummaryRevealWaitSeconds({ fadeDelayMs = 0, fadeDurationMs = 0 } = {}) {
+    return Math.max(0, fadeDelayMs + fadeDurationMs) / 1000;
+  }
+
   function updateSummaryActionState() {
     const enabled = Boolean(gameState.summary?.completed);
     nextRoundButton?.toggleAttribute("disabled", !enabled);
@@ -246,6 +250,7 @@ export function createEndOfRoundSystem({
       gameState.notification = null;
       gameState.countdownTickCooldown = 0;
       const summaryFadeTiming = onStartSummaryMusic() ?? { fadeDelayMs: 0, fadeDurationMs: 0 };
+      gameState.summary.revealWaitRemaining = getSummaryRevealWaitSeconds(summaryFadeTiming);
 
       if (gameState.summary.completed) {
         commitSummaryBankEarnings();
@@ -264,6 +269,11 @@ export function createEndOfRoundSystem({
 
     update(dt) {
       if (!gameState.summary || gameState.summary.completed) {
+        return;
+      }
+
+      if ((gameState.summary.revealWaitRemaining ?? 0) > 0) {
+        gameState.summary.revealWaitRemaining = Math.max(0, gameState.summary.revealWaitRemaining - dt);
         return;
       }
 

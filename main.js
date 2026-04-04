@@ -34,6 +34,10 @@ const SHIFT_COUNTDOWN_STEPS = Object.freeze([
   { label: "GO!", durationMs: 700, playbackRate: 1.18, volume: 0.26 },
 ]);
 
+function getShiftCountdownTotalDurationMs() {
+  return SHIFT_COUNTDOWN_STEPS.reduce((total, step) => total + step.durationMs, 0);
+}
+
 const AUDIO_MANIFEST = [
   { id: "footsteps", src: "./assets/sfx/footstep.wav" },
   { id: "jump", src: "./assets/sfx/jump.wav" },
@@ -300,7 +304,7 @@ function startGameFromIntro() {
 
   audio.playSound("introStart", { volume: 0.24 });
   const fadeDurationMs = gameState.audioReady ? musicSystem.transitionFromIntroToGameplay() : 0;
-  const introScreenFadeDurationMs = Math.max(0, fadeDurationMs - INTRO_GAMEPLAY_CROSSFADE_MS);
+  const introScreenFadeDurationMs = Math.max(0, fadeDurationMs - getShiftCountdownTotalDurationMs());
   gameState.introExiting = true;
   introScreenController.startExit({
     durationMs: introScreenFadeDurationMs,
