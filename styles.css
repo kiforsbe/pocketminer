@@ -98,7 +98,7 @@
       min-height: min(100%, 620px);
       padding: clamp(24px, 4vw, 42px);
       border-radius: 28px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
+      border: 2px solid rgba(255, 255, 255, 0.9);
       background:
         linear-gradient(180deg, rgba(6, 10, 16, 0.04), rgba(6, 10, 16, 0.3)),
         var(--intro-art),
@@ -106,7 +106,7 @@
       background-position: center, center, center;
       background-repeat: no-repeat;
       background-size: auto, cover, auto;
-      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.34);
       backdrop-filter: blur(10px);
       display: grid;
       grid-template-rows: minmax(0, 1fr) auto;
