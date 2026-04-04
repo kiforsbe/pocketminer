@@ -575,6 +575,8 @@ export class Renderer {
     const slotsPerRow = 8;
     const slotSize = 52;
     const gap = 8;
+    const iconPadding = 5;
+    const iconSize = slotSize - iconPadding * 2;
     const rowCount = Math.max(1, Math.ceil(slots.length / slotsPerRow));
     const columns = Math.min(slots.length, slotsPerRow);
     const totalWidth = columns * slotSize + Math.max(0, columns - 1) * gap;
@@ -597,12 +599,7 @@ export class Renderer {
         continue;
       }
 
-      const item = ITEM_DEFINITIONS[slot.itemId];
-      this.ctx.fillStyle = item.glow;
-      this.ctx.beginPath();
-      this.ctx.arc(x + slotSize * 0.5, y + slotSize * 0.42, 13, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.#drawHotbarItemIcon(x + 16, y + 13, 20, slot.itemId);
+      this.#drawHotbarItemIcon(x + iconPadding, y + iconPadding, iconSize, slot.itemId);
       this.ctx.font = "bold 13px 'Segoe UI'";
       this.ctx.fillStyle = "#f2ede3";
       this.ctx.fillText(String(slot.count), x + slotSize - 15, y + slotSize - 11);
