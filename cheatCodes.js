@@ -6,11 +6,12 @@ const CHEAT_CODE_KEY_TIMEOUT_MS = 200;
 const CHEAT_CODE_DEFINITIONS = Object.freeze([
   Object.freeze({
     code: "IDFA",
-    apply({ gameState, syncPlayerBonuses, showRoundNotification }) {
+    apply({ audio, gameState, syncPlayerBonuses, showRoundNotification }) {
       for (const statId of Object.keys(createPlayerBonuses())) {
         gameState.playerBonuses[statId] += 0.5;
       }
       syncPlayerBonuses();
+      audio.playCheatCodeActivated();
       showRoundNotification("Cheat activated: IDFA grants +50% to all stats.", { urgent: true });
     },
   }),
@@ -25,7 +26,7 @@ function normalizeCheatKey(key) {
   return /^[A-Z]$/.test(normalizedKey) ? normalizedKey : null;
 }
 
-export function createCheatCodeController({ gameState, input, syncPlayerBonuses, showRoundNotification }) {
+export function createCheatCodeController({ audio, gameState, input, syncPlayerBonuses, showRoundNotification }) {
   let buffer = "";
   let lastKeyAt = 0;
 
@@ -58,7 +59,7 @@ export function createCheatCodeController({ gameState, input, syncPlayerBonuses,
     const nextBuffer = `${buffer}${cheatKey}`;
     const matchingCode = CHEAT_CODE_DEFINITIONS.find((definition) => definition.code === nextBuffer);
     if (matchingCode) {
-      matchingCode.apply({ gameState, syncPlayerBonuses, showRoundNotification });
+      matchingCode.apply({ audio, gameState, syncPlayerBonuses, showRoundNotification });
       reset();
       return;
     }

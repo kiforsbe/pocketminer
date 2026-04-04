@@ -6,6 +6,7 @@ const DEFAULT_GAIN = {
   miningHit: 0.22,
   blockBreak: 0.26,
   cashRegister: 0.26,
+  cheatCode: 0.28,
   coin: 0.22,
   treasureChest: 0.24,
   music: 0.12,
@@ -75,6 +76,10 @@ export class AudioManager {
     source.connect(gain);
     gain.connect(this.masterGain);
     source.start();
+  }
+
+  playCheatCodeActivated() {
+    this.playSound("cheatCode");
   }
 
   stopMusic() {

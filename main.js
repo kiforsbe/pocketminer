@@ -50,6 +50,7 @@ const AUDIO_MANIFEST = [
   { id: "miningHit", src: "./assets/mining-hit.wav" },
   { id: "blockBreak", src: "./assets/block-break.wav" },
   { id: "cashRegister", src: "./assets/cash-register.wav" },
+  { id: "cheatCode", src: "./assets/cheat-code.wav" },
   { id: "orePop", src: "./assets/ore-pop.wav" },
   { id: "coin", src: "./assets/coin.wav" },
   { id: "tick", src: "./assets/tick.wav" },
@@ -201,6 +202,7 @@ const chestRewardController = createChestRewardController({
 });
 
 const cheatCodeController = createCheatCodeController({
+  audio,
   gameState,
   input,
   syncPlayerBonuses,
