@@ -65,7 +65,7 @@ const PICKUP_RADIUS = 10;
 const PICKUP_MAGNET_RANGE = 86;
 const PICKUP_COLLECT_RANGE = 20;
 const SUMMARY_MIN_STEP_RATE = 4;
-const SUMMARY_MAX_STEP_RATE = 34;
+const SUMMARY_MAX_STEP_RATE = 52;
 const NOTIFICATION_DURATION = 3.2;
 const STORE_CATEGORY_ORDER = Object.freeze([
   { id: "tools", label: "Tools", branchIds: ["pickaxe"] },
@@ -549,6 +549,7 @@ function populateSummaryOverlay() {
     return;
   }
 
+  updateSummaryActionState();
   summaryGrid.replaceChildren();
   roundTitle.textContent = `Round ${gameState.round} Complete`;
   roundSubtitle.textContent = gameState.summary.entries.length
@@ -648,6 +649,7 @@ function commitSummaryBankEarnings() {
 
   gameState.bank += gameState.summary.totalEarnings;
   gameState.summary.bankAwarded = true;
+  updateSummaryActionState();
   if (gameState.summary.totalEarnings > 0) {
     audio.playSound("cashRegister", { volume: 0.26 });
   }
@@ -665,6 +667,13 @@ function updateSummaryRow(entry) {
   }
   row.querySelector('[data-role="count"]').textContent = String(entry.displayedCount);
   row.querySelector('[data-role="value"]').textContent = `${entry.displayedValue}€`;
+}
+
+function updateSummaryActionState() {
+  const enabled = Boolean(gameState.summary?.completed);
+  nextRoundButton?.toggleAttribute("disabled", !enabled);
+  openStoreButton?.toggleAttribute("disabled", !enabled);
+  storeNextRoundButton?.toggleAttribute("disabled", !enabled);
 }
 
 function startNextRound() {
