@@ -4,6 +4,7 @@ import { createCheatCodeController } from "./cheatCodes.js";
 import { createFloatingTextSystem } from "./floatingText.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { Input } from "./input.js";
+import { createParticleSystem } from "./particleSystem.js";
 import { Player } from "./player.js";
 import { createPickupSystem } from "./pickups.js";
 import { Renderer } from "./renderer.js";
@@ -65,7 +66,6 @@ const STRATUM_BY_NAME = Object.freeze(
 const STRATUM_MUSIC_SETS = Object.freeze(
   Object.fromEntries(MUSIC_TRACK_NAMES.map((trackName) => [trackName, createMusicSet(trackName)])),
 );
-const PARTICLE_GRAVITY = 820;
 const PLATFORM_PLACE_RANGE_TILES = 6;
 const PLATFORM_COOLDOWN_SECONDS = 3;
 const SUMMARY_MIN_STEP_RATE = 4;
@@ -166,6 +166,14 @@ const floatingTextSystem = createFloatingTextSystem({
   setFloatingTexts: (floatingTexts) => {
     gameState.floatingTexts = floatingTexts;
   },
+});
+
+const particleSystem = createParticleSystem({
+  getParticles: () => gameState.particles,
+  setParticles: (particles) => {
+    gameState.particles = particles;
+  },
+  getPlayer: () => player,
 });
 
 const pickupSystem = createPickupSystem({
@@ -300,7 +308,7 @@ function update(dt, timeSeconds) {
   syncStratumMusic();
   gameState.miningResult = null;
   world.updateFallingDebris(dt);
-  updateParticles(dt);
+  particleSystem.update(dt);
   pickupSystem.update(dt);
   floatingTextSystem.update(dt);
   updatePlatformPlacement();
@@ -330,7 +338,7 @@ function update(dt, timeSeconds) {
             pickupSystem.spawnResources(miningResult, quantity);
             floatingTextSystem.spawnOreYieldText(miningResult);
             floatingTextSystem.spawnLuckBonusText(miningResult);
-            spawnOreChunks(miningResult);
+            particleSystem.spawnOreChunks(miningResult);
             audio.playSound("orePop", { playbackRate: 0.94 + Math.random() * 0.14, volume: 0.3 });
           }
           renderer.markTerrainDirty();
@@ -907,48 +915,6 @@ function getCountdownTickInterval(secondsLeft) {
   }
 
   return 0.85;
-}
-
-function spawnOreChunks(miningResult) {
-  const palette = ITEM_DEFINITIONS[miningResult.resource];
-  if (!palette) {
-    return;
-  }
-
-  const originX = miningResult.column * 32 + 16;
-  const originY = miningResult.row * 32 + 16;
-  const direction = player.getCenter().x <= originX ? 1 : -1;
-  const count = 7 + Math.floor(Math.random() * 3);
-
-  for (let index = 0; index < count; index += 1) {
-    gameState.particles.push({
-      x: originX + (Math.random() - 0.5) * 10,
-      y: originY + (Math.random() - 0.5) * 8,
-      vx: direction * (120 + Math.random() * 90) + (Math.random() - 0.5) * 45,
-      vy: -(110 + Math.random() * 120),
-      size: 6 + Math.random() * 5,
-      color: palette.color,
-      glow: palette.glow,
-      rotation: Math.random() * Math.PI * 2,
-      angularVelocity: (Math.random() - 0.5) * 9,
-      life: 0.55 + Math.random() * 0.3,
-      maxLife: 0.55 + Math.random() * 0.3,
-    });
-  }
-}
-
-function updateParticles(dt) {
-  gameState.particles = gameState.particles
-    .map((particle) => {
-      const nextParticle = { ...particle };
-      nextParticle.life -= dt;
-      nextParticle.vy += PARTICLE_GRAVITY * dt;
-      nextParticle.x += nextParticle.vx * dt;
-      nextParticle.y += nextParticle.vy * dt;
-      nextParticle.rotation += nextParticle.angularVelocity * dt;
-      return nextParticle;
-    })
-    .filter((particle) => particle.life > 0);
 }
 
 bootstrap().catch((error) => {
