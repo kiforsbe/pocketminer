@@ -458,6 +458,7 @@ function render() {
       round: gameState.round,
       timeLeft: Math.ceil(gameState.timeLeft),
       bank: gameState.bank,
+      bonuses: gameState.playerBonuses,
       platformCooldown: gameState.platformCooldown / getPlatformCooldownDuration(),
       urgent: gameState.phase === "playing" && gameState.timeLeft <= 30,
       notification: gameState.notification,

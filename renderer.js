@@ -784,6 +784,7 @@ export class Renderer {
     const timerEl = document.getElementById("round-timer");
     const timerValueEl = document.getElementById("round-timer-value");
     const bankValueEl = document.getElementById("bank-value");
+    const bonusStatsEl = document.getElementById("bonus-stats");
     const roundValueEl = document.getElementById("round-value");
     const toastEl = document.getElementById("round-toast");
     if (timerEl && timerValueEl) {
@@ -808,7 +809,49 @@ export class Renderer {
       }
     }
 
+    if (bonusStatsEl) {
+      const bonusStats = this.#getBonusStats(roundInfo.bonuses);
+      bonusStatsEl.replaceChildren(...bonusStats.map(({ label, value, active }) => {
+        const statEl = document.createElement("div");
+        statEl.className = "bonus-stat";
+        statEl.setAttribute("data-active", active ? "true" : "false");
+
+        const labelEl = document.createElement("span");
+        labelEl.className = "bonus-stat-label";
+        labelEl.textContent = label;
+
+        const valueEl = document.createElement("strong");
+        valueEl.className = "bonus-stat-value";
+        valueEl.textContent = value;
+
+        statEl.append(labelEl, valueEl);
+        return statEl;
+      }));
+    }
+
     this.#drawPlatformCooldown(roundInfo.platformCooldown ?? 0);
+  }
+
+  #getBonusStats(bonuses = {}) {
+    const definitions = [
+      { key: "moveSpeed", label: "Move", value: bonuses.moveSpeed ?? 0 },
+      { key: "jumpPower", label: "Jump", value: bonuses.jumpPower ?? 0 },
+      { key: "swingRate", label: "Swing", value: bonuses.swingRate ?? 0 },
+      { key: "platformCooldown", label: "Platform", value: bonuses.platformCooldown ?? 0 },
+      { key: "luck", label: "Luck", value: bonuses.luck ?? 0 },
+      { key: "mastery", label: "Mastery", value: bonuses.mastery ?? 0 },
+      { key: "toolDamage", label: "Damage", value: bonuses.toolDamage ?? 0 },
+    ];
+
+    return definitions.map(({ label, value }) => ({
+        label,
+        active: Math.abs(value) > 0.0001,
+        value: this.#formatBonusStatValue(value),
+      }));
+  }
+
+  #formatBonusStatValue(value) {
+    return `+${Math.round(value * 100)}%`;
   }
 
   #drawSurveyPanel(player, target) {
