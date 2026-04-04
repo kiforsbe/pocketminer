@@ -753,12 +753,12 @@ export class World {
     const normalizedRoll = (this.random() + this.random() + this.random()) / 3;
     const baseBias = -0.12;
     const luckBias = baseBias + 0.62 * (luck / (1 + luck));
-    const biasedRoll = Math.max(0, Math.min(1, normalizedRoll + luckBias));
+    const biasedRoll = Math.max(0, normalizedRoll + luckBias);
     const swing = Math.round((biasedRoll * 2 - 1) * variance);
     return Math.max(1, base + swing);
   }
 
-  getOreDropRange(row, tileType) {
+  getOreDropRange(row, tileType, bonuses = {}) {
     const definition = this.getTileDefinition(tileType);
     if (!definition.drop) {
       return null;
@@ -771,9 +771,14 @@ export class World {
     }
 
     const { base, variance } = stratum.coreYield;
+    const luck = Math.max(0, bonuses.luck ?? 0);
+    const baseBias = -0.12;
+    const luckBias = baseBias + 0.62 * (luck / (1 + luck));
+    const minRoll = Math.max(0, luckBias);
+    const maxRoll = 1 + luckBias;
     return {
-      min: Math.max(1, base - variance),
-      max: Math.max(1, base + variance),
+      min: Math.max(1, base + Math.round((minRoll * 2 - 1) * variance)),
+      max: Math.max(1, base + Math.round((maxRoll * 2 - 1) * variance)),
     };
   }
 }

@@ -850,7 +850,7 @@ export class Renderer {
       ? `${ITEM_DEFINITIONS[tile.definition.drop]?.value ?? 0}€`
       : (tile.type === TILE_TYPES.CHEST ? "Reward" : "0€");
     blockRangeEl.textContent = target.distance ? `${(target.distance / TILE_SIZE).toFixed(1)} tiles` : "In range";
-    const dropRange = this.world.getOreDropRange(target.row, tile.type);
+    const dropRange = this.world.getOreDropRange(target.row, tile.type, player?.bonuses);
     blockYieldEl.textContent = tile.type === TILE_TYPES.CHEST
       ? "1 card pick"
       : dropRange
