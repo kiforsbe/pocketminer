@@ -1,6 +1,7 @@
 import { AudioManager } from "./audio.js";
 import { createChestRewardController, createPlayerBonuses } from "./chestRewards.js";
 import { createCheatCodeController } from "./cheatCodes.js";
+import { createEndOfRoundSystem } from "./endOfRoundSystem.js";
 import { createFloatingTextSystem } from "./floatingText.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { Input } from "./input.js";
@@ -68,21 +69,9 @@ const STRATUM_MUSIC_SETS = Object.freeze(
 );
 const PLATFORM_PLACE_RANGE_TILES = 6;
 const PLATFORM_COOLDOWN_SECONDS = 3;
-const SUMMARY_MIN_STEP_RATE = 4;
-const SUMMARY_MAX_STEP_RATE = 52;
 const NOTIFICATION_DURATION = 3.2;
 
 const canvas = document.getElementById("game");
-const roundOverlay = document.getElementById("round-overlay");
-const summaryGrid = document.getElementById("summary-grid");
-const roundTitle = document.getElementById("round-title");
-const roundSubtitle = document.getElementById("round-subtitle");
-const summaryBlocks = document.getElementById("summary-blocks");
-const summaryItems = document.getElementById("summary-items");
-const summaryRound = document.getElementById("summary-round");
-const summaryEarnings = document.getElementById("summary-earnings");
-const summaryBank = document.getElementById("summary-bank");
-const nextRoundButton = document.getElementById("next-round-button");
 const cardOverlay = document.getElementById("card-overlay");
 const cardTitle = document.getElementById("card-title");
 const cardSubtitle = document.getElementById("card-subtitle");
@@ -226,6 +215,18 @@ const storeController = createStoreController({
   onStartNextRound: startNextRound,
 });
 
+const endOfRoundSystem = createEndOfRoundSystem({
+  gameState,
+  audio,
+  storeController,
+  getWorld: () => world,
+  onStartSummaryMusic: () => {
+    if (gameState.audioReady && gameState.music.currentStratumName !== SUMMARY_MUSIC_KEY) {
+      startMusicTrack(SUMMARY_MUSIC_KEY, { immediate: true });
+    }
+  },
+});
+
 input.addKeyPressListener((event) => {
   if (event.code === "KeyR") {
     gameState.performance.visible = !gameState.performance.visible;
@@ -243,21 +244,12 @@ async function bootstrap() {
   ]);
   renderer.setAssets(assets);
   attachAudioUnlock();
-  attachRoundControls();
+  endOfRoundSystem.attachControls(startNextRound);
   storeController.attachControls();
   chestRewardController.attachControls();
   cheatCodeController.attach();
   window.addEventListener("resize", () => renderer.resize());
   requestAnimationFrame(frame);
-}
-
-function attachRoundControls() {
-  nextRoundButton?.addEventListener("click", () => {
-    if (gameState.phase !== "summary") {
-      return;
-    }
-    startNextRound();
-  });
 }
 
 function attachAudioUnlock() {
@@ -292,7 +284,7 @@ function update(dt, timeSeconds) {
   }
 
   if (gameState.phase === "summary") {
-    updateSummary(dt);
+    endOfRoundSystem.update(dt);
     return;
   }
 
@@ -353,7 +345,7 @@ function update(dt, timeSeconds) {
   }
 
   if (gameState.timeLeft <= 0) {
-    endRound();
+    endOfRoundSystem.endRound();
   }
 }
 
@@ -508,187 +500,6 @@ function createInventoryForLoadout(previousInventory = null) {
   return inventory;
 }
 
-function endRound() {
-  if (gameState.phase === "summary") {
-    return;
-  }
-
-  gameState.phase = "summary";
-  gameState.miningResult = null;
-  gameState.hoverTarget = null;
-  const totals = gameState.inventory.getTotals();
-  const oreEntries = Object.entries(totals)
-    .filter(([, count]) => count > 0)
-    .map(([itemId, count]) => ({
-      itemId,
-      count,
-      value: ITEM_DEFINITIONS[itemId].value,
-      displayedCount: 0,
-      displayedValue: 0,
-    }))
-    .sort((left, right) => left.value - right.value);
-
-  const totalItems = oreEntries.reduce((sum, entry) => sum + entry.count, 0);
-  gameState.summary = {
-    entries: oreEntries,
-    activeIndex: 0,
-    tickBudget: 0,
-    processedItems: 0,
-    totalCountSteps: totalItems,
-    displayedEarnings: 0,
-    totalEarnings: oreEntries.reduce((sum, entry) => sum + entry.count * entry.value, 0),
-    startingBank: gameState.bank,
-    blocksMined: gameState.roundStats.blocksMined,
-    totalItems,
-    completed: oreEntries.length === 0,
-    bankAwarded: false,
-  };
-  gameState.notification = null;
-  gameState.countdownTickCooldown = 0;
-  if (gameState.audioReady) {
-    if (gameState.music.currentStratumName !== SUMMARY_MUSIC_KEY) {
-      startMusicTrack(SUMMARY_MUSIC_KEY, { immediate: true });
-    }
-  }
-
-  if (gameState.summary.completed) {
-    commitSummaryBankEarnings();
-  }
-  populateSummaryOverlay();
-  storeController.populateOverlay();
-  storeController.setOverlayView("summary");
-  roundOverlay?.removeAttribute("hidden");
-  roundOverlay?.setAttribute("data-visible", "true");
-}
-
-function populateSummaryOverlay() {
-  if (!gameState.summary || !summaryGrid) {
-  }
-
-  updateSummaryActionState();
-  summaryGrid.replaceChildren();
-  roundTitle.textContent = `Shift ${gameState.round} Complete`;
-  roundSubtitle.textContent = gameState.summary.entries.length
-    ? "Counting your haul..."
-    : "No ore banked this shift.";
-  summaryBlocks.textContent = String(gameState.summary.blocksMined);
-  summaryItems.textContent = String(gameState.summary.totalItems);
-  summaryRound.textContent = String(gameState.round);
-  summaryEarnings.textContent = `${gameState.summary.displayedEarnings}€`;
-  summaryBank.textContent = `${gameState.summary.startingBank}€`;
-
-  for (const entry of gameState.summary.entries) {
-    const row = document.createElement("div");
-    row.className = "summary-row";
-    row.dataset.itemId = entry.itemId;
-    row.innerHTML = `
-      <div class="summary-ore">
-        <canvas width="26" height="26"></canvas>
-        <span>${ITEM_DEFINITIONS[entry.itemId].label}</span>
-      </div>
-      <div class="summary-breakdown">
-        <span data-role="count">0</span>
-        <span>x</span>
-        <span data-role="unit">${entry.value}€</span>
-        <span>=</span>
-        <span data-role="value">0€</span>
-      </div>
-    `;
-    summaryGrid.append(row);
-    paintSummaryIcon(row.querySelector("canvas"), entry.itemId);
-  }
-}
-
-function paintSummaryIcon(canvasEl, itemId) {
-  if (!(canvasEl instanceof HTMLCanvasElement)) {
-    return;
-  }
-  const context = canvasEl.getContext("2d");
-  const definition = world.getTileDefinition(itemId);
-  context.imageSmoothingEnabled = false;
-  context.fillStyle = definition.fill;
-  context.fillRect(0, 0, canvasEl.width, canvasEl.height);
-  context.fillStyle = definition.accent;
-  context.fillRect(5, 5, 6, 6);
-  context.fillRect(14, 9, 7, 7);
-  context.fillRect(10, 16, 8, 8);
-}
-
-function updateSummary(dt) {
-  if (!gameState.summary || gameState.summary.completed) {
-    return;
-  }
-
-  gameState.summary.tickBudget += dt * getSummaryStepRate(gameState.summary);
-  while (gameState.summary.tickBudget >= 1 && !gameState.summary.completed) {
-    gameState.summary.tickBudget -= 1;
-    advanceSummaryCount();
-  }
-}
-
-function getSummaryStepRate(summary) {
-  const totalSteps = Math.max(1, summary.totalCountSteps);
-  const progress = Math.min(1, summary.processedItems / totalSteps);
-  const easedRate = Math.sin(progress * Math.PI);
-  return SUMMARY_MIN_STEP_RATE + (SUMMARY_MAX_STEP_RATE - SUMMARY_MIN_STEP_RATE) * easedRate;
-}
-
-function advanceSummaryCount() {
-  const entry = gameState.summary.entries[gameState.summary.activeIndex];
-  if (!entry) {
-    gameState.summary.completed = true;
-    commitSummaryBankEarnings();
-    return;
-  }
-
-  entry.displayedCount += 1;
-  entry.displayedValue += entry.value;
-  gameState.summary.processedItems += 1;
-  gameState.summary.displayedEarnings += entry.value;
-  updateSummaryRow(entry);
-  summaryEarnings.textContent = `${gameState.summary.displayedEarnings}€`;
-  audio.playSound("coin", { playbackRate: 0.98 + Math.random() * 0.06, volume: 0.2 });
-
-  if (entry.displayedCount >= entry.count) {
-    gameState.summary.activeIndex += 1;
-    if (gameState.summary.activeIndex >= gameState.summary.entries.length) {
-      gameState.summary.completed = true;
-      commitSummaryBankEarnings();
-    }
-  }
-}
-
-function commitSummaryBankEarnings() {
-  if (!gameState.summary || gameState.summary.bankAwarded) {
-    return;
-  }
-
-  gameState.bank += gameState.summary.totalEarnings;
-  gameState.summary.bankAwarded = true;
-  updateSummaryActionState();
-  if (gameState.summary.totalEarnings > 0) {
-    audio.playSound("cashRegister", { volume: 0.26 });
-  }
-  roundSubtitle.textContent = "Choose when to begin the next shift.";
-  summaryBank.textContent = `${gameState.bank}€`;
-  storeController.syncBankDisplay();
-}
-
-function updateSummaryRow(entry) {
-  const row = summaryGrid?.querySelector(`[data-item-id="${entry.itemId}"]`);
-  if (!row) {
-    return;
-  }
-  row.querySelector('[data-role="count"]').textContent = String(entry.displayedCount);
-  row.querySelector('[data-role="value"]').textContent = `${entry.displayedValue}€`;
-}
-
-function updateSummaryActionState() {
-  const enabled = Boolean(gameState.summary?.completed);
-  nextRoundButton?.toggleAttribute("disabled", !enabled);
-  storeController.updateSummaryActionState(enabled);
-}
-
 function startNextRound() {
   gameState.round += 1;
   gameState.phase = "playing";
@@ -722,8 +533,7 @@ function startNextRound() {
     audio.stopMusic();
     syncStratumMusic({ immediate: true });
   }
-  roundOverlay?.setAttribute("data-visible", "false");
-  roundOverlay?.setAttribute("hidden", "true");
+  endOfRoundSystem.reset();
 }
 
 function createPlayer() {
