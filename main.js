@@ -5,6 +5,7 @@ import { createEndOfRoundSystem } from "./endOfRoundSystem.js";
 import { createFloatingTextSystem } from "./floatingText.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { Input } from "./input.js";
+import { createMusicManifest, createMusicSystem } from "./musicSystem.js";
 import { createParticleSystem } from "./particleSystem.js";
 import { Player } from "./player.js";
 import { createPlatformPlacementSystem } from "./platformPlacement.js";
@@ -24,27 +25,6 @@ import {
 } from "./tools.js";
 import { World, WORLD_STRATA } from "./world.js";
 
-const STRATUM_TRACK_NAMES = [...new Set(WORLD_STRATA.map((stratum) => stratum.bgmTrack).filter(Boolean))];
-const SUMMARY_MUSIC_KEY = "__summary__";
-const SUMMARY_TRACK_NAME = "Grand_Payout";
-const MUSIC_TRACK_NAMES = [...STRATUM_TRACK_NAMES, SUMMARY_TRACK_NAME];
-
-function createMusicManifestEntries(trackName) {
-  return [
-    { id: `music-${trackName}-intro`, src: `./assets/loops/${trackName}-intro.mp3` },
-    { id: `music-${trackName}-loop`, src: `./assets/loops/${trackName}-loop.mp3` },
-    { id: `music-${trackName}-outro`, src: `./assets/loops/${trackName}-outro.mp3` },
-  ];
-}
-
-function createMusicSet(trackName) {
-  return Object.freeze({
-    intro: `music-${trackName}-intro`,
-    loop: `music-${trackName}-loop`,
-    outro: `music-${trackName}-outro`,
-  });
-}
-
 const AUDIO_MANIFEST = [
   { id: "footsteps", src: "./assets/footstep.wav" },
   { id: "jump", src: "./assets/jump.wav" },
@@ -58,16 +38,8 @@ const AUDIO_MANIFEST = [
   { id: "coin", src: "./assets/coin.wav" },
   { id: "tick", src: "./assets/tick.wav" },
   { id: "treasureChest", src: "./assets/treasure-chest.wav" },
-  ...MUSIC_TRACK_NAMES.flatMap(createMusicManifestEntries),
+  ...createMusicManifest(WORLD_STRATA),
 ];
-
-const STRATUM_BY_NAME = Object.freeze(
-  Object.fromEntries(WORLD_STRATA.map((stratum) => [stratum.name, stratum])),
-);
-
-const STRATUM_MUSIC_SETS = Object.freeze(
-  Object.fromEntries(MUSIC_TRACK_NAMES.map((trackName) => [trackName, createMusicSet(trackName)])),
-);
 const PLATFORM_COOLDOWN_SECONDS = 3;
 const NOTIFICATION_DURATION = 3.2;
 
@@ -165,6 +137,15 @@ const particleSystem = createParticleSystem({
   getPlayer: () => player,
 });
 
+const musicSystem = createMusicSystem({
+  audio,
+  gameState,
+  getWorld: () => world,
+  getPlayer: () => player,
+  worldStrata: WORLD_STRATA,
+  isMusicActivePhase,
+});
+
 const platformPlacementSystem = createPlatformPlacementSystem({
   gameState,
   input,
@@ -231,9 +212,7 @@ const endOfRoundSystem = createEndOfRoundSystem({
   storeController,
   getWorld: () => world,
   onStartSummaryMusic: () => {
-    if (gameState.audioReady && gameState.music.currentStratumName !== SUMMARY_MUSIC_KEY) {
-      startMusicTrack(SUMMARY_MUSIC_KEY, { immediate: true });
-    }
+    musicSystem.startSummary({ immediate: true });
   },
 });
 
@@ -266,7 +245,7 @@ function attachAudioUnlock() {
   const unlock = async () => {
     await audio.unlock();
     gameState.audioReady = true;
-    syncStratumMusic({ immediate: true });
+    musicSystem.sync({ immediate: true });
     window.removeEventListener("pointerdown", unlock);
     window.removeEventListener("keydown", unlock);
   };
@@ -307,7 +286,7 @@ function update(dt, timeSeconds) {
   if (player.consumeJump()) {
     audio.playSound("jump", { playbackRate: 0.98 + Math.random() * 0.08 });
   }
-  syncStratumMusic();
+  musicSystem.sync();
   gameState.miningResult = null;
   world.updateFallingDebris(dt);
   particleSystem.update(dt);
@@ -453,9 +432,6 @@ function startNextRound() {
     thirtySeconds: false,
   };
   gameState.countdownTickCooldown = 0;
-  gameState.music.currentStratumName = null;
-  gameState.music.pendingStratumName = null;
-  gameState.music.transitionToken += 1;
   gameState.lastMiningSoundAt = 0;
   world = new World({ seed: World.createRandomSeed() });
   player = createPlayer();
@@ -463,10 +439,7 @@ function startNextRound() {
   chestRewardController.hideOverlay();
   cheatCodeController.reset();
   storeController.reset();
-  if (gameState.audioReady) {
-    audio.stopMusic();
-    syncStratumMusic({ immediate: true });
-  }
+  musicSystem.resetForNextRound({ immediate: true });
   endOfRoundSystem.reset();
 }
 
@@ -488,102 +461,6 @@ function syncPlayerBonuses() {
 
 function getEquippedTool() {
   return getToolDefinition(gameState.equippedToolId);
-}
-
-function syncStratumMusic({ immediate = false } = {}) {
-  if (!gameState.audioReady || !isMusicActivePhase()) {
-    return;
-  }
-
-  const stratumName = world.getStratumAtPixel(player.getCenter().y).name;
-  if (!gameState.music.currentStratumName) {
-    startMusicTrack(stratumName, { immediate });
-    return;
-  }
-
-  if (stratumName === gameState.music.currentStratumName || stratumName === gameState.music.pendingStratumName) {
-    return;
-  }
-
-  transitionMusicTrack(stratumName);
-}
-
-function getMusicTrackName(musicKey) {
-  if (musicKey === SUMMARY_MUSIC_KEY) {
-    return SUMMARY_TRACK_NAME;
-  }
-
-  return STRATUM_BY_NAME[musicKey]?.bgmTrack ?? STRATUM_TRACK_NAMES[0];
-}
-
-function getMusicSetForKey(musicKey) {
-  const trackName = getMusicTrackName(musicKey);
-  return STRATUM_MUSIC_SETS[trackName] ?? STRATUM_MUSIC_SETS[SUMMARY_TRACK_NAME];
-}
-
-function startMusicTrack(musicKey, { immediate = false } = {}) {
-  const token = ++gameState.music.transitionToken;
-  gameState.music.currentStratumName = musicKey;
-  gameState.music.pendingStratumName = null;
-  const musicSet = getMusicSetForKey(musicKey);
-
-  const startLoop = () => {
-    if (token !== gameState.music.transitionToken || !isMusicActivePhase()) {
-      return;
-    }
-    audio.playMusicSegment(musicSet.loop, { loop: true });
-  };
-
-  if (immediate) {
-    audio.playMusicSegment(musicSet.intro, { onended: startLoop });
-    return;
-  }
-
-  audio.playMusicSegment(musicSet.intro, { onended: startLoop });
-}
-
-function transitionMusicTrack(nextMusicKey) {
-  const currentStratumName = gameState.music.currentStratumName;
-  if (!currentStratumName) {
-    startMusicTrack(nextMusicKey);
-    return;
-  }
-
-  const token = ++gameState.music.transitionToken;
-  gameState.music.pendingStratumName = nextMusicKey;
-  const currentMusicSet = getMusicSetForKey(currentStratumName);
-
-  audio.playMusicSegment(currentMusicSet.outro, {
-    onended: () => {
-      if (token !== gameState.music.transitionToken || !isMusicActivePhase()) {
-        return;
-      }
-      startMusicTrack(nextMusicKey);
-    },
-  });
-}
-
-function stopStratumMusic({ playOutro = false } = {}) {
-  gameState.music.pendingStratumName = null;
-  const currentStratumName = gameState.music.currentStratumName;
-  if (!playOutro || !gameState.audioReady || !currentStratumName) {
-    gameState.music.currentStratumName = null;
-    gameState.music.transitionToken += 1;
-    audio.stopMusic();
-    return;
-  }
-
-  const token = ++gameState.music.transitionToken;
-  const musicSet = getMusicSetForKey(currentStratumName);
-  audio.playMusicSegment(musicSet.outro, {
-    onended: () => {
-      if (token !== gameState.music.transitionToken) {
-        return;
-      }
-      gameState.music.currentStratumName = null;
-      gameState.music.pendingStratumName = null;
-    },
-  });
 }
 
 function showRoundNotification(message, { urgent = false } = {}) {
