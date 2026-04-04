@@ -37,6 +37,7 @@ const AUDIO_MANIFEST = [
   { id: "cheatCode", src: "./assets/sfx/cheat-code.wav" },
   { id: "orePop", src: "./assets/sfx/ore-pop.wav" },
   { id: "coin", src: "./assets/sfx/coin.wav" },
+  { id: "halfwaySiren", src: "./assets/sfx/halfway-siren.wav" },
   { id: "tick", src: "./assets/sfx/tick.wav" },
   { id: "treasureChest", src: "./assets/sfx/treasure-chest.wav" },
   ...createMusicManifest(WORLD_STRATA),
@@ -495,6 +496,7 @@ function checkRoundMilestones() {
 
   if (!gameState.alertFlags.halfway && gameState.timeLeft <= halfwayMark) {
     gameState.alertFlags.halfway = true;
+    audio.playSound("halfwaySiren", { volume: 0.24 });
     if (halfwayMark === 30) {
       gameState.alertFlags.thirtySeconds = true;
       showRoundNotification("Halfway there. Final 30 seconds!", { urgent: true });

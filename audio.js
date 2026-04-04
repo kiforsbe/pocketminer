@@ -9,6 +9,7 @@ const DEFAULT_GAIN = {
   cashRegister: 0.26,
   cheatCode: 0.28,
   coin: 0.22,
+  halfwaySiren: 0.24,
   treasureChest: 0.24,
   music: 0.12,
 };
