@@ -138,7 +138,7 @@ export class Player {
     const column = Math.floor(pointerWorld.x / TILE_SIZE);
     const row = Math.floor(pointerWorld.y / TILE_SIZE);
     const tile = world.getTile(column, row);
-    if (!tile?.solid) {
+    if (!tile?.solid || !tile.mineable) {
       return null;
     }
 
@@ -250,6 +250,27 @@ export class Player {
       x: this.x + this.width * 0.5,
       y: this.y + this.height * 0.5,
     };
+  }
+
+  touchesTileType(world, tileType, inset = 0.5) {
+    const left = this.x + inset;
+    const right = this.x + this.width - inset;
+    const top = this.y + inset;
+    const bottom = this.y + this.height - inset;
+    const startColumn = Math.floor(left / TILE_SIZE);
+    const endColumn = Math.floor(right / TILE_SIZE);
+    const startRow = Math.floor(top / TILE_SIZE);
+    const endRow = Math.floor(bottom / TILE_SIZE);
+
+    for (let row = startRow; row <= endRow; row += 1) {
+      for (let column = startColumn; column <= endColumn; column += 1) {
+        if (world.getTile(column, row)?.type === tileType) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   #resolveHorizontal(world) {

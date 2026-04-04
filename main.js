@@ -68,7 +68,7 @@ function getMiningHitSoundId(miningResult) {
     return "miningHitDirt";
   }
 
-  if ([TILE_TYPES.STONE, TILE_TYPES.SHALE].includes(tileType)) {
+  if ([TILE_TYPES.STONE, TILE_TYPES.SHALE, TILE_TYPES.MAGMA].includes(tileType)) {
     return "miningHitSoft";
   }
 
@@ -293,6 +293,12 @@ function update(dt, timeSeconds) {
   pickupSystem.update(dt);
   floatingTextSystem.update(dt);
   platformPlacementSystem.update();
+
+  if (player.touchesTileType(world, TILE_TYPES.MAGMA, 0)) {
+    audio.playPlayerDeath();
+    endOfRoundSystem.endRound();
+    return;
+  }
 
   if (input.isDown("mine")) {
     const miningResult = player.mine(dt, world);

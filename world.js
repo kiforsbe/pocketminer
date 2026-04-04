@@ -89,7 +89,8 @@ const STRATA = Object.freeze([
     bgmTrack: "Iron_Throat",
     maxDepth: Infinity,
     base: [
-      { type: TILE_TYPES.BASALT, weight: 0.66 },
+      { type: TILE_TYPES.BASALT, weight: 0.5 },
+      { type: TILE_TYPES.MAGMA, weight: 0.16 },
       { type: TILE_TYPES.SHALE, weight: 0.18 },
       { type: TILE_TYPES.STONE, weight: 0.16 },
     ],
@@ -420,7 +421,7 @@ export class World {
   }
 
   #getSurfaceTreatmentForGrid(grid, tile, column, row) {
-    if (!tile?.solid || tile.type === TILE_TYPES.CHEST) {
+    if (!tile?.solid || tile.type === TILE_TYPES.CHEST || tile.type === TILE_TYPES.MAGMA) {
       return null;
     }
 
@@ -566,7 +567,7 @@ export class World {
   damageTile(column, row, amount, bonuses = {}) {
     const tile = this.getTile(column, row);
 
-    if (!tile || !tile.solid) {
+    if (!tile || !tile.solid || !tile.mineable) {
       return { hit: false, broken: false, resource: null, tile: null, damageDealt: 0, bonusDropCount: 0 };
     }
 
@@ -587,7 +588,10 @@ export class World {
     this.#clearDebrisAt(column, row);
     this.#clearDebrisAbove(column, row);
     tile.setType(TILE_TYPES.EMPTY);
-    this.#dropDebris(column, row, brokenType);
+    const magmaFlowed = this.#flowMagmaIntoColumn(column, row);
+    if (!magmaFlowed) {
+      this.#dropDebris(column, row, brokenType);
+    }
     if (chest) {
       this.chestMap.delete(this.#getChestKey(column, row));
       this.chests = this.chests.filter((entry) => entry.id !== chest.id);
@@ -626,6 +630,27 @@ export class World {
 
     tileAbove.debrisType = null;
     tileAbove.debrisVariant = 0;
+  }
+
+  #flowMagmaIntoColumn(column, startRow) {
+    const sourceTile = this.getTile(column, startRow - 1);
+    if (sourceTile?.type !== TILE_TYPES.MAGMA) {
+      return false;
+    }
+
+    let flowed = false;
+    for (let row = startRow; row < this.rows; row += 1) {
+      const tile = this.getTile(column, row);
+      if (!tile || tile.solid) {
+        break;
+      }
+
+      tile.setType(TILE_TYPES.MAGMA);
+      this.fallingDebris = this.fallingDebris.filter((debris) => !(debris.column === column && debris.targetRow === row));
+      flowed = true;
+    }
+
+    return flowed;
   }
 
   #dropDebris(column, row, brokenType) {

@@ -9,6 +9,7 @@ export const TILE_TYPES = Object.freeze({
   STONE: "stone",
   SHALE: "shale",
   BASALT: "basalt",
+  MAGMA: "magma",
   COAL: "coal",
   COPPER: "copper",
   TIN: "tin",
@@ -19,9 +20,10 @@ export const TILE_TYPES = Object.freeze({
   SAPPHIRE: "sapphire",
 });
 
-const createDefinition = ({ id, solid = true, hp, sprite, drop = null, label, fill, accent, pattern }) => ({
+const createDefinition = ({ id, solid = true, mineable = true, hp, sprite, drop = null, label, fill, accent, pattern }) => ({
   id,
   solid,
+  mineable,
   hp,
   sprite,
   drop,
@@ -35,6 +37,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   [TILE_TYPES.EMPTY]: createDefinition({
     id: 0,
     solid: false,
+    mineable: false,
     hp: 0,
     sprite: { x: 0, y: 0 },
     label: "Empty",
@@ -44,6 +47,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.CHEST]: createDefinition({
     id: 18,
+    mineable: true,
     hp: 28,
     sprite: { x: 0, y: 0 },
     label: "Treasure Chest",
@@ -53,6 +57,7 @@ export const TILE_DEFINITIONS = Object.freeze({
   }),
   [TILE_TYPES.PLATFORM]: createDefinition({
     id: 19,
+    mineable: false,
     hp: 16,
     sprite: { x: 0, y: 0 },
     label: "Platform",
@@ -95,6 +100,17 @@ export const TILE_DEFINITIONS = Object.freeze({
     fill: "#3e4655",
     accent: "#697388",
     pattern: "blocks",
+  }),
+  [TILE_TYPES.MAGMA]: createDefinition({
+    id: 5,
+    solid: false,
+    mineable: false,
+    hp: 64,
+    sprite: { x: 0, y: 0 },
+    label: "Magma",
+    fill: "#2a1518",
+    accent: "#ff8b33",
+    pattern: "magma",
   }),
   [TILE_TYPES.COAL]: createDefinition({
     id: 10,
@@ -211,6 +227,10 @@ export class Tile {
     return this.definition.solid;
   }
 
+  get mineable() {
+    return this.definition.mineable;
+  }
+
   get sprite() {
     return this.definition.sprite;
   }
@@ -224,7 +244,7 @@ export class Tile {
   }
 
   damage(amount) {
-    if (!this.solid || amount <= 0) {
+    if (!this.solid || !this.mineable || amount <= 0) {
       return false;
     }
 

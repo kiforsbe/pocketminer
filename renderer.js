@@ -218,7 +218,7 @@ export class Renderer {
         TILE_SIZE,
       );
     } else {
-      this.#drawProceduralTile(context, tile, x, y);
+      this.#drawProceduralTile(context, tile, x, y, column, row);
     }
 
     const surfaceTreatment = tile.surfaceTreatment;
@@ -241,7 +241,7 @@ export class Renderer {
     }
   }
 
-  #drawProceduralTile(context, tile, x, y) {
+  #drawProceduralTile(context, tile, x, y, column = 0, row = 0) {
     context.fillStyle = tile.definition.fill;
     context.fillRect(x, y, TILE_SIZE, TILE_SIZE);
     context.strokeStyle = "rgba(0, 0, 0, 0.18)";
@@ -268,6 +268,9 @@ export class Renderer {
         context.fillRect(x + 5, y + 5, 8, 8);
         context.fillRect(x + 17, y + 8, 9, 9);
         context.fillRect(x + 9, y + 19, 12, 6);
+        break;
+      case "magma":
+        this.#drawMagmaPattern(context, tile.definition, x, y, TILE_SIZE, performance.now() * 0.0018, column, row);
         break;
       case "chest":
         context.fillRect(x + 5, y + 10, 22, 14);
@@ -343,6 +346,9 @@ export class Renderer {
         context.fillRect(17 * unit, 8 * unit, 9 * unit, 9 * unit);
         context.fillRect(9 * unit, 19 * unit, 12 * unit, 6 * unit);
         break;
+      case "magma":
+        this.#drawMagmaPattern(context, definition, 0, 0, size, 0, 0, 0);
+        break;
       case "chest":
         context.fillRect(5 * unit, 10 * unit, 22 * unit, 14 * unit);
         context.fillRect(7 * unit, 7 * unit, 18 * unit, 5 * unit);
@@ -381,6 +387,38 @@ export class Renderer {
       default:
         break;
     }
+  }
+
+  #drawMagmaPattern(context, definition, x, y, size, time, column, row) {
+    const unit = size / 32;
+    const phase = time * 3.4 + column * 0.73 + row * 0.51;
+    const pulseA = (Math.sin(phase) + 1) * 0.5;
+    const pulseB = (Math.sin(phase * 1.37 + 1.2) + 1) * 0.5;
+    const pulseC = (Math.cos(phase * 1.91 - 0.8) + 1) * 0.5;
+
+    context.fillStyle = definition.fill;
+    context.fillRect(x, y, size, size);
+
+    context.fillStyle = "rgba(33, 12, 16, 0.92)";
+    context.fillRect(x + 2 * unit, y + 2 * unit, 10 * unit, 9 * unit);
+    context.fillRect(x + 18 * unit, y + 3 * unit, 11 * unit, 8 * unit);
+    context.fillRect(x + 4 * unit, y + 19 * unit, 9 * unit, 9 * unit);
+    context.fillRect(x + 16 * unit, y + 18 * unit, 12 * unit, 10 * unit);
+
+    context.fillStyle = `rgb(${160 + Math.round(pulseA * 60)}, ${46 + Math.round(pulseB * 44)}, ${20 + Math.round(pulseC * 18)})`;
+    context.fillRect(x + 4 * unit, y + (6 + Math.round(pulseA * 2)) * unit, 24 * unit, 4 * unit);
+    context.fillRect(x + 6 * unit, y + (14 + Math.round(pulseB * 2)) * unit, 19 * unit, 4 * unit);
+    context.fillRect(x + 8 * unit, y + (22 - Math.round(pulseC * 2)) * unit, 16 * unit, 3 * unit);
+
+    context.fillStyle = `rgb(${220 + Math.round(pulseB * 28)}, ${112 + Math.round(pulseA * 50)}, ${28 + Math.round(pulseC * 20)})`;
+    context.fillRect(x + 9 * unit, y + (8 + Math.round(pulseC * 1.5)) * unit, 5 * unit, 5 * unit);
+    context.fillRect(x + 20 * unit, y + (12 - Math.round(pulseA * 2)) * unit, 4 * unit, 4 * unit);
+    context.fillRect(x + 13 * unit, y + (19 + Math.round(pulseB * 1.5)) * unit, 6 * unit, 5 * unit);
+
+    context.fillStyle = `rgba(255, ${180 + Math.round(pulseA * 40)}, ${88 + Math.round(pulseB * 32)}, 0.7)`;
+    context.fillRect(x + 7 * unit, y + 7 * unit, 16 * unit, 1 * unit);
+    context.fillRect(x + 11 * unit, y + 15 * unit, 10 * unit, 1 * unit);
+    context.fillRect(x + 10 * unit, y + 23 * unit, 8 * unit, 1 * unit);
   }
 
   #drawGrassCap(context, x, y, variant) {
