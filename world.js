@@ -110,6 +110,7 @@ const STRATA = Object.freeze([
 
 const CHEST_CLEARANCE_COLUMNS = 3;
 const CHEST_CLEARANCE_ROWS = 4;
+const CHEST_BLOCKS_PER_SPAWN = 40 * 8;
 const DEFAULT_WORLD_COLUMNS = 32 * 6;
 
 export const WORLD_STRATA = STRATA;
@@ -169,7 +170,13 @@ export class World {
         continue;
       }
 
-      for (let attempt = 0; attempt < 24; attempt += 1) {
+      const stratumRows = maxPlacementDepth - minDepth + 1;
+      const maxChestsPerStratum = Math.max(1, Math.floor((this.columns * stratumRows) / CHEST_BLOCKS_PER_SPAWN));
+      const chestsPerStratum = this.#rollCenteredChestCount(maxChestsPerStratum);
+
+      let placedChestCount = 0;
+      const maxAttempts = Math.max(24, chestsPerStratum * 40);
+      for (let attempt = 0; attempt < maxAttempts && placedChestCount < chestsPerStratum; attempt += 1) {
         const depth = this.#randomInt(minDepth, maxPlacementDepth);
         const row = this.surfaceRow + depth;
         const column = this.#randomInt(CHEST_CLEARANCE_COLUMNS, this.columns - CHEST_CLEARANCE_COLUMNS - 1);
@@ -178,7 +185,7 @@ export class World {
         }
 
         this.#placeChest(grid, column, row, index);
-        break;
+        placedChestCount += 1;
       }
     }
   }
@@ -347,6 +354,40 @@ export class World {
     return min + Math.floor(this.random() * (max - min + 1));
   }
 
+  #rollCenteredChestCount(maxCount) {
+    if (maxCount <= 1) {
+      return Math.max(1, maxCount);
+    }
+
+    const normalizedRoll = (this.random() + this.random() + this.random()) / 3;
+    return 1 + Math.round(normalizedRoll * (maxCount - 1));
+  }
+
+  #getMaxChestsForDepthRange(minDepth, maxPlacementDepth) {
+    const stratumRows = maxPlacementDepth - minDepth + 1;
+    return Math.max(1, Math.floor((this.columns * stratumRows) / CHEST_BLOCKS_PER_SPAWN));
+  }
+
+  #getStratumPlacementDepthRange(stratumIndex) {
+    let startDepth = 0;
+
+    for (let index = 0; index < STRATA.length; index += 1) {
+      const stratum = STRATA[index];
+      const maxDepth = Number.isFinite(stratum.maxDepth)
+        ? stratum.maxDepth - 1
+        : this.rows - this.surfaceRow - CHEST_CLEARANCE_ROWS - 1;
+      const minDepth = startDepth + CHEST_CLEARANCE_ROWS;
+      const maxPlacementDepth = maxDepth - CHEST_CLEARANCE_ROWS;
+      startDepth = Number.isFinite(stratum.maxDepth) ? stratum.maxDepth : startDepth;
+
+      if (index === stratumIndex) {
+        return { minDepth, maxPlacementDepth };
+      }
+    }
+
+    return null;
+  }
+
   #getChestKey(column, row) {
     return `${column},${row}`;
   }
@@ -460,19 +501,37 @@ export class World {
 
   getStratumAtPixel(y) {
     const depth = this.getDepthAtPixel(y);
-    const stratum = this.#getDepthProfile(depth);
+    const stratumIndex = STRATA.findIndex((entry) => depth < entry.maxDepth);
+    const resolvedIndex = stratumIndex >= 0 ? stratumIndex : STRATA.length - 1;
+    const stratum = STRATA[resolvedIndex];
     return {
       ...stratum,
+      index: resolvedIndex,
       depth,
     };
   }
 
   getStratumAtRow(row) {
     const depth = Math.max(0, row - this.surfaceRow);
-    const stratum = this.#getDepthProfile(depth);
+    const stratumIndex = STRATA.findIndex((entry) => depth < entry.maxDepth);
+    const resolvedIndex = stratumIndex >= 0 ? stratumIndex : STRATA.length - 1;
+    const stratum = STRATA[resolvedIndex];
     return {
       ...stratum,
+      index: resolvedIndex,
       depth,
+    };
+  }
+
+  getChestStatsForStratum(stratumIndex) {
+    const range = this.#getStratumPlacementDepthRange(stratumIndex);
+    if (!range || range.minDepth > range.maxPlacementDepth) {
+      return { spawned: 0, max: 0 };
+    }
+
+    return {
+      spawned: this.chests.filter((chest) => chest.stratumIndex === stratumIndex).length,
+      max: this.#getMaxChestsForDepthRange(range.minDepth, range.maxPlacementDepth),
     };
   }
 
