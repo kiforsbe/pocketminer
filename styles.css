@@ -153,6 +153,23 @@
         0 -1px 0 rgba(6, 10, 16, 0.72);
     }
 
+    .round-readout {
+      position: absolute;
+      right: calc(100% + 30px);
+      top: 50%;
+      transform: translateY(-50%);
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+      text-align: right;
+      text-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.45),
+        1px 0 0 rgba(6, 10, 16, 0.72),
+        -1px 0 0 rgba(6, 10, 16, 0.72),
+        0 1px 0 rgba(6, 10, 16, 0.72),
+        0 -1px 0 rgba(6, 10, 16, 0.72);
+    }
+
     .bank-value {
       font-size: 1.05rem;
       font-weight: 800;

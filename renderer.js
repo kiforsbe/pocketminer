@@ -465,10 +465,14 @@ export class Renderer {
     const timerEl = document.getElementById("round-timer");
     const timerValueEl = document.getElementById("round-timer-value");
     const bankValueEl = document.getElementById("bank-value");
+    const roundValueEl = document.getElementById("round-value");
     const toastEl = document.getElementById("round-toast");
     if (timerEl && timerValueEl) {
       timerEl.setAttribute("data-urgent", roundInfo.urgent ? "true" : "false");
       timerValueEl.textContent = `${roundInfo.timeLeft}s`;
+    }
+    if (roundValueEl) {
+      roundValueEl.textContent = String(roundInfo.round);
     }
     if (bankValueEl) {
       bankValueEl.textContent = `${roundInfo.bank}€`;
@@ -598,16 +602,24 @@ export class Renderer {
       this.ctx.beginPath();
       this.ctx.arc(x + slotSize * 0.5, y + slotSize * 0.42, 13, 0, Math.PI * 2);
       this.ctx.fill();
-      this.ctx.fillStyle = item.color;
-      this.ctx.fillRect(x + 16, y + 13, 20, 20);
-      this.ctx.strokeStyle = "rgba(255, 240, 211, 0.6)";
-      this.ctx.lineWidth = 1.5;
-      this.ctx.strokeRect(x + 16, y + 13, 20, 20);
-      this.ctx.fillStyle = "#f2ede3";
-      this.ctx.font = "bold 12px 'Segoe UI'";
-      this.ctx.fillText(item.shortLabel, x + 22, y + 27);
+      this.#drawHotbarItemIcon(x + 16, y + 13, 20, slot.itemId);
       this.ctx.font = "bold 13px 'Segoe UI'";
+      this.ctx.fillStyle = "#f2ede3";
       this.ctx.fillText(String(slot.count), x + slotSize - 15, y + slotSize - 11);
     }
+  }
+
+  #drawHotbarItemIcon(x, y, size, itemId) {
+    const tileDefinition = TILE_DEFINITIONS[itemId];
+    if (!tileDefinition) {
+      this.ctx.fillStyle = ITEM_DEFINITIONS[itemId]?.color ?? "#f2ede3";
+      this.ctx.fillRect(x, y, size, size);
+      return;
+    }
+
+    this.ctx.save();
+    this.ctx.translate(x, y);
+    this.#drawProceduralTilePreview(this.ctx, tileDefinition, size);
+    this.ctx.restore();
   }
 }
