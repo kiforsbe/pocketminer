@@ -547,6 +547,10 @@
       gap: 0;
     }
 
+    #summary-view[hidden] {
+      display: none;
+    }
+
     .round-header {
       display: flex;
       justify-content: space-between;
