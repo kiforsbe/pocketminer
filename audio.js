@@ -1,5 +1,8 @@
 const DEFAULT_GAIN = {
   footsteps: 0.18,
+  jump: 0.2,
+  miningHitDirt: 0.2,
+  miningHitSoft: 0.22,
   miningHit: 0.22,
   blockBreak: 0.26,
   cashRegister: 0.26,

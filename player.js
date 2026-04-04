@@ -39,6 +39,7 @@ export class Player {
     this.animationTime = 0;
     this.mineCooldown = 0;
     this.jumpLockout = 0;
+    this.jumpedThisFrame = false;
     this.currentMiningTarget = null;
     this.footstepDistance = 0;
     this.baseMiningPower = miningPower;
@@ -49,6 +50,7 @@ export class Player {
   update(dt, input, world) {
     this.mineCooldown = Math.max(0, this.mineCooldown - dt);
     this.jumpLockout = Math.max(0, this.jumpLockout - dt);
+    this.jumpedThisFrame = false;
     const jumpHeld = input.isDown("jump");
     const wasGrounded = this.grounded;
 
@@ -186,6 +188,15 @@ export class Player {
     return true;
   }
 
+  consumeJump() {
+    if (!this.jumpedThisFrame) {
+      return false;
+    }
+
+    this.jumpedThisFrame = false;
+    return true;
+  }
+
   getAnimationFrame() {
     const animationSet = ANIMATION_SETS[this.animation] ?? ANIMATION_SETS.idle;
     const fps = this.animation === "mining"
@@ -282,6 +293,7 @@ export class Player {
   #jump() {
     this.vy = -this.getJumpSpeed();
     this.grounded = false;
+    this.jumpedThisFrame = true;
   }
 
   #canJump() {

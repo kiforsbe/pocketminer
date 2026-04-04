@@ -3,6 +3,7 @@ import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { Input } from "./input.js";
 import { Player } from "./player.js";
 import { Renderer } from "./renderer.js";
+import { TILE_TYPES } from "./tile.js";
 import {
   DEFAULT_BAG_ROOT_ID,
   DEFAULT_CAPACITY_ROOT_ID,
@@ -41,6 +42,9 @@ function createMusicSet(trackName) {
 
 const AUDIO_MANIFEST = [
   { id: "footsteps", src: "./assets/footstep.wav" },
+  { id: "jump", src: "./assets/jump.wav" },
+  { id: "miningHitDirt", src: "./assets/mining-hit-dirt.wav" },
+  { id: "miningHitSoft", src: "./assets/mining-hit-soft.wav" },
   { id: "miningHit", src: "./assets/mining-hit.wav" },
   { id: "blockBreak", src: "./assets/block-break.wav" },
   { id: "cashRegister", src: "./assets/cash-register.wav" },
@@ -145,6 +149,23 @@ function isMusicActivePhase(phase = gameState.phase) {
 
 function formatBonusPercent(value) {
   return `${Math.round(value * 100)}%`;
+}
+
+function getMiningHitSoundId(miningResult) {
+  const tileType = miningResult.broken ? miningResult.brokenType : miningResult.target?.tile?.type;
+  if (!tileType) {
+    return "miningHit";
+  }
+
+  if (tileType === TILE_TYPES.DIRT) {
+    return "miningHitDirt";
+  }
+
+  if ([TILE_TYPES.STONE, TILE_TYPES.SHALE].includes(tileType)) {
+    return "miningHitSoft";
+  }
+
+  return "miningHit";
 }
 
 const input = new Input({ keyboardTarget: window, pointerTarget: canvas });
@@ -388,6 +409,9 @@ function update(dt, timeSeconds) {
   checkRoundMilestones();
   playCountdownTickIfNeeded(dt);
   gameState.hoverTarget = player.update(dt, input, world);
+  if (player.consumeJump()) {
+    audio.playSound("jump", { playbackRate: 0.98 + Math.random() * 0.08 });
+  }
   syncStratumMusic();
   gameState.miningResult = null;
   world.updateFallingDebris(dt);
@@ -399,7 +423,7 @@ function update(dt, timeSeconds) {
     if (miningResult.active) {
       gameState.miningResult = miningResult;
       if (miningResult.hit && timeSeconds - gameState.lastMiningSoundAt > 0.16) {
-        audio.playSound("miningHit", { playbackRate: 0.96 + Math.random() * 0.1 });
+        audio.playSound(getMiningHitSoundId(miningResult), { playbackRate: 0.96 + Math.random() * 0.1 });
         gameState.lastMiningSoundAt = timeSeconds;
       }
 
