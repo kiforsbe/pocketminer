@@ -80,33 +80,7 @@ export class AudioManager {
   }
 
   playPlayerDeath({ volume = DEFAULT_GAIN.playerDeath } = {}) {
-    if (!this.ready || this.context.state !== "running") {
-      return;
-    }
-
-    const now = this.context.currentTime;
-    const master = this.masterGain;
-    const createVoice = ({ type, startFrequency, endFrequency, detune = 0, startDelay = 0, duration = 0.42, gain = 0.12 }) => {
-      const oscillator = this.context.createOscillator();
-      const gainNode = this.context.createGain();
-      oscillator.type = type;
-      oscillator.frequency.setValueAtTime(startFrequency, now + startDelay);
-      oscillator.frequency.exponentialRampToValueAtTime(endFrequency, now + startDelay + duration);
-      oscillator.detune.value = detune;
-
-      gainNode.gain.setValueAtTime(0.0001, now + startDelay);
-      gainNode.gain.exponentialRampToValueAtTime(volume * gain, now + startDelay + 0.015);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + startDelay + duration);
-
-      oscillator.connect(gainNode);
-      gainNode.connect(master);
-      oscillator.start(now + startDelay);
-      oscillator.stop(now + startDelay + duration + 0.02);
-    };
-
-    createVoice({ type: "sawtooth", startFrequency: 190, endFrequency: 54, duration: 0.48, gain: 0.18 });
-    createVoice({ type: "triangle", startFrequency: 132, endFrequency: 42, detune: -7, duration: 0.52, gain: 0.16 });
-    createVoice({ type: "square", startFrequency: 310, endFrequency: 120, startDelay: 0.02, duration: 0.2, gain: 0.06 });
+    this.playSound("playerDeath", { volume });
   }
 
   playCheatCodeActivated() {

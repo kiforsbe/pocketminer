@@ -28,6 +28,7 @@ import { World, WORLD_STRATA } from "./world.js";
 const AUDIO_MANIFEST = [
   { id: "footsteps", src: "./assets/sfx/footstep.wav" },
   { id: "jump", src: "./assets/sfx/jump.wav" },
+  { id: "playerDeath", src: "./assets/sfx/player-death.wav" },
   { id: "miningHitDirt", src: "./assets/sfx/mining-hit-dirt.wav" },
   { id: "miningHitSoft", src: "./assets/sfx/mining-hit-soft.wav" },
   { id: "miningHit", src: "./assets/sfx/mining-hit.wav" },
