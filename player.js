@@ -11,6 +11,7 @@ const FOOTSTEP_DISTANCE = 56;
 const MINING_RANGE_TILES = 3;
 const MINING_SWING_INTERVAL = 0.6;
 const MINING_SWING_DAMAGE_WINDOW = 0.18;
+const JUMP_LAND_DELAY = 0.1;
 const DEFAULT_PLAYER_BONUSES = Object.freeze({
   moveSpeed: 0,
   jumpPower: 0,
@@ -37,6 +38,7 @@ export class Player {
     this.animation = "idle";
     this.animationTime = 0;
     this.mineCooldown = 0;
+    this.jumpLockout = 0;
     this.currentMiningTarget = null;
     this.footstepDistance = 0;
     this.baseMiningPower = miningPower;
@@ -46,6 +48,9 @@ export class Player {
 
   update(dt, input, world) {
     this.mineCooldown = Math.max(0, this.mineCooldown - dt);
+    this.jumpLockout = Math.max(0, this.jumpLockout - dt);
+    const jumpHeld = input.isDown("jump");
+    const wasGrounded = this.grounded;
 
     let direction = 0;
     if (input.isDown("left")) {
@@ -61,9 +66,8 @@ export class Player {
 
     this.vx = direction * this.getMoveSpeed();
 
-    if (input.wasPressed("jump") && this.grounded) {
-      this.vy = -this.getJumpSpeed();
-      this.grounded = false;
+    if (input.wasPressed("jump") && this.#canJump()) {
+      this.#jump();
     }
 
     this.vy = Math.min(MAX_FALL_SPEED, this.vy + GRAVITY * dt);
@@ -77,6 +81,14 @@ export class Player {
     this.y += this.vy * dt;
     this.grounded = false;
     this.#resolveVertical(world);
+
+    if (!wasGrounded && this.grounded) {
+      this.jumpLockout = JUMP_LAND_DELAY;
+    }
+
+    if (jumpHeld && this.#canJump()) {
+      this.#jump();
+    }
 
     const hoverTarget = this.getMiningTarget(world, input.getPointerWorld?.(this.rendererContext));
     const mining = input.isDown("mine");
@@ -265,5 +277,14 @@ export class Player {
   #clampHorizontal(world) {
     const maxX = Math.max(0, world.pixelWidth - this.width);
     this.x = Math.max(0, Math.min(this.x, maxX));
+  }
+
+  #jump() {
+    this.vy = -this.getJumpSpeed();
+    this.grounded = false;
+  }
+
+  #canJump() {
+    return this.grounded && this.jumpLockout <= 0;
   }
 }
