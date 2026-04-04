@@ -19,6 +19,9 @@ import {
 import { World, WORLD_STRATA } from "./world.js";
 
 const STRATUM_TRACK_NAMES = [...new Set(WORLD_STRATA.map((stratum) => stratum.bgmTrack).filter(Boolean))];
+const SUMMARY_MUSIC_KEY = "__summary__";
+const SUMMARY_TRACK_NAME = "Grand_Payout";
+const MUSIC_TRACK_NAMES = [...STRATUM_TRACK_NAMES, SUMMARY_TRACK_NAME];
 
 function createMusicManifestEntries(trackName) {
   return [
@@ -40,11 +43,12 @@ const AUDIO_MANIFEST = [
   { id: "footsteps", src: "./assets/footstep.wav" },
   { id: "miningHit", src: "./assets/mining-hit.wav" },
   { id: "blockBreak", src: "./assets/block-break.wav" },
+  { id: "cashRegister", src: "./assets/cash-register.wav" },
   { id: "orePop", src: "./assets/ore-pop.wav" },
   { id: "coin", src: "./assets/coin.wav" },
   { id: "tick", src: "./assets/tick.wav" },
   { id: "treasureChest", src: "./assets/treasure-chest.wav" },
-  ...STRATUM_TRACK_NAMES.flatMap(createMusicManifestEntries),
+  ...MUSIC_TRACK_NAMES.flatMap(createMusicManifestEntries),
 ];
 
 const STRATUM_BY_NAME = Object.freeze(
@@ -52,7 +56,7 @@ const STRATUM_BY_NAME = Object.freeze(
 );
 
 const STRATUM_MUSIC_SETS = Object.freeze(
-  Object.fromEntries(STRATUM_TRACK_NAMES.map((trackName) => [trackName, createMusicSet(trackName)])),
+  Object.fromEntries(MUSIC_TRACK_NAMES.map((trackName) => [trackName, createMusicSet(trackName)])),
 );
 const PARTICLE_GRAVITY = 820;
 const PICKUP_GRAVITY = 980;
@@ -133,6 +137,10 @@ function createPlayerBonuses() {
     swingRate: 0,
     toolDamage: 0,
   };
+}
+
+function isMusicActivePhase(phase = gameState.phase) {
+  return phase === "playing" || phase === "reward" || phase === "summary";
 }
 
 function formatBonusPercent(value) {
@@ -518,8 +526,14 @@ function endRound() {
   };
   gameState.notification = null;
   gameState.countdownTickCooldown = 0;
-  stopStratumMusic({ playOutro: true });
   gameState.overlayView = "summary";
+  if (gameState.audioReady) {
+    if (!gameState.music.currentStratumName) {
+      startMusicTrack(SUMMARY_MUSIC_KEY, { immediate: true });
+    } else if (gameState.music.currentStratumName !== SUMMARY_MUSIC_KEY) {
+      transitionMusicTrack(SUMMARY_MUSIC_KEY);
+    }
+  }
 
   if (gameState.summary.completed) {
     commitSummaryBankEarnings();
@@ -635,6 +649,9 @@ function commitSummaryBankEarnings() {
 
   gameState.bank += gameState.summary.totalEarnings;
   gameState.summary.bankAwarded = true;
+  if (gameState.summary.totalEarnings > 0) {
+    audio.playSound("cashRegister", { volume: 0.26 });
+  }
   roundSubtitle.textContent = "Choose when to begin the next shift.";
   summaryBank.textContent = `${gameState.bank}€`;
   if (storeBank) {
@@ -1270,13 +1287,13 @@ function updateChestRewardSelection() {
 }
 
 function syncStratumMusic({ immediate = false } = {}) {
-  if (!gameState.audioReady || gameState.phase !== "playing") {
+  if (!gameState.audioReady || !isMusicActivePhase()) {
     return;
   }
 
   const stratumName = world.getStratumAtPixel(player.getCenter().y).name;
   if (!gameState.music.currentStratumName) {
-    startStratumMusic(stratumName, { immediate });
+    startMusicTrack(stratumName, { immediate });
     return;
   }
 
@@ -1284,22 +1301,30 @@ function syncStratumMusic({ immediate = false } = {}) {
     return;
   }
 
-  transitionStratumMusic(stratumName);
+  transitionMusicTrack(stratumName);
 }
 
-function getMusicSetForStratum(stratumName) {
-  const trackName = STRATUM_BY_NAME[stratumName]?.bgmTrack ?? STRATUM_TRACK_NAMES[0];
-  return STRATUM_MUSIC_SETS[trackName] ?? STRATUM_MUSIC_SETS[STRATUM_TRACK_NAMES[0]];
+function getMusicTrackName(musicKey) {
+  if (musicKey === SUMMARY_MUSIC_KEY) {
+    return SUMMARY_TRACK_NAME;
+  }
+
+  return STRATUM_BY_NAME[musicKey]?.bgmTrack ?? STRATUM_TRACK_NAMES[0];
 }
 
-function startStratumMusic(stratumName, { immediate = false } = {}) {
+function getMusicSetForKey(musicKey) {
+  const trackName = getMusicTrackName(musicKey);
+  return STRATUM_MUSIC_SETS[trackName] ?? STRATUM_MUSIC_SETS[SUMMARY_TRACK_NAME];
+}
+
+function startMusicTrack(musicKey, { immediate = false } = {}) {
   const token = ++gameState.music.transitionToken;
-  gameState.music.currentStratumName = stratumName;
+  gameState.music.currentStratumName = musicKey;
   gameState.music.pendingStratumName = null;
-  const musicSet = getMusicSetForStratum(stratumName);
+  const musicSet = getMusicSetForKey(musicKey);
 
   const startLoop = () => {
-    if (token !== gameState.music.transitionToken || gameState.phase !== "playing") {
+    if (token !== gameState.music.transitionToken || !isMusicActivePhase()) {
       return;
     }
     audio.playMusicSegment(musicSet.loop, { loop: true });
@@ -1313,23 +1338,23 @@ function startStratumMusic(stratumName, { immediate = false } = {}) {
   audio.playMusicSegment(musicSet.intro, { onended: startLoop });
 }
 
-function transitionStratumMusic(nextStratumName) {
+function transitionMusicTrack(nextMusicKey) {
   const currentStratumName = gameState.music.currentStratumName;
   if (!currentStratumName) {
-    startStratumMusic(nextStratumName);
+    startMusicTrack(nextMusicKey);
     return;
   }
 
   const token = ++gameState.music.transitionToken;
-  gameState.music.pendingStratumName = nextStratumName;
-  const currentMusicSet = getMusicSetForStratum(currentStratumName);
+  gameState.music.pendingStratumName = nextMusicKey;
+  const currentMusicSet = getMusicSetForKey(currentStratumName);
 
   audio.playMusicSegment(currentMusicSet.outro, {
     onended: () => {
-      if (token !== gameState.music.transitionToken || gameState.phase !== "playing") {
+      if (token !== gameState.music.transitionToken || !isMusicActivePhase()) {
         return;
       }
-      startStratumMusic(nextStratumName);
+      startMusicTrack(nextMusicKey);
     },
   });
 }
@@ -1345,7 +1370,7 @@ function stopStratumMusic({ playOutro = false } = {}) {
   }
 
   const token = ++gameState.music.transitionToken;
-  const musicSet = getMusicSetForStratum(currentStratumName);
+  const musicSet = getMusicSetForKey(currentStratumName);
   audio.playMusicSegment(musicSet.outro, {
     onended: () => {
       if (token !== gameState.music.transitionToken) {
