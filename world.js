@@ -114,8 +114,17 @@ const CHEST_BLOCKS_PER_SPAWN = 40 * 8;
 const DEFAULT_WORLD_COLUMNS = 32 * 6;
 const DEBRIS_FALL_GRAVITY = 1800;
 const DEBRIS_REST_HEIGHT = 8;
+const LUCK_OVERFLOW_STEP = 0.2;
 
 export const WORLD_STRATA = STRATA;
+
+function getLuckOverflowOre(overflowRoll) {
+  if (overflowRoll <= 0) {
+    return 0;
+  }
+
+  return 1 + Math.floor(overflowRoll / LUCK_OVERFLOW_STEP);
+}
 
 export class World {
   static createRandomSeed() {
@@ -754,8 +763,10 @@ export class World {
     const baseBias = -0.12;
     const luckBias = baseBias + 0.62 * (luck / (1 + luck));
     const biasedRoll = Math.max(0, normalizedRoll + luckBias);
-    const swing = Math.round((biasedRoll * 2 - 1) * variance);
-    return Math.max(1, base + swing);
+    const cappedRoll = Math.min(1, biasedRoll);
+    const swing = Math.round((cappedRoll * 2 - 1) * variance);
+    const overflowOre = getLuckOverflowOre(biasedRoll - 1);
+    return Math.max(1, base + swing + overflowOre);
   }
 
   getOreDropRange(row, tileType, bonuses = {}) {
@@ -776,9 +787,10 @@ export class World {
     const luckBias = baseBias + 0.62 * (luck / (1 + luck));
     const minRoll = Math.max(0, luckBias);
     const maxRoll = 1 + luckBias;
+    const overflowMax = getLuckOverflowOre(maxRoll - 1);
     return {
       min: Math.max(1, base + Math.round((minRoll * 2 - 1) * variance)),
-      max: Math.max(1, base + Math.round((maxRoll * 2 - 1) * variance)),
+      max: Math.max(1, base + variance + overflowMax),
     };
   }
 }
