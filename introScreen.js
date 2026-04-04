@@ -17,28 +17,34 @@ export function createIntroScreenController({ titleImageSrc = "", onStartAttempt
   }
 
   function configureTitleImage() {
+    return new Promise((resolve) => {
     if (!(introTitleImage instanceof HTMLImageElement)) {
-      return;
+        resolve();
+        return;
     }
 
     if (!titleImageSrc) {
       introTitleImage.hidden = true;
       introTitleText?.removeAttribute("hidden");
       clearBackgroundArt();
-      return;
+        resolve();
+        return;
     }
 
     introTitleImage.addEventListener("load", () => {
       introTitleImage.hidden = true;
       setBackgroundArt(titleImageSrc);
       introTitleText?.setAttribute("hidden", "true");
+        resolve();
     }, { once: true });
     introTitleImage.addEventListener("error", () => {
       introTitleImage.hidden = true;
       clearBackgroundArt();
       introTitleText?.removeAttribute("hidden");
+        resolve();
     }, { once: true });
     introTitleImage.src = titleImageSrc;
+    });
   }
 
   function attachControls() {
@@ -52,10 +58,11 @@ export function createIntroScreenController({ titleImageSrc = "", onStartAttempt
   }
 
   return {
-    init() {
-      configureTitleImage();
+    async init() {
+      await configureTitleImage();
       attachControls();
       introStartButton?.removeAttribute("hidden");
+      this.show();
     },
 
     hide() {

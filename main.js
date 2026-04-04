@@ -266,7 +266,7 @@ async function bootstrap() {
     audio.preload(AUDIO_MANIFEST),
   ]);
   renderer.setAssets(assets);
-  introScreenController.init();
+  await introScreenController.init();
   attachAudioUnlock();
   endOfRoundSystem.attachControls(startNextRound);
   storeController.attachControls();
