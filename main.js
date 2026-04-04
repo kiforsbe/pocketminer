@@ -71,6 +71,7 @@ const PICKUP_BOB_SPEED = 6;
 const PICKUP_RADIUS = 10;
 const PICKUP_MAGNET_RANGE = 86;
 const PICKUP_COLLECT_RANGE = 20;
+const FLOATING_TEXT_LIFETIME = 0.65;
 const PLATFORM_PLACE_RANGE_TILES = 6;
 const PLATFORM_COOLDOWN_SECONDS = 3;
 const SUMMARY_MIN_STEP_RATE = 4;
@@ -156,6 +157,7 @@ const gameState = {
   lastMiningSoundAt: 0,
   particles: [],
   pickups: [],
+  floatingTexts: [],
   platformCooldown: 0,
   phase: "playing",
   round: 1,
@@ -392,12 +394,16 @@ function update(dt, timeSeconds) {
   world.updateFallingDebris(dt);
   updateParticles(dt);
   updatePickups(dt);
+  updateFloatingTexts(dt);
   updatePlatformPlacement();
 
   if (input.isDown("mine")) {
     const miningResult = player.mine(dt, world);
     if (miningResult.active) {
       gameState.miningResult = miningResult;
+      if (miningResult.hit) {
+        spawnFloatingCombatText(miningResult);
+      }
       if (miningResult.hit && timeSeconds - gameState.lastMiningSoundAt > 0.16) {
         audio.playSound(getMiningHitSoundId(miningResult), { playbackRate: 0.96 + Math.random() * 0.1 });
         gameState.lastMiningSoundAt = timeSeconds;
@@ -442,6 +448,7 @@ function render() {
     hoverTarget: gameState.hoverTarget,
     particles: gameState.particles,
     pickups: gameState.pickups,
+    floatingTexts: gameState.floatingTexts,
     roundInfo: {
       round: gameState.round,
       timeLeft: Math.ceil(gameState.timeLeft),
@@ -763,6 +770,7 @@ function startNextRound() {
   gameState.hoverTarget = null;
   gameState.particles = [];
   gameState.pickups = [];
+  gameState.floatingTexts = [];
   gameState.roundStats = createRoundStats();
   gameState.summary = null;
   gameState.chestReward = null;
@@ -1442,6 +1450,28 @@ function spawnOreChunks(miningResult) {
   }
 }
 
+function spawnFloatingCombatText(miningResult) {
+  if (!miningResult.hit || (miningResult.damageDealt ?? 0) <= 0) {
+    return;
+  }
+
+  const originX = miningResult.target.column * 32 + 16;
+  const originY = miningResult.target.row * 32 + 16;
+  const angle = Math.random() * Math.PI * 2;
+  const radius = Math.random() * 8;
+  gameState.floatingTexts.push({
+    text: String(Math.ceil(miningResult.damageDealt)),
+    x: originX + Math.cos(angle) * radius,
+    y: originY + Math.sin(angle) * radius,
+    vx: (Math.random() - 0.5) * 18,
+    vy: -(42 + Math.random() * 18),
+    life: FLOATING_TEXT_LIFETIME,
+    maxLife: FLOATING_TEXT_LIFETIME,
+    color: miningResult.critical ? "#f2d15f" : "#f2ede3",
+    outlineColor: "rgba(13, 21, 34, 0.96)",
+  });
+}
+
 function spawnPickups(miningResult, quantity) {
   const definition = ITEM_DEFINITIONS[miningResult.resource];
   if (!definition) {
@@ -1505,6 +1535,18 @@ function updateParticles(dt) {
       return nextParticle;
     })
     .filter((particle) => particle.life > 0);
+}
+
+function updateFloatingTexts(dt) {
+  gameState.floatingTexts = gameState.floatingTexts
+    .map((floatingText) => ({
+      ...floatingText,
+      life: floatingText.life - dt,
+      x: floatingText.x + floatingText.vx * dt,
+      y: floatingText.y + floatingText.vy * dt,
+      vy: floatingText.vy - 18 * dt,
+    }))
+    .filter((floatingText) => floatingText.life > 0);
 }
 
 function updatePickups(dt) {

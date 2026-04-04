@@ -32,6 +32,12 @@ const CHEST_REWARD_DEFINITIONS = Object.freeze([
     description: "Bias ore drops toward the high end of each vein's yield.",
   }),
   Object.freeze({
+    id: "mastery",
+    title: "Deadeye Rhythm",
+    statLabel: "Mastery",
+    description: "Raise the chance to land critical mining hits.",
+  }),
+  Object.freeze({
     id: "toolDamage",
     title: "Honed Edge",
     statLabel: "Tool damage",
@@ -46,6 +52,7 @@ export function createPlayerBonuses() {
     swingRate: 0,
     platformCooldown: 0,
     luck: 0,
+    mastery: 0,
     toolDamage: 0,
   };
 }

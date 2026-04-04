@@ -83,7 +83,7 @@ export class Renderer {
     this.camera.y = Math.max(0, Math.min(targetY, this.world.pixelHeight - this.viewport.height));
   }
 
-  render({ player, world, inventory, miningResult, hoverTarget, particles, pickups, roundInfo }) {
+  render({ player, world, inventory, miningResult, hoverTarget, particles, pickups, floatingTexts, roundInfo }) {
     this.ctx.clearRect(0, 0, this.viewport.width, this.viewport.height);
     this.#drawBackground();
     this.updateCamera(player);
@@ -93,6 +93,7 @@ export class Renderer {
     this.#drawMiningHighlight(hoverTarget, miningResult);
     this.#drawPickups(pickups);
     this.#drawParticles(particles);
+    this.#drawFloatingTexts(floatingTexts);
     this.#drawPlayer(player);
     this.#drawHud(inventory, roundInfo);
     this.#drawHotbar(inventory);
@@ -719,6 +720,32 @@ export class Renderer {
       this.ctx.strokeRect(-pickup.radius * 0.55, -pickup.radius * 0.55, pickup.radius * 1.1, pickup.radius * 1.1);
       this.ctx.restore();
     }
+  }
+
+  #drawFloatingTexts(floatingTexts = []) {
+    this.ctx.save();
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "middle";
+    this.ctx.lineJoin = "round";
+    this.ctx.font = "700 20.5px 'Segoe UI'";
+
+    for (const floatingText of floatingTexts) {
+      const x = floatingText.x - this.camera.x;
+      const y = floatingText.y - this.camera.y;
+      if (x < -48 || y < -48 || x > this.viewport.width + 48 || y > this.viewport.height + 48) {
+        continue;
+      }
+
+      const lifeRatio = Math.max(0, floatingText.life / floatingText.maxLife);
+      this.ctx.globalAlpha = 1 - (1 - lifeRatio) ** 4;
+      this.ctx.lineWidth = 4;
+      this.ctx.strokeStyle = floatingText.outlineColor ?? "rgba(14, 21, 33, 0.95)";
+      this.ctx.strokeText(floatingText.text, x, y);
+      this.ctx.fillStyle = floatingText.color;
+      this.ctx.fillText(floatingText.text, x, y);
+    }
+
+    this.ctx.restore();
   }
 
   #blitPlayerFrame(frame, x, y) {

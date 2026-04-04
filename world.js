@@ -542,15 +542,17 @@ export class World {
     const tile = this.getTile(column, row);
 
     if (!tile || !tile.solid) {
-      return { hit: false, broken: false, resource: null, tile: null };
+      return { hit: false, broken: false, resource: null, tile: null, damageDealt: 0 };
     }
 
     const chest = tile.type === TILE_TYPES.CHEST ? this.getChestAt(column, row) : null;
+    const previousHp = tile.hp;
 
     const broken = tile.damage(amount);
+    const damageDealt = Math.min(previousHp, amount);
 
     if (!broken) {
-      return { hit: true, broken: false, resource: null, tile };
+      return { hit: true, broken: false, resource: null, tile, damageDealt };
     }
 
     const resource = chest ? null : tile.definition.drop;
@@ -571,6 +573,7 @@ export class World {
       dropCount,
       chest,
       tile,
+      damageDealt,
       brokenType,
       column,
       row,

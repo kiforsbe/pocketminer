@@ -11,6 +11,9 @@ const FOOTSTEP_DISTANCE = 56;
 const MINING_RANGE_TILES = 3;
 const MINING_SWING_INTERVAL = 0.6;
 const MINING_SWING_DAMAGE_WINDOW = 0.18;
+const MINING_CRIT_CHANCE_BASE = 0.05;
+const MINING_CRIT_CHANCE_PER_MASTERY = 0.35;
+const MINING_CRIT_DAMAGE_MULTIPLIER = 1.75;
 const JUMP_LAND_DELAY = 0.1;
 const DROP_THROUGH_HOLD_TIME = 0.075;
 const DEFAULT_PLAYER_BONUSES = Object.freeze({
@@ -18,6 +21,7 @@ const DEFAULT_PLAYER_BONUSES = Object.freeze({
   jumpPower: 0,
   swingRate: 0,
   luck: 0,
+  mastery: 0,
   toolDamage: 0,
 });
 
@@ -163,8 +167,10 @@ export class Player {
     }
 
     this.mineCooldown = this.getMiningSwingInterval();
-    const result = world.damageTile(target.column, target.row, this.getMiningDamage(), { luck: this.bonuses.luck });
-    return { active: true, target, ...result };
+    const critical = this.#rollCriticalHit(world);
+    const damage = this.getMiningDamage() * (critical ? MINING_CRIT_DAMAGE_MULTIPLIER : 1);
+    const result = world.damageTile(target.column, target.row, damage, { luck: this.bonuses.luck });
+    return { active: true, target, critical, ...result };
   }
 
   setMiningPower(miningPower) {
@@ -228,6 +234,15 @@ export class Player {
 
   getMiningDamage() {
     return this.baseMiningPower * (1 + this.bonuses.toolDamage) * MINING_SWING_DAMAGE_WINDOW;
+  }
+
+  #getMiningCriticalChance() {
+    return Math.min(0.9, MINING_CRIT_CHANCE_BASE + this.bonuses.mastery * MINING_CRIT_CHANCE_PER_MASTERY);
+  }
+
+  #rollCriticalHit(world) {
+    const roll = typeof world?.random === "function" ? world.random() : Math.random();
+    return roll < this.#getMiningCriticalChance();
   }
 
   getCenter() {
