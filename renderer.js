@@ -494,6 +494,7 @@ export class Renderer {
     const blockNameEl = document.getElementById("block-name");
     const blockTypeEl = document.getElementById("block-type");
     const blockHpEl = document.getElementById("block-hp");
+    const blockValueEl = document.getElementById("block-value");
     const blockRangeEl = document.getElementById("block-range");
     const blockYieldEl = document.getElementById("block-yield");
     const stratum = this.world.getStratumAtPixel(player.getCenter().y);
@@ -522,7 +523,7 @@ export class Renderer {
       }
     }
 
-    if (!blockNameEl || !blockTypeEl || !blockHpEl || !blockRangeEl || !blockYieldEl) {
+    if (!blockNameEl || !blockTypeEl || !blockHpEl || !blockValueEl || !blockRangeEl || !blockYieldEl) {
       return;
     }
 
@@ -531,6 +532,7 @@ export class Renderer {
       blockNameEl.textContent = "None";
       blockTypeEl.textContent = "No target";
       blockHpEl.textContent = "--";
+      blockValueEl.textContent = "--";
       blockRangeEl.textContent = "--";
       blockYieldEl.textContent = "--";
       return;
@@ -542,6 +544,7 @@ export class Renderer {
       blockNameEl.textContent = "None";
       blockTypeEl.textContent = "No target";
       blockHpEl.textContent = "--";
+      blockValueEl.textContent = "--";
       blockRangeEl.textContent = "--";
       blockYieldEl.textContent = "--";
       return;
@@ -551,6 +554,9 @@ export class Renderer {
     blockNameEl.textContent = tile.definition.label;
     blockTypeEl.textContent = tile.type === TILE_TYPES.CHEST ? "Treasure chest" : (tile.definition.drop ? "Ore" : "Stratum block");
     blockHpEl.textContent = tile.maxHp > 0 ? `${Math.ceil(tile.hp)} / ${tile.maxHp}` : "--";
+    blockValueEl.textContent = tile.definition.drop
+      ? `${ITEM_DEFINITIONS[tile.definition.drop]?.value ?? 0}€`
+      : (tile.type === TILE_TYPES.CHEST ? "Reward" : "0€");
     blockRangeEl.textContent = target.distance ? `${(target.distance / TILE_SIZE).toFixed(1)} tiles` : "In range";
     const dropRange = this.world.getOreDropRange(target.row, tile.type);
     blockYieldEl.textContent = tile.type === TILE_TYPES.CHEST

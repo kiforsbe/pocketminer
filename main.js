@@ -529,10 +529,8 @@ function endRound() {
   gameState.countdownTickCooldown = 0;
   gameState.overlayView = "summary";
   if (gameState.audioReady) {
-    if (!gameState.music.currentStratumName) {
+    if (gameState.music.currentStratumName !== SUMMARY_MUSIC_KEY) {
       startMusicTrack(SUMMARY_MUSIC_KEY, { immediate: true });
-    } else if (gameState.music.currentStratumName !== SUMMARY_MUSIC_KEY) {
-      transitionMusicTrack(SUMMARY_MUSIC_KEY);
     }
   }
 
