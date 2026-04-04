@@ -2,6 +2,7 @@ const SUMMARY_MUSIC_KEY = "__summary__";
 const SUMMARY_TRACK_NAME = "Grand_Payout";
 const INTRO_MUSIC_KEY = "__intro__";
 const INTRO_TRACK_NAMES = Object.freeze(["Pocket Miner Theme", "Pocket Miner Theme 2"]);
+export const INTRO_GAMEPLAY_CROSSFADE_MS = 10000;
 
 function createMusicManifestEntries(trackName) {
   return [
@@ -28,6 +29,7 @@ export function createMusicManifest(worldStrata) {
 export function createMusicSystem({ audio, gameState, getWorld, getPlayer, worldStrata, isMusicActivePhase }) {
   const stratumTrackNames = [...new Set(worldStrata.map((stratum) => stratum.bgmTrack).filter(Boolean))];
   const musicTrackNames = [...stratumTrackNames, SUMMARY_TRACK_NAME, ...INTRO_TRACK_NAMES];
+  let introGameplayTimeoutId = null;
   const stratumByName = Object.freeze(
     Object.fromEntries(worldStrata.map((stratum) => [stratum.name, stratum])),
   );
@@ -40,12 +42,21 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
     return INTRO_TRACK_NAMES[index] ?? INTRO_TRACK_NAMES[0];
   }
 
-  function isMusicKeyActive(musicKey) {
-    if (musicKey === INTRO_MUSIC_KEY) {
-      return gameState.phase === "intro";
+  function clearIntroGameplayTimeout() {
+    if (introGameplayTimeoutId === null) {
+      return;
     }
 
-    return isMusicActivePhase();
+    window.clearTimeout(introGameplayTimeoutId);
+    introGameplayTimeoutId = null;
+  }
+
+  function isMusicKeyActive(musicKey) {
+    if (musicKey === INTRO_MUSIC_KEY) {
+      return gameState.phase === "intro" && !gameState.introExiting;
+    }
+
+    return isMusicActivePhase() || gameState.introExiting;
   }
 
   function getMusicTrackName(musicKey) {
@@ -120,26 +131,62 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
       });
     },
 
-    endIntro() {
+    transitionFromIntroToGameplay() {
       if (!gameState.audioReady || gameState.music.currentStratumName !== INTRO_MUSIC_KEY) {
         return 0;
       }
 
+      const world = getWorld();
+      const player = getPlayer();
+      const stratumName = world.getStratumAtPixel(player.getCenter().y).name;
       const introMusicSet = getMusicSetForKey(INTRO_MUSIC_KEY);
       const durationMs = Math.round(audio.getBufferDuration(introMusicSet.outro) * 1000);
+      const crossfadeMs = Math.min(INTRO_GAMEPLAY_CROSSFADE_MS, durationMs || INTRO_GAMEPLAY_CROSSFADE_MS);
+      const startDelayMs = Math.max(0, durationMs - crossfadeMs);
       const token = ++gameState.music.transitionToken;
+      gameState.music.currentStratumName = stratumName;
+      gameState.music.currentTrackName = getMusicTrackName(stratumName);
       gameState.music.pendingStratumName = null;
+      clearIntroGameplayTimeout();
+
       audio.playMusicSegment(introMusicSet.outro, {
+        layer: "overlay",
         onended: () => {
           if (token !== gameState.music.transitionToken) {
             return;
           }
 
-          gameState.music.currentStratumName = null;
-          gameState.music.currentTrackName = null;
-          gameState.music.pendingStratumName = null;
+          audio.stopMusicLayer("overlay");
         },
       });
+
+      const nextMusicSet = getMusicSetForKey(stratumName);
+
+      const startGameplayIntro = () => {
+        if (token !== gameState.music.transitionToken) {
+          return;
+        }
+
+        introGameplayTimeoutId = null;
+        audio.playMusicSegment(nextMusicSet.intro, {
+          layer: "main",
+          fadeInMs: crossfadeMs,
+          onended: () => {
+            if (token !== gameState.music.transitionToken || !isMusicKeyActive(stratumName)) {
+              return;
+            }
+
+            audio.playMusicSegment(nextMusicSet.loop, { layer: "main", loop: true });
+          },
+        });
+      };
+
+      if (startDelayMs === 0) {
+        startGameplayIntro();
+      } else {
+        introGameplayTimeoutId = window.setTimeout(startGameplayIntro, startDelayMs);
+      }
+
       return durationMs;
     },
 
@@ -172,6 +219,7 @@ export function createMusicSystem({ audio, gameState, getWorld, getPlayer, world
     },
 
     resetForNextRound({ immediate = true } = {}) {
+      clearIntroGameplayTimeout();
       gameState.music.currentStratumName = null;
       gameState.music.currentTrackName = null;
       gameState.music.pendingStratumName = null;

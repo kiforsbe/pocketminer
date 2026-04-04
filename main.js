@@ -6,7 +6,7 @@ import { createFloatingTextSystem } from "./floatingText.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { createIntroScreenController } from "./introScreen.js";
 import { Input } from "./input.js";
-import { createMusicManifest, createMusicSystem } from "./musicSystem.js";
+import { createMusicManifest, createMusicSystem, INTRO_GAMEPLAY_CROSSFADE_MS } from "./musicSystem.js";
 import { createParticleSystem } from "./particleSystem.js";
 import { Player } from "./player.js";
 import { createPlatformPlacementSystem } from "./platformPlacement.js";
@@ -285,16 +285,14 @@ function startGameFromIntro() {
   }
 
   audio.playSound("introStart", { volume: 0.24 });
-  const fadeDurationMs = gameState.audioReady ? musicSystem.endIntro() : 0;
+  const fadeDurationMs = gameState.audioReady ? musicSystem.transitionFromIntroToGameplay() : 0;
+  const introScreenFadeDurationMs = Math.max(0, fadeDurationMs - INTRO_GAMEPLAY_CROSSFADE_MS);
   gameState.introExiting = true;
   introScreenController.startExit({
-    durationMs: fadeDurationMs,
+    durationMs: introScreenFadeDurationMs,
     onComplete: () => {
       gameState.phase = "playing";
       gameState.introExiting = false;
-      if (gameState.audioReady) {
-        musicSystem.resetForNextRound({ immediate: true });
-      }
     },
   });
 }

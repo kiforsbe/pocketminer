@@ -21,7 +21,7 @@ export class AudioManager {
     this.masterGain = null;
     this.musicGain = null;
     this.buffers = new Map();
-    this.musicSource = null;
+    this.musicLayers = new Map();
     this.musicToken = 0;
     this.ready = false;
   }
@@ -96,16 +96,25 @@ export class AudioManager {
 
   stopMusic() {
     this.musicToken += 1;
-    if (!this.musicSource) {
+    for (const [layerId, layer] of this.musicLayers.entries()) {
+      layer.source.onended = null;
+      layer.source.stop();
+      this.musicLayers.delete(layerId);
+    }
+  }
+
+  stopMusicLayer(layerId) {
+    const layer = this.musicLayers.get(layerId);
+    if (!layer) {
       return;
     }
 
-    this.musicSource.onended = null;
-    this.musicSource.stop();
-    this.musicSource = null;
+    layer.source.onended = null;
+    layer.source.stop();
+    this.musicLayers.delete(layerId);
   }
 
-  playMusicSegment(id, { loop = false, onended = null } = {}) {
+  playMusicSegment(id, { loop = false, onended = null, layer = "main", fadeInMs = 0, volume = 1 } = {}) {
     if (!this.ready || this.context.state !== "running") {
       return null;
     }
@@ -116,21 +125,25 @@ export class AudioManager {
     }
 
     const token = ++this.musicToken;
-    if (this.musicSource) {
-      this.musicSource.onended = null;
-      this.musicSource.stop();
-      this.musicSource = null;
-    }
+    this.stopMusicLayer(layer);
 
     const source = this.context.createBufferSource();
+    const gainNode = this.context.createGain();
+    const now = this.context.currentTime;
     source.buffer = buffer;
     source.loop = loop;
-    source.connect(this.musicGain);
+    gainNode.gain.setValueAtTime(fadeInMs > 0 ? 0 : volume, now);
+    if (fadeInMs > 0) {
+      gainNode.gain.linearRampToValueAtTime(volume, now + (fadeInMs / 1000));
+    }
+    source.connect(gainNode);
+    gainNode.connect(this.musicGain);
     source.start();
-    this.musicSource = source;
+    this.musicLayers.set(layer, { source, gainNode, token });
     source.onended = () => {
-      if (this.musicSource === source) {
-        this.musicSource = null;
+      const activeLayer = this.musicLayers.get(layer);
+      if (activeLayer?.source === source) {
+        this.musicLayers.delete(layer);
       }
       if (token === this.musicToken) {
         onended?.();
