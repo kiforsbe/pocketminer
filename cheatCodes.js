@@ -1,7 +1,7 @@
 import { createPlayerBonuses } from "./chestRewards.js";
 
 export const CHEAT_CODES_ENABLED = true;
-const CHEAT_CODE_KEY_TIMEOUT_MS = 200;
+const CHEAT_CODE_KEY_TIMEOUT_MS = 300;
 
 const CHEAT_CODE_DEFINITIONS = Object.freeze([
   Object.freeze({
