@@ -405,9 +405,10 @@ function update(dt, timeSeconds) {
       if (miningResult.broken) {
         gameState.roundStats.blocksMined += 1;
         if (miningResult.chest) {
+          spawnTreasurePickup(miningResult.chest, miningResult.column, miningResult.row);
           renderer.markTerrainDirty();
-          openChestReward(miningResult.chest);
-          audio.playSound("treasureChest", { volume: 0.24 });
+          audio.playSound("blockBreak", { playbackRate: 0.92, volume: 0.24 });
+          showRoundNotification("Treasure dropped. Pick it up.");
         } else {
           if (miningResult.resource) {
             const quantity = miningResult.dropCount || 1;
@@ -1513,6 +1514,29 @@ function spawnPickups(miningResult, quantity) {
   }
 }
 
+function spawnTreasurePickup(chest, column, row) {
+  const originX = column * 32 + 16;
+  const originY = row * 32 + 18;
+  const direction = player.getCenter().x <= originX ? 1 : -1;
+
+  gameState.pickups.push({
+    kind: "treasure",
+    chest,
+    x: originX,
+    y: originY,
+    vx: direction * (84 + Math.random() * 40),
+    vy: -(150 + Math.random() * 70),
+    grounded: false,
+    rotation: Math.random() * Math.PI * 2,
+    angularVelocity: (Math.random() - 0.5) * 4,
+    bobTime: Math.random() * Math.PI * 2,
+    radius: PICKUP_RADIUS + 4,
+    color: "#f4c65c",
+    glow: "rgba(244, 198, 92, 0.45)",
+    accent: "#fff2c4",
+  });
+}
+
 function updateParticles(dt) {
   gameState.particles = gameState.particles
     .map((particle) => {
@@ -1536,10 +1560,13 @@ function updatePickups(dt) {
     const dx = playerCenter.x - nextPickup.x;
     const dy = playerCenter.y - nextPickup.y;
     const distance = Math.hypot(dx, dy);
-    const canCollect = gameState.inventory.hasSpaceFor(nextPickup.itemId, 1);
+    const isTreasure = nextPickup.kind === "treasure";
+    const canCollect = isTreasure || gameState.inventory.hasSpaceFor(nextPickup.itemId, 1);
 
     if (canCollect && distance < PICKUP_MAGNET_RANGE) {
-      const attraction = Math.max(90, 280 - distance * 1.7);
+      const attraction = isTreasure
+        ? Math.max(140, 340 - distance * 1.4)
+        : Math.max(90, 280 - distance * 1.7);
       nextPickup.vx += (dx / Math.max(distance, 1)) * attraction * dt;
       nextPickup.vy += (dy / Math.max(distance, 1)) * attraction * dt;
     }
@@ -1552,7 +1579,13 @@ function updatePickups(dt) {
 
     resolvePickupCollisions(nextPickup);
 
-    if (canCollect && distance < PICKUP_COLLECT_RANGE) {
+    if (canCollect && distance < (isTreasure ? PICKUP_COLLECT_RANGE + 8 : PICKUP_COLLECT_RANGE)) {
+      if (isTreasure) {
+        audio.playSound("treasureChest", { volume: 0.24 });
+        openChestReward(nextPickup.chest);
+        continue;
+      }
+
       const result = gameState.inventory.addItem(nextPickup.itemId, 1);
       if (result.added > 0) {
         gameState.roundStats.collected[nextPickup.itemId] += 1;

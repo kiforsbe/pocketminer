@@ -402,6 +402,32 @@ export class Renderer {
       this.ctx.save();
       this.ctx.translate(x, y);
       this.ctx.rotate(pickup.rotation);
+      if (pickup.kind === "treasure") {
+        const pulse = 1 + Math.sin(pickup.bobTime * 2.4) * 0.12;
+        this.ctx.fillStyle = pickup.glow;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, pickup.radius * 1.75 * pulse, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.strokeStyle = "rgba(255, 240, 190, 0.92)";
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, pickup.radius * 1.28 * pulse, 0, Math.PI * 2);
+        this.ctx.stroke();
+        this.ctx.fillStyle = pickup.color;
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, -pickup.radius);
+        this.ctx.lineTo(pickup.radius * 0.78, 0);
+        this.ctx.lineTo(0, pickup.radius);
+        this.ctx.lineTo(-pickup.radius * 0.78, 0);
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.fillStyle = pickup.accent ?? "#fff2c4";
+        this.ctx.fillRect(-2, -pickup.radius * 0.62, 4, pickup.radius * 1.24);
+        this.ctx.fillRect(-pickup.radius * 0.62, -2, pickup.radius * 1.24, 4);
+        this.ctx.restore();
+        continue;
+      }
+
       this.ctx.fillStyle = pickup.glow;
       this.ctx.beginPath();
       this.ctx.arc(0, 0, pickup.radius * 1.15, 0, Math.PI * 2);
