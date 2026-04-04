@@ -4,6 +4,7 @@ export class Input {
     this.pointerTarget = pointerTarget;
     this.keysDown = new Set();
     this.keysPressed = new Set();
+    this.keyPressListeners = new Set();
     this.pointer = {
       x: 0,
       y: 0,
@@ -50,6 +51,9 @@ export class Input {
 
     if (!this.keysDown.has(event.code)) {
       this.keysPressed.add(event.code);
+      for (const listener of this.keyPressListeners) {
+        listener(event);
+      }
     }
 
     this.keysDown.add(event.code);
@@ -119,6 +123,14 @@ export class Input {
     }
 
     return renderer.screenToWorld(this.pointer.x, this.pointer.y);
+  }
+
+  addKeyPressListener(listener) {
+    this.keyPressListeners.add(listener);
+  }
+
+  removeKeyPressListener(listener) {
+    this.keyPressListeners.delete(listener);
   }
 
   destroy() {

@@ -1,5 +1,6 @@
 import { AudioManager } from "./audio.js";
 import { createChestRewardController, createPlayerBonuses } from "./chestRewards.js";
+import { createCheatCodeController } from "./cheatCodes.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { Input } from "./input.js";
 import { Player } from "./player.js";
@@ -199,6 +200,13 @@ const chestRewardController = createChestRewardController({
   getPlatformCooldownDuration,
 });
 
+const cheatCodeController = createCheatCodeController({
+  gameState,
+  input,
+  syncPlayerBonuses,
+  showRoundNotification,
+});
+
 let player = createPlayer();
 
 let lastTime = performance.now();
@@ -212,6 +220,7 @@ async function bootstrap() {
   attachAudioUnlock();
   attachRoundControls();
   chestRewardController.attachControls();
+  cheatCodeController.attach();
   window.addEventListener("resize", () => renderer.resize());
   requestAnimationFrame(frame);
 }
@@ -770,6 +779,7 @@ function startNextRound() {
   player = createPlayer();
   renderer.setWorld(world);
   chestRewardController.hideOverlay();
+  cheatCodeController.reset();
   if (gameState.audioReady) {
     audio.stopMusic();
     syncStratumMusic({ immediate: true });
