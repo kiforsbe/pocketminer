@@ -39,10 +39,35 @@ export class Renderer {
     this.pixelRatio = window.devicePixelRatio || 1;
     this.assets = null;
     this.bonusStatsSignature = "";
+    this.hudSignature = "";
+    this.stratumSignature = "";
+    this.blockSignature = "";
+    this.lastStratumIconType = null;
+    this.lastBlockIconType = null;
     this.lastFrameTimestamp = 0;
     this.fpsSampleElapsed = 0;
     this.fpsSampleFrames = 0;
     this.displayedFps = 0;
+    this.dom = {
+      roundTimer: document.getElementById("round-timer"),
+      roundTimerValue: document.getElementById("round-timer-value"),
+      bankValue: document.getElementById("bank-value"),
+      bonusStats: document.getElementById("bonus-stats"),
+      roundValue: document.getElementById("round-value"),
+      roundToast: document.getElementById("round-toast"),
+      stratumIcon: document.getElementById("stratum-icon"),
+      stratumName: document.getElementById("stratum-name"),
+      stratumDepth: document.getElementById("stratum-depth"),
+      stratumCoreSwatches: document.getElementById("stratum-core-swatches"),
+      stratumBonusSwatches: document.getElementById("stratum-bonus-swatches"),
+      blockIcon: document.getElementById("block-icon"),
+      blockName: document.getElementById("block-name"),
+      blockType: document.getElementById("block-type"),
+      blockHp: document.getElementById("block-hp"),
+      blockValue: document.getElementById("block-value"),
+      blockRange: document.getElementById("block-range"),
+      blockYield: document.getElementById("block-yield"),
+    };
     this.resize();
   }
 
@@ -148,6 +173,20 @@ export class Renderer {
       this.ctx.fillText(text, x, y);
     });
     this.ctx.restore();
+  }
+
+  #setTextContentIfChanged(element, nextText) {
+    if (element && element.textContent !== nextText) {
+      element.textContent = nextText;
+    }
+  }
+
+  #setDataAttributeIfChanged(element, name, value) {
+    if (!element || element.getAttribute(name) === value) {
+      return;
+    }
+
+    element.setAttribute(name, value);
   }
 
   #drawBackground(player) {
@@ -850,8 +889,7 @@ export class Renderer {
     }
   }
 
-  #paintIcon(canvasId, tileType) {
-    const canvas = document.getElementById(canvasId);
+  #paintIcon(canvas, tileType) {
     if (!(canvas instanceof HTMLCanvasElement)) {
       return;
     }
@@ -1044,35 +1082,36 @@ export class Renderer {
   }
 
   #drawHud(inventory, roundInfo) {
-    const timerEl = document.getElementById("round-timer");
-    const timerValueEl = document.getElementById("round-timer-value");
-    const bankValueEl = document.getElementById("bank-value");
-    const bonusStatsEl = document.getElementById("bonus-stats");
-    const roundValueEl = document.getElementById("round-value");
-    const toastEl = document.getElementById("round-toast");
-    if (timerEl && timerValueEl) {
-      timerEl.setAttribute("data-urgent", roundInfo.urgent ? "true" : "false");
-      timerValueEl.textContent = `${roundInfo.timeLeft}s`;
-    }
-    if (roundValueEl) {
-      roundValueEl.textContent = String(roundInfo.round);
-    }
-    if (bankValueEl) {
-      bankValueEl.textContent = `${roundInfo.bank}€`;
-    }
-    if (toastEl) {
-      if (roundInfo.notification?.message) {
-        toastEl.textContent = roundInfo.notification.message;
-        toastEl.setAttribute("data-visible", "true");
-        toastEl.setAttribute("data-urgent", roundInfo.notification.urgent ? "true" : "false");
+    const toastMessage = roundInfo.notification?.message ?? "";
+    const toastUrgent = roundInfo.notification?.urgent ? "true" : "false";
+    const hudSignature = [
+      roundInfo.timeLeft,
+      roundInfo.round,
+      roundInfo.bank,
+      roundInfo.urgent ? 1 : 0,
+      toastMessage,
+      toastUrgent,
+    ].join("|");
+
+    if (hudSignature !== this.hudSignature) {
+      this.hudSignature = hudSignature;
+      this.#setDataAttributeIfChanged(this.dom.roundTimer, "data-urgent", roundInfo.urgent ? "true" : "false");
+      this.#setTextContentIfChanged(this.dom.roundTimerValue, `${roundInfo.timeLeft}s`);
+      this.#setTextContentIfChanged(this.dom.roundValue, String(roundInfo.round));
+      this.#setTextContentIfChanged(this.dom.bankValue, `${roundInfo.bank}€`);
+
+      if (toastMessage) {
+        this.#setTextContentIfChanged(this.dom.roundToast, toastMessage);
+        this.#setDataAttributeIfChanged(this.dom.roundToast, "data-visible", "true");
+        this.#setDataAttributeIfChanged(this.dom.roundToast, "data-urgent", toastUrgent);
       } else {
-        toastEl.textContent = "";
-        toastEl.setAttribute("data-visible", "false");
-        toastEl.setAttribute("data-urgent", "false");
+        this.#setTextContentIfChanged(this.dom.roundToast, "");
+        this.#setDataAttributeIfChanged(this.dom.roundToast, "data-visible", "false");
+        this.#setDataAttributeIfChanged(this.dom.roundToast, "data-urgent", "false");
       }
     }
 
-    this.#drawBonusStats(bonusStatsEl, roundInfo.bonuses);
+    this.#drawBonusStats(this.dom.bonusStats, roundInfo.bonuses);
 
     this.#drawPlatformCooldown(roundInfo.platformCooldown ?? 0);
   }
@@ -1134,83 +1173,120 @@ export class Renderer {
   }
 
   #drawSurveyPanel(player, target) {
-    const stratumNameEl = document.getElementById("stratum-name");
-    const stratumDepthEl = document.getElementById("stratum-depth");
-    const stratumCoreSwatchesEl = document.getElementById("stratum-core-swatches");
-    const stratumBonusSwatchesEl = document.getElementById("stratum-bonus-swatches");
-    const blockNameEl = document.getElementById("block-name");
-    const blockTypeEl = document.getElementById("block-type");
-    const blockHpEl = document.getElementById("block-hp");
-    const blockValueEl = document.getElementById("block-value");
-    const blockRangeEl = document.getElementById("block-range");
-    const blockYieldEl = document.getElementById("block-yield");
     const stratum = this.world.getStratumAtPixel(player.getCenter().y);
+    const stratumSignature = [
+      stratum.name,
+      stratum.depth,
+      stratum.base[0]?.type ?? "",
+      stratum.primaryOres.map((ore) => ore.type).join(","),
+      [...stratum.bonusFromPrev, ...stratum.bonusFromNext].map((ore) => ore.type).join(","),
+    ].join("|");
 
-    this.#paintIcon("stratum-icon", stratum.base[0].type);
+    if (stratumSignature !== this.stratumSignature) {
+      this.stratumSignature = stratumSignature;
+      if (this.lastStratumIconType !== stratum.base[0].type) {
+        this.#paintIcon(this.dom.stratumIcon, stratum.base[0].type);
+        this.lastStratumIconType = stratum.base[0].type;
+      }
+      this.#setTextContentIfChanged(this.dom.stratumName, stratum.name);
+      this.#setTextContentIfChanged(this.dom.stratumDepth, `Depth ${stratum.depth}m`);
 
-    if (stratumNameEl) {
-      stratumNameEl.textContent = stratum.name;
-    }
+      if (this.dom.stratumCoreSwatches) {
+        this.dom.stratumCoreSwatches.replaceChildren();
+        for (const ore of stratum.primaryOres) {
+          this.#renderOreChip(this.dom.stratumCoreSwatches, ore.type);
+        }
+      }
 
-    if (stratumDepthEl) {
-      stratumDepthEl.textContent = `Depth ${stratum.depth}m`;
-    }
-
-    if (stratumCoreSwatchesEl) {
-      stratumCoreSwatchesEl.replaceChildren();
-      for (const ore of stratum.primaryOres) {
-        this.#renderOreChip(stratumCoreSwatchesEl, ore.type);
+      if (this.dom.stratumBonusSwatches) {
+        this.dom.stratumBonusSwatches.replaceChildren();
+        for (const ore of [...stratum.bonusFromPrev, ...stratum.bonusFromNext]) {
+          this.#renderOreChip(this.dom.stratumBonusSwatches, ore.type);
+        }
       }
     }
 
-    if (stratumBonusSwatchesEl) {
-      stratumBonusSwatchesEl.replaceChildren();
-      for (const ore of [...stratum.bonusFromPrev, ...stratum.bonusFromNext]) {
-        this.#renderOreChip(stratumBonusSwatchesEl, ore.type);
-      }
-    }
-
-    if (!blockNameEl || !blockTypeEl || !blockHpEl || !blockValueEl || !blockRangeEl || !blockYieldEl) {
+    if (!this.dom.blockName || !this.dom.blockType || !this.dom.blockHp || !this.dom.blockValue || !this.dom.blockRange || !this.dom.blockYield) {
       return;
     }
 
     if (!target) {
-      this.#paintIcon("block-icon", TILE_TYPES.EMPTY);
-      blockNameEl.textContent = "None";
-      blockTypeEl.textContent = "No target";
-      blockHpEl.textContent = "--";
-      blockValueEl.textContent = "--";
-      blockRangeEl.textContent = "--";
-      blockYieldEl.textContent = "--";
+      if (this.blockSignature === "empty") {
+        return;
+      }
+
+      this.blockSignature = "empty";
+      if (this.lastBlockIconType !== TILE_TYPES.EMPTY) {
+        this.#paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
+        this.lastBlockIconType = TILE_TYPES.EMPTY;
+      }
+      this.#setTextContentIfChanged(this.dom.blockName, "None");
+      this.#setTextContentIfChanged(this.dom.blockType, "No target");
+      this.#setTextContentIfChanged(this.dom.blockHp, "--");
+      this.#setTextContentIfChanged(this.dom.blockValue, "--");
+      this.#setTextContentIfChanged(this.dom.blockRange, "--");
+      this.#setTextContentIfChanged(this.dom.blockYield, "--");
       return;
     }
 
     const tile = this.world.getTile(target.column, target.row);
     if (!tile) {
-      this.#paintIcon("block-icon", TILE_TYPES.EMPTY);
-      blockNameEl.textContent = "None";
-      blockTypeEl.textContent = "No target";
-      blockHpEl.textContent = "--";
-      blockValueEl.textContent = "--";
-      blockRangeEl.textContent = "--";
-      blockYieldEl.textContent = "--";
+      if (this.blockSignature === "empty") {
+        return;
+      }
+
+      this.blockSignature = "empty";
+      if (this.lastBlockIconType !== TILE_TYPES.EMPTY) {
+        this.#paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
+        this.lastBlockIconType = TILE_TYPES.EMPTY;
+      }
+      this.#setTextContentIfChanged(this.dom.blockName, "None");
+      this.#setTextContentIfChanged(this.dom.blockType, "No target");
+      this.#setTextContentIfChanged(this.dom.blockHp, "--");
+      this.#setTextContentIfChanged(this.dom.blockValue, "--");
+      this.#setTextContentIfChanged(this.dom.blockRange, "--");
+      this.#setTextContentIfChanged(this.dom.blockYield, "--");
       return;
     }
 
-    this.#paintIcon("block-icon", tile.type);
-    blockNameEl.textContent = tile.definition.label;
-    blockTypeEl.textContent = tile.type === TILE_TYPES.CHEST ? "Treasure chest" : (tile.definition.drop ? "Ore" : "Stratum block");
-    blockHpEl.textContent = tile.maxHp > 0 ? `${Math.ceil(tile.hp)} / ${tile.maxHp}` : "--";
-    blockValueEl.textContent = tile.definition.drop
+    const blockTypeText = tile.type === TILE_TYPES.CHEST ? "Treasure chest" : (tile.definition.drop ? "Ore" : "Stratum block");
+    const blockHpText = tile.maxHp > 0 ? `${Math.ceil(tile.hp)} / ${tile.maxHp}` : "--";
+    const blockValueText = tile.definition.drop
       ? `${ITEM_DEFINITIONS[tile.definition.drop]?.value ?? 0}€`
       : (tile.type === TILE_TYPES.CHEST ? "Reward" : "0€");
-    blockRangeEl.textContent = target.distance ? `${(target.distance / TILE_SIZE).toFixed(1)} tiles` : "In range";
+    const blockRangeText = target.distance ? `${(target.distance / TILE_SIZE).toFixed(1)} tiles` : "In range";
     const dropRange = this.world.getOreDropRange(target.row, tile.type, player?.bonuses);
-    blockYieldEl.textContent = tile.type === TILE_TYPES.CHEST
+    const blockYieldText = tile.type === TILE_TYPES.CHEST
       ? "1 card pick"
       : dropRange
       ? this.#formatOreDropRange(dropRange)
       : "--";
+
+    const blockSignature = [
+      tile.type,
+      tile.definition.label,
+      blockTypeText,
+      blockHpText,
+      blockValueText,
+      blockRangeText,
+      blockYieldText,
+    ].join("|");
+
+    if (blockSignature === this.blockSignature) {
+      return;
+    }
+
+    this.blockSignature = blockSignature;
+    if (this.lastBlockIconType !== tile.type) {
+      this.#paintIcon(this.dom.blockIcon, tile.type);
+      this.lastBlockIconType = tile.type;
+    }
+    this.#setTextContentIfChanged(this.dom.blockName, tile.definition.label);
+    this.#setTextContentIfChanged(this.dom.blockType, blockTypeText);
+    this.#setTextContentIfChanged(this.dom.blockHp, blockHpText);
+    this.#setTextContentIfChanged(this.dom.blockValue, blockValueText);
+    this.#setTextContentIfChanged(this.dom.blockRange, blockRangeText);
+    this.#setTextContentIfChanged(this.dom.blockYield, blockYieldText);
   }
 
   #formatOreDropRange(dropRange) {
