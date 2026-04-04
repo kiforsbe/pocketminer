@@ -950,7 +950,8 @@ export class Renderer {
   }
 
   #formatBonusStatValue(value) {
-    return `+${Math.round(value * 100)}%`;
+    const percent = Math.round(value * 100);
+    return `${percent >= 0 ? "+" : ""}${percent}%`;
   }
 
   #drawSurveyPanel(player, target) {
