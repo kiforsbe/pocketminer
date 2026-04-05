@@ -78,9 +78,9 @@ Treasure caches grant permanent stat bonuses such as:
 
 A few in-game screenshots showing gameplay, reward caches and the store.
 
-![First stratum](pages/screenshots/screenshot-first-stratum.png)
-![Store screen](pages/screenshots/screenshot-chest.png)
-![Reward cache](pages/screenshots/screenshot-powerups.png)
+![First stratum](screenshots/screenshot-first-stratum.png)
+![Store screen](screenshots/screenshot-chest.png)
+![Reward cache](screenshots/screenshot-powerups.png)
 
 ## Optional Cheats
 
