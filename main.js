@@ -3,6 +3,7 @@ import { createChestRewardController, createPlayerBonuses } from "./chestRewards
 import { createCheatCodeController } from "./cheatCodes.js";
 import { createEndOfRoundSystem } from "./endOfRoundSystem.js";
 import { createFloatingTextSystem } from "./floatingText.js";
+import { createGameoverScreenController } from "./gameoverScreen.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { createIntroScreenController } from "./introScreen.js";
 import { Input } from "./input.js";
@@ -29,9 +30,12 @@ import { World, WORLD_STRATA } from "./world.js";
 
 const INTRO_TITLE_IMAGE_SRC = "./assets/title.png";
 const PAUSE_TITLE_IMAGE_SRC = "./assets/pause.png";
+const BAD_END_IMAGE_SRC = "./assets/gameover.png";
+const GOOD_END_IMAGE_SRC = "./assets/victory.png";
 const MIN_SCREEN_FADE_MS = 1000;
 const MAX_INTRO_OVERLAY_FADE_MS = 3000;
 const MAX_PAUSE_OVERLAY_FADE_MS = 1000;
+const GOOD_END_SHIFT = 10;
 const SHIFT_COUNTDOWN_STEPS = Object.freeze([
   { label: "3", durationMs: 1000, playbackRate: 0.96, volume: 0.2 },
   { label: "2", durationMs: 1000, playbackRate: 1.01, volume: 0.2 },
@@ -133,6 +137,7 @@ const gameState = {
   notification: null,
   introExiting: false,
   pauseExiting: false,
+  gameOver: null,
   playerBonuses: createPlayerBonuses(),
   alertFlags: {
     halfway: false,
@@ -185,7 +190,7 @@ const musicSystem = createMusicSystem({
 const introScreenController = createIntroScreenController({
   titleImageSrc: INTRO_TITLE_IMAGE_SRC,
   onStartAttempt: () => {
-    if (gameState.phase !== "intro" || !gameState.audioReady || gameState.introExiting) {
+    if (gameState.phase !== "intro" || gameState.introExiting) {
       return;
     }
 
@@ -201,6 +206,14 @@ const pauseScreenController = createPauseScreenController({
     }
 
     resumeShiftFromPause();
+  },
+});
+
+const gameoverScreenController = createGameoverScreenController({
+  goodEndImageSrc: GOOD_END_IMAGE_SRC,
+  badEndImageSrc: BAD_END_IMAGE_SRC,
+  onContinueAttempt: () => {
+    resetGameToIntro();
   },
 });
 
@@ -253,6 +266,7 @@ const cheatCodeController = createCheatCodeController({
   createInventoryForLoadout,
   syncPlayerBonuses,
   showRoundNotification,
+  triggerGameOver,
 });
 
 const storeController = createStoreController({
@@ -298,6 +312,7 @@ async function bootstrap() {
   renderer.setAssets(assets);
   await introScreenController.init();
   await pauseScreenController.init();
+  await gameoverScreenController.init();
   attachAudioUnlock();
   endOfRoundSystem.attachControls(startNextRound);
   storeController.attachControls();
@@ -356,6 +371,93 @@ function pauseCurrentShift() {
   if (gameState.audioReady) {
     musicSystem.startPause();
   }
+}
+
+function shouldTriggerGoodEnding() {
+  return gameState.phase === "summary"
+    && Boolean(gameState.summary?.completed)
+    && gameState.round >= GOOD_END_SHIFT;
+}
+
+function triggerGameOver({ endingType }) {
+  if (gameState.phase === "gameover") {
+    return;
+  }
+
+  gameState.phase = "gameover";
+  gameState.introExiting = false;
+  gameState.pauseExiting = false;
+  gameState.miningResult = null;
+  gameState.hoverTarget = null;
+  gameState.notification = null;
+  gameState.countdownTickCooldown = 0;
+  gameState.gameOver = {
+    endingType,
+  };
+  setShiftCountdownVisibility(false);
+  chestRewardController.hideOverlay();
+  pauseScreenController.hide();
+  endOfRoundSystem.reset();
+  storeController.reset();
+  musicSystem.startGameover({ endingType });
+  gameoverScreenController.showEnding({
+    endingType,
+    titleText: endingType === "good" ? "Good End" : "Game Over",
+    copyText: endingType === "good"
+      ? `You completed ${GOOD_END_SHIFT} shifts and brought Pocket Miner to a close.`
+      : "The mine won this time.",
+  });
+}
+
+function resetGameToIntro() {
+  gameState.gameMode = DEFAULT_GAME_MODE;
+  gameState.equippedToolId = DEFAULT_TOOL_ID;
+  gameState.bagUpgradeId = DEFAULT_BAG_ROOT_ID;
+  gameState.capacityUpgradeId = DEFAULT_CAPACITY_ROOT_ID;
+  gameState.timeUpgradeId = DEFAULT_TIME_ROOT_ID;
+  gameState.inventory = new Inventory({ slotCount: DEFAULT_SLOT_COUNT, stackSize: DEFAULT_STACK_SIZE });
+  gameState.miningResult = null;
+  gameState.hoverTarget = null;
+  gameState.lastMiningSoundAt = 0;
+  gameState.particles = [];
+  gameState.pickups = [];
+  gameState.floatingTexts = [];
+  gameState.platformCooldown = 0;
+  gameState.phase = "intro";
+  gameState.round = 1;
+  gameState.timeLeft = getToolDefinition(DEFAULT_TIME_ROOT_ID).durationSeconds ?? 60;
+  gameState.bank = 0;
+  gameState.roundStats = createRoundStats();
+  gameState.summary = null;
+  gameState.chestReward = null;
+  gameState.notification = null;
+  gameState.introExiting = false;
+  gameState.pauseExiting = false;
+  gameState.gameOver = null;
+  gameState.playerBonuses = createPlayerBonuses();
+  gameState.alertFlags = {
+    halfway: false,
+    thirtySeconds: false,
+  };
+  gameState.countdownTickCooldown = 0;
+  gameState.shiftCountdown = {
+    active: false,
+    stepIndex: -1,
+    remainingMs: 0,
+  };
+
+  world = new World({ seed: World.createRandomSeed() });
+  player = createPlayer();
+  renderer.setWorld(world);
+  setShiftCountdownVisibility(false);
+  chestRewardController.hideOverlay();
+  cheatCodeController.reset();
+  pauseScreenController.hide();
+  gameoverScreenController.hide();
+  storeController.reset();
+  endOfRoundSystem.reset();
+  musicSystem.resetForIntro({ immediate: true });
+  introScreenController.show();
 }
 
 function resumeShiftFromPause() {
@@ -474,6 +576,13 @@ function update(dt, timeSeconds) {
 
   if (gameState.phase === "summary") {
     endOfRoundSystem.update(dt);
+    if (shouldTriggerGoodEnding()) {
+      triggerGameOver({ endingType: "good" });
+    }
+    return;
+  }
+
+  if (gameState.phase === "gameover") {
     return;
   }
 
@@ -496,7 +605,7 @@ function update(dt, timeSeconds) {
 
   if (player.touchesTileType(world, TILE_TYPES.MAGMA, 0)) {
     audio.playPlayerDeath();
-    endOfRoundSystem.endRound();
+    triggerGameOver({ endingType: "bad" });
     return;
   }
 
@@ -634,6 +743,7 @@ function startNextRound() {
   gameState.chestReward = null;
   gameState.notification = null;
   gameState.pauseExiting = false;
+  gameState.gameOver = null;
   gameState.alertFlags = {
     halfway: false,
     thirtySeconds: false,
@@ -646,6 +756,7 @@ function startNextRound() {
   chestRewardController.hideOverlay();
   cheatCodeController.reset();
   pauseScreenController.hide();
+  gameoverScreenController.hide();
   storeController.reset();
   musicSystem.resetForNextRound({ immediate: true });
   endOfRoundSystem.reset();

@@ -105,9 +105,22 @@
           <div class="intro-brand">
             <img id="pause-title-image" class="intro-title-image" alt="Pause screen art" hidden>
             <h1 id="pause-title-text" class="intro-title-text">Paused</h1>
-            <p class="intro-copy">Shift paused. Press any button to continue.</p>
+            <p class="intro-copy">Game Paused</p>
           </div>
           <button id="pause-continue-button" class="intro-start-button" type="button">Continue</button>
+        </section>
+      </div>
+      <div id="gameover-overlay" class="intro-overlay gameover-overlay" data-visible="false" hidden>
+        <section class="intro-screen gameover-screen" data-ending="bad">
+          <div class="intro-brand gameover-brand">
+            <img id="gameover-title-image" class="intro-title-image" alt="Game over art" hidden>
+            <h1 id="gameover-title-text" class="intro-title-text">Game Over</h1>
+            <p id="gameover-ending-copy" class="intro-copy gameover-ending-copy">The shift is over.</p>
+          </div>
+          <div class="gameover-credits-window" id="gameover-credits-window">
+            <div id="gameover-credits-track" class="gameover-credits-track"></div>
+          </div>
+          <button id="gameover-continue-button" class="intro-start-button" type="button" hidden>Press Any Key To Continue</button>
         </section>
       </div>
       <div id="shift-countdown-overlay" class="shift-countdown-overlay" data-visible="false" hidden>

@@ -1,7 +1,14 @@
 import { createPlayerBonuses } from "./chestRewards.js";
 
 export const CHEAT_CODES_ENABLED = true;
-const CHEAT_CODE_KEY_TIMEOUT_MS = 300;
+const CHEAT_CODE_KEY_TIMEOUT_MS = 500;
+
+const SPECIAL_CHEAT_KEYS = Object.freeze({
+  ArrowUp: "UP",
+  ArrowDown: "DOWN",
+  ArrowLeft: "LEFT",
+  ArrowRight: "RIGHT",
+});
 
 function applyIdfaStatBoost(gameState) {
   for (const statId of Object.keys(createPlayerBonuses())) {
@@ -36,14 +43,46 @@ const CHEAT_CODE_DEFINITIONS = Object.freeze([
       );
     },
   }),
+  Object.freeze({
+    sequence: Object.freeze(["UP", "UP", "DOWN", "DOWN", "LEFT", "RIGHT", "LEFT", "RIGHT", "B", "A"]),
+    apply({ audio, triggerGameOver, showRoundNotification }) {
+      audio.playCheatCodeActivated();
+      showRoundNotification("Cheat activated: Good end.", { urgent: true });
+      triggerGameOver({ endingType: "good" });
+    },
+  }),
+  Object.freeze({
+    sequence: Object.freeze(["UP", "UP", "DOWN", "DOWN", "LEFT", "RIGHT", "LEFT", "RIGHT", "A", "B"]),
+    apply({ audio, triggerGameOver, showRoundNotification }) {
+      audio.playCheatCodeActivated();
+      showRoundNotification("Cheat activated: Bad end.", { urgent: true });
+      triggerGameOver({ endingType: "bad" });
+    },
+  }),
 ]);
 
-function normalizeCheatKey(key) {
-  if (typeof key !== "string" || key.length !== 1) {
+function getCheatSequence(definition) {
+  if (Array.isArray(definition.sequence)) {
+    return definition.sequence;
+  }
+
+  if (typeof definition.code === "string") {
+    return definition.code.split("");
+  }
+
+  return [];
+}
+
+function normalizeCheatKey(event) {
+  if (SPECIAL_CHEAT_KEYS[event.code]) {
+    return SPECIAL_CHEAT_KEYS[event.code];
+  }
+
+  if (typeof event.key !== "string" || event.key.length !== 1) {
     return null;
   }
 
-  const normalizedKey = key.toUpperCase();
+  const normalizedKey = event.key.toUpperCase();
   return /^[A-Z]$/.test(normalizedKey) ? normalizedKey : null;
 }
 
@@ -54,12 +93,13 @@ export function createCheatCodeController({
   createInventoryForLoadout,
   syncPlayerBonuses,
   showRoundNotification,
+  triggerGameOver,
 }) {
-  let buffer = "";
+  let buffer = [];
   let lastKeyAt = 0;
 
   function reset() {
-    buffer = "";
+    buffer = [];
     lastKeyAt = 0;
   }
 
@@ -74,18 +114,22 @@ export function createCheatCodeController({
     }
 
     const now = typeof event.timeStamp === "number" ? event.timeStamp : performance.now();
-    if (buffer && now - lastKeyAt > CHEAT_CODE_KEY_TIMEOUT_MS) {
+    if (buffer.length > 0 && now - lastKeyAt > CHEAT_CODE_KEY_TIMEOUT_MS) {
       reset();
     }
 
-    const cheatKey = normalizeCheatKey(event.key);
+    const cheatKey = normalizeCheatKey(event);
     if (!cheatKey) {
       reset();
       return;
     }
 
-    const nextBuffer = `${buffer}${cheatKey}`;
-    const matchingCode = CHEAT_CODE_DEFINITIONS.find((definition) => definition.code === nextBuffer);
+    const nextBuffer = [...buffer, cheatKey];
+    const matchingCode = CHEAT_CODE_DEFINITIONS.find((definition) => {
+      const sequence = getCheatSequence(definition);
+      return sequence.length === nextBuffer.length
+        && sequence.every((token, index) => token === nextBuffer[index]);
+    });
     if (matchingCode) {
       matchingCode.apply({
         audio,
@@ -93,19 +137,23 @@ export function createCheatCodeController({
         createInventoryForLoadout,
         syncPlayerBonuses,
         showRoundNotification,
+        triggerGameOver,
       });
       reset();
       return;
     }
 
-    if (CHEAT_CODE_DEFINITIONS.some((definition) => definition.code.startsWith(nextBuffer))) {
+    if (CHEAT_CODE_DEFINITIONS.some((definition) => {
+      const sequence = getCheatSequence(definition);
+      return nextBuffer.every((token, index) => sequence[index] === token);
+    })) {
       buffer = nextBuffer;
       lastKeyAt = now;
       return;
     }
 
-    if (CHEAT_CODE_DEFINITIONS.some((definition) => definition.code.startsWith(cheatKey))) {
-      buffer = cheatKey;
+    if (CHEAT_CODE_DEFINITIONS.some((definition) => getCheatSequence(definition)[0] === cheatKey)) {
+      buffer = [cheatKey];
       lastKeyAt = now;
       return;
     }
