@@ -2,6 +2,7 @@ import { ITEM_DEFINITIONS } from "./inventory.js";
 
 const SUMMARY_MIN_STEP_RATE = 4;
 const SUMMARY_MAX_STEP_RATE = 52;
+const MIN_SUMMARY_FADE_MS = 1000;
 
 export function createEndOfRoundSystem({
   gameState,
@@ -37,7 +38,8 @@ export function createEndOfRoundSystem({
     }
 
     clearOverlayFadeTimeout();
-    roundOverlay.style.setProperty("--round-overlay-fade-duration", `${Math.max(0, Math.round(fadeDurationMs))}ms`);
+    const normalizedFadeDurationMs = Math.max(MIN_SUMMARY_FADE_MS, Math.round(fadeDurationMs));
+    roundOverlay.style.setProperty("--round-overlay-fade-duration", `${normalizedFadeDurationMs}ms`);
     roundOverlay.removeAttribute("hidden");
     roundOverlay.setAttribute("data-visible", "false");
 
@@ -55,7 +57,7 @@ export function createEndOfRoundSystem({
   }
 
   function getSummaryRevealWaitSeconds({ fadeDelayMs = 0, fadeDurationMs = 0 } = {}) {
-    return Math.max(0, fadeDelayMs + fadeDurationMs) / 1000;
+    return Math.max(0, fadeDelayMs + Math.max(MIN_SUMMARY_FADE_MS, Math.round(fadeDurationMs))) / 1000;
   }
 
   function updateSummaryActionState() {

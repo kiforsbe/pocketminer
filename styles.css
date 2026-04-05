@@ -92,6 +92,14 @@
       display: none !important;
     }
 
+    .pause-overlay {
+      z-index: 21;
+    }
+
+    .pause-screen {
+      background-size: auto, contain, auto;
+    }
+
     .shift-countdown-overlay {
       position: absolute;
       inset: 0;

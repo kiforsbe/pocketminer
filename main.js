@@ -6,7 +6,8 @@ import { createFloatingTextSystem } from "./floatingText.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { createIntroScreenController } from "./introScreen.js";
 import { Input } from "./input.js";
-import { createMusicManifest, createMusicSystem, INTRO_GAMEPLAY_CROSSFADE_MS } from "./musicSystem.js";
+import { createMusicManifest, createMusicSystem } from "./musicSystem.js";
+import { createPauseScreenController } from "./pauseScreen.js";
 import { createParticleSystem } from "./particleSystem.js";
 import { Player } from "./player.js";
 import { createPlatformPlacementSystem } from "./platformPlacement.js";
@@ -27,6 +28,10 @@ import {
 import { World, WORLD_STRATA } from "./world.js";
 
 const INTRO_TITLE_IMAGE_SRC = "./assets/title.png";
+const PAUSE_TITLE_IMAGE_SRC = "./assets/pause.png";
+const MIN_SCREEN_FADE_MS = 1000;
+const MAX_INTRO_OVERLAY_FADE_MS = 3000;
+const MAX_PAUSE_OVERLAY_FADE_MS = 1000;
 const SHIFT_COUNTDOWN_STEPS = Object.freeze([
   { label: "3", durationMs: 1000, playbackRate: 0.96, volume: 0.2 },
   { label: "2", durationMs: 1000, playbackRate: 1.01, volume: 0.2 },
@@ -36,6 +41,10 @@ const SHIFT_COUNTDOWN_STEPS = Object.freeze([
 
 function getShiftCountdownTotalDurationMs() {
   return SHIFT_COUNTDOWN_STEPS.reduce((total, step) => total + step.durationMs, 0);
+}
+
+function clampScreenFadeDuration(durationMs, maxDurationMs) {
+  return Math.min(maxDurationMs, Math.max(MIN_SCREEN_FADE_MS, Math.round(durationMs)));
 }
 
 const AUDIO_MANIFEST = [
@@ -123,6 +132,7 @@ const gameState = {
   chestReward: null,
   notification: null,
   introExiting: false,
+  pauseExiting: false,
   playerBonuses: createPlayerBonuses(),
   alertFlags: {
     halfway: false,
@@ -180,6 +190,17 @@ const introScreenController = createIntroScreenController({
     }
 
     startGameFromIntro();
+  },
+});
+
+const pauseScreenController = createPauseScreenController({
+  titleImageSrc: PAUSE_TITLE_IMAGE_SRC,
+  onResumeAttempt: () => {
+    if (gameState.phase !== "paused" || gameState.pauseExiting) {
+      return;
+    }
+
+    resumeShiftFromPause();
   },
 });
 
@@ -257,6 +278,11 @@ const endOfRoundSystem = createEndOfRoundSystem({
 input.addKeyPressListener((event) => {
   if (event.code === "KeyR") {
     gameState.performance.visible = !gameState.performance.visible;
+    return;
+  }
+
+  if (["KeyP", "Pause", "Escape"].includes(event.code) && gameState.phase === "playing") {
+    pauseCurrentShift();
   }
 });
 
@@ -271,6 +297,7 @@ async function bootstrap() {
   ]);
   renderer.setAssets(assets);
   await introScreenController.init();
+  await pauseScreenController.init();
   attachAudioUnlock();
   endOfRoundSystem.attachControls(startNextRound);
   storeController.attachControls();
@@ -304,12 +331,51 @@ function startGameFromIntro() {
 
   audio.playSound("introStart", { volume: 0.24 });
   const fadeDurationMs = gameState.audioReady ? musicSystem.transitionFromIntroToGameplay() : 0;
-  const introScreenFadeDurationMs = Math.max(0, fadeDurationMs - getShiftCountdownTotalDurationMs());
+  const introScreenFadeDurationMs = clampScreenFadeDuration(
+    fadeDurationMs - getShiftCountdownTotalDurationMs(),
+    MAX_INTRO_OVERLAY_FADE_MS,
+  );
   gameState.introExiting = true;
   introScreenController.startExit({
     durationMs: introScreenFadeDurationMs,
     onComplete: () => {
       gameState.introExiting = false;
+      beginShiftCountdown();
+    },
+  });
+}
+
+function pauseCurrentShift() {
+  if (gameState.phase !== "playing") {
+    return;
+  }
+
+  gameState.pauseExiting = false;
+  gameState.phase = "paused";
+  pauseScreenController.show();
+  if (gameState.audioReady) {
+    musicSystem.startPause();
+  }
+}
+
+function resumeShiftFromPause() {
+  if (gameState.phase !== "paused" || gameState.pauseExiting) {
+    return;
+  }
+
+  if (gameState.audioReady) {
+    audio.playSound("introStart", { volume: 0.24 });
+  }
+
+  gameState.pauseExiting = true;
+  const fadeDurationMs = gameState.audioReady ? musicSystem.transitionFromPauseToGameplay() : 0;
+  const pauseScreenFadeDurationMs = clampScreenFadeDuration(
+    fadeDurationMs - getShiftCountdownTotalDurationMs(),
+    MAX_PAUSE_OVERLAY_FADE_MS,
+  );
+  pauseScreenController.startExit({
+    durationMs: pauseScreenFadeDurationMs,
+    onComplete: () => {
       beginShiftCountdown();
     },
   });
@@ -338,6 +404,7 @@ function advanceShiftCountdownStep() {
     gameState.shiftCountdown.stepIndex = -1;
     gameState.shiftCountdown.remainingMs = 0;
     setShiftCountdownVisibility(false);
+    gameState.pauseExiting = false;
     gameState.phase = "playing";
     return;
   }
@@ -393,6 +460,10 @@ function update(dt, timeSeconds) {
 
   if (gameState.phase === "countdown") {
     updateShiftCountdown(dt);
+    return;
+  }
+
+  if (gameState.phase === "paused") {
     return;
   }
 
@@ -562,6 +633,7 @@ function startNextRound() {
   gameState.summary = null;
   gameState.chestReward = null;
   gameState.notification = null;
+  gameState.pauseExiting = false;
   gameState.alertFlags = {
     halfway: false,
     thirtySeconds: false,
@@ -573,6 +645,7 @@ function startNextRound() {
   renderer.setWorld(world);
   chestRewardController.hideOverlay();
   cheatCodeController.reset();
+  pauseScreenController.hide();
   storeController.reset();
   musicSystem.resetForNextRound({ immediate: true });
   endOfRoundSystem.reset();

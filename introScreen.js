@@ -5,6 +5,24 @@ export function createIntroScreenController({ titleImageSrc = "", onStartAttempt
   const introTitleText = document.getElementById("intro-title-text");
   const introStartButton = document.getElementById("intro-start-button");
   let exitTimeoutId = null;
+  const ignoredAdvanceKeys = new Set([
+    "Alt",
+    "AltGraph",
+    "CapsLock",
+    "Control",
+    "Fn",
+    "FnLock",
+    "Hyper",
+    "Meta",
+    "NumLock",
+    "ScrollLock",
+    "Shift",
+    "Super",
+    "Symbol",
+    "SymbolLock",
+    "Tab",
+    "OS",
+  ]);
 
   function clearBackgroundArt() {
     introScreen?.style.removeProperty("--intro-art");
@@ -52,7 +70,15 @@ export function createIntroScreenController({ titleImageSrc = "", onStartAttempt
       onStartAttempt?.();
     };
 
-    window.addEventListener("keydown", handleIntroAdvance);
+    const handleIntroKeydown = (event) => {
+      if (ignoredAdvanceKeys.has(event.key)) {
+        return;
+      }
+
+      handleIntroAdvance();
+    };
+
+    window.addEventListener("keydown", handleIntroKeydown);
     introOverlay?.addEventListener("pointerdown", handleIntroAdvance);
     introStartButton?.addEventListener("click", handleIntroAdvance);
   }
