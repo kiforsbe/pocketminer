@@ -74,6 +74,14 @@ Treasure caches grant permanent stat bonuses such as:
 - Platform placement is useful for recovering awkward drops and climbing back through mined shafts.
 - Permanent cache bonuses compound over time, so treasure rewards are a major part of progression.
 
+## Screenshots
+
+A few in-game screenshots showing gameplay, reward caches and the store.
+
+![First stratum](pages/screenshots/screenshot-first-stratum.png)
+![Store screen](pages/screenshots/screenshot-chest.png)
+![Reward cache](pages/screenshots/screenshot-powerups.png)
+
 ## Optional Cheats
 
 Cheat codes are enabled in the current project build.
