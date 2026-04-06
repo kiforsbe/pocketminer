@@ -1,0 +1,588 @@
+import { ITEM_DEFINITIONS } from "./inventory.js";
+import { TILE_SIZE, TILE_TYPES } from "./tile.js";
+import { RendererSubsystem } from "./rendererSubsystem.js";
+
+export class RendererUiSubsystem extends RendererSubsystem {
+  constructor(renderer, worldRenderer) {
+    super(renderer);
+    this.worldRenderer = worldRenderer;
+    this.bonusStatsSignature = "";
+    this.hudSignature = "";
+    this.stratumSignature = "";
+    this.blockSignature = "";
+    this.lastStratumIconType = null;
+    this.lastBlockIconType = null;
+    this.lastFrameTimestamp = 0;
+    this.fpsSampleElapsed = 0;
+    this.fpsSampleFrames = 0;
+    this.displayedFps = 0;
+    this.dom = {
+      roundTimer: document.getElementById("round-timer"),
+      roundTimerValue: document.getElementById("round-timer-value"),
+      bankValue: document.getElementById("bank-value"),
+      bonusStats: document.getElementById("bonus-stats"),
+      roundValue: document.getElementById("round-value"),
+      roundToast: document.getElementById("round-toast"),
+      stratumIcon: document.getElementById("stratum-icon"),
+      stratumName: document.getElementById("stratum-name"),
+      stratumDepth: document.getElementById("stratum-depth"),
+      stratumCoreSwatches: document.getElementById("stratum-core-swatches"),
+      stratumBonusSwatches: document.getElementById("stratum-bonus-swatches"),
+      blockIcon: document.getElementById("block-icon"),
+      blockName: document.getElementById("block-name"),
+      blockType: document.getElementById("block-type"),
+      blockHp: document.getElementById("block-hp"),
+      blockValue: document.getElementById("block-value"),
+      blockRange: document.getElementById("block-range"),
+      blockYield: document.getElementById("block-yield"),
+    };
+  }
+
+  updateFrameRateCounter() {
+    const now = performance.now();
+    if (this.lastFrameTimestamp > 0) {
+      const deltaMs = now - this.lastFrameTimestamp;
+      this.fpsSampleElapsed += deltaMs;
+      this.fpsSampleFrames += 1;
+      if (this.fpsSampleElapsed >= 250) {
+        this.displayedFps = Math.round((this.fpsSampleFrames * 1000) / this.fpsSampleElapsed);
+        this.fpsSampleElapsed = 0;
+        this.fpsSampleFrames = 0;
+      }
+    }
+
+    this.lastFrameTimestamp = now;
+  }
+
+  drawPerformanceCounters(roundInfo = {}) {
+    if (!roundInfo.showPerformance) {
+      return;
+    }
+
+    this.ctx.save();
+    this.ctx.font = '600 10px "Segoe UI", "Trebuchet MS", sans-serif';
+    this.ctx.textAlign = "right";
+    this.ctx.textBaseline = "top";
+    this.ctx.fillStyle = "rgba(242, 237, 227, 0.72)";
+    this.ctx.strokeStyle = "rgba(6, 10, 16, 0.82)";
+    this.ctx.lineWidth = 3;
+    this.ctx.lineJoin = "round";
+    const x = this.viewport.width - 18;
+    const lines = [`FPS ${this.displayedFps}`, `TPS ${roundInfo.tickRate ?? 0}`];
+    lines.forEach((text, index) => {
+      const y = 18 + index * 12;
+      this.ctx.strokeText(text, x, y);
+      this.ctx.fillText(text, x, y);
+    });
+    this.ctx.restore();
+  }
+
+  setTextContentIfChanged(element, nextText) {
+    if (element && element.textContent !== nextText) {
+      element.textContent = nextText;
+    }
+  }
+
+  setDataAttributeIfChanged(element, name, value) {
+    if (!element || element.getAttribute(name) === value) {
+      return;
+    }
+
+    element.setAttribute(name, value);
+  }
+
+  drawHud(inventory, roundInfo) {
+    const toastMessage = roundInfo.notification?.message ?? "";
+    const toastUrgent = roundInfo.notification?.urgent ? "true" : "false";
+    const hudSignature = [
+      roundInfo.timeLeft,
+      roundInfo.round,
+      roundInfo.bank,
+      roundInfo.urgent ? 1 : 0,
+      toastMessage,
+      toastUrgent,
+    ].join("|");
+
+    if (hudSignature !== this.hudSignature) {
+      this.hudSignature = hudSignature;
+      this.setDataAttributeIfChanged(this.dom.roundTimer, "data-urgent", roundInfo.urgent ? "true" : "false");
+      this.setTextContentIfChanged(this.dom.roundTimerValue, `${roundInfo.timeLeft}s`);
+      this.setTextContentIfChanged(this.dom.roundValue, String(roundInfo.round));
+      this.setTextContentIfChanged(this.dom.bankValue, `${roundInfo.bank}€`);
+
+      if (toastMessage) {
+        this.setTextContentIfChanged(this.dom.roundToast, toastMessage);
+        this.setDataAttributeIfChanged(this.dom.roundToast, "data-visible", "true");
+        this.setDataAttributeIfChanged(this.dom.roundToast, "data-urgent", toastUrgent);
+      } else {
+        this.setTextContentIfChanged(this.dom.roundToast, "");
+        this.setDataAttributeIfChanged(this.dom.roundToast, "data-visible", "false");
+        this.setDataAttributeIfChanged(this.dom.roundToast, "data-urgent", "false");
+      }
+    }
+
+    this.drawBonusStats(this.dom.bonusStats, roundInfo.bonuses);
+    this.drawToolCooldownIndicators(roundInfo);
+  }
+
+  drawBonusStats(container, bonuses = {}) {
+    if (!container) {
+      return;
+    }
+
+    const bonusStats = this.getBonusStats(bonuses);
+    const signature = bonusStats
+      .map(({ label, value, active }) => `${label}:${value}:${active ? 1 : 0}`)
+      .join("|");
+
+    if (signature === this.bonusStatsSignature) {
+      return;
+    }
+
+    this.bonusStatsSignature = signature;
+    container.replaceChildren(...bonusStats.map(({ label, value, active }) => {
+      const statEl = document.createElement("div");
+      statEl.className = "bonus-stat";
+      statEl.setAttribute("data-active", active ? "true" : "false");
+
+      const labelEl = document.createElement("span");
+      labelEl.className = "bonus-stat-label";
+      labelEl.textContent = label;
+
+      const valueEl = document.createElement("strong");
+      valueEl.className = "bonus-stat-value";
+      valueEl.textContent = value;
+
+      statEl.append(labelEl, valueEl);
+      return statEl;
+    }));
+  }
+
+  getBonusStats(bonuses = {}) {
+    const definitions = [
+      { key: "moveSpeed", label: "Move", value: bonuses.moveSpeed ?? 0 },
+      { key: "jumpPower", label: "Jump", value: bonuses.jumpPower ?? 0 },
+      { key: "swingRate", label: "Swing", value: bonuses.swingRate ?? 0 },
+      { key: "platformCooldown", label: "Platform", value: bonuses.platformCooldown ?? 0 },
+      { key: "bombDamage", label: "Bomb Dmg", value: bonuses.bombDamage ?? 0 },
+      { key: "bombRestock", label: "Bomb Load", value: bonuses.bombRestock ?? 0 },
+      { key: "luck", label: "Luck", value: bonuses.luck ?? 0 },
+      { key: "mastery", label: "Mastery", value: bonuses.mastery ?? 0 },
+      { key: "toolDamage", label: "Damage", value: bonuses.toolDamage ?? 0 },
+    ];
+
+    return definitions.map(({ label, value }) => ({
+      label,
+      active: Math.abs(value) > 0.0001,
+      value: this.formatBonusStatValue(value),
+    }));
+  }
+
+  formatBonusStatValue(value) {
+    const percent = Math.round(value * 100);
+    return `${percent >= 0 ? "+" : ""}${percent}%`;
+  }
+
+  drawSurveyPanel(player, target) {
+    const stratum = this.world.getStratumAtPixel(player.getCenter().y);
+    const stratumSignature = [
+      stratum.name,
+      stratum.depth,
+      stratum.base[0]?.type ?? "",
+      stratum.primaryOres.map((ore) => ore.type).join(","),
+      [...stratum.bonusFromPrev, ...stratum.bonusFromNext].map((ore) => ore.type).join(","),
+    ].join("|");
+
+    if (stratumSignature !== this.stratumSignature) {
+      this.stratumSignature = stratumSignature;
+      if (this.lastStratumIconType !== stratum.base[0].type) {
+        this.worldRenderer.paintIcon(this.dom.stratumIcon, stratum.base[0].type);
+        this.lastStratumIconType = stratum.base[0].type;
+      }
+      this.setTextContentIfChanged(this.dom.stratumName, stratum.name);
+      this.setTextContentIfChanged(this.dom.stratumDepth, `Depth ${stratum.depth}m`);
+
+      if (this.dom.stratumCoreSwatches) {
+        this.dom.stratumCoreSwatches.replaceChildren();
+        for (const ore of stratum.primaryOres) {
+          this.worldRenderer.renderOreChip(this.dom.stratumCoreSwatches, ore.type);
+        }
+      }
+
+      if (this.dom.stratumBonusSwatches) {
+        this.dom.stratumBonusSwatches.replaceChildren();
+        for (const ore of [...stratum.bonusFromPrev, ...stratum.bonusFromNext]) {
+          this.worldRenderer.renderOreChip(this.dom.stratumBonusSwatches, ore.type);
+        }
+      }
+    }
+
+    if (!this.dom.blockName || !this.dom.blockType || !this.dom.blockHp || !this.dom.blockValue || !this.dom.blockRange || !this.dom.blockYield) {
+      return;
+    }
+
+    if (!target) {
+      if (this.blockSignature === "empty") {
+        return;
+      }
+
+      this.blockSignature = "empty";
+      if (this.lastBlockIconType !== TILE_TYPES.EMPTY) {
+        this.worldRenderer.paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
+        this.lastBlockIconType = TILE_TYPES.EMPTY;
+      }
+      this.setTextContentIfChanged(this.dom.blockName, "None");
+      this.setTextContentIfChanged(this.dom.blockType, "No target");
+      this.setTextContentIfChanged(this.dom.blockHp, "--");
+      this.setTextContentIfChanged(this.dom.blockValue, "--");
+      this.setTextContentIfChanged(this.dom.blockRange, "--");
+      this.setTextContentIfChanged(this.dom.blockYield, "--");
+      return;
+    }
+
+    const tile = this.world.getTile(target.column, target.row);
+    if (!tile) {
+      if (this.blockSignature === "empty") {
+        return;
+      }
+
+      this.blockSignature = "empty";
+      if (this.lastBlockIconType !== TILE_TYPES.EMPTY) {
+        this.worldRenderer.paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
+        this.lastBlockIconType = TILE_TYPES.EMPTY;
+      }
+      this.setTextContentIfChanged(this.dom.blockName, "None");
+      this.setTextContentIfChanged(this.dom.blockType, "No target");
+      this.setTextContentIfChanged(this.dom.blockHp, "--");
+      this.setTextContentIfChanged(this.dom.blockValue, "--");
+      this.setTextContentIfChanged(this.dom.blockRange, "--");
+      this.setTextContentIfChanged(this.dom.blockYield, "--");
+      return;
+    }
+
+    const blockTypeText = tile.type === TILE_TYPES.CHEST ? "Treasure chest" : (tile.definition.drop ? "Ore" : "Stratum block");
+    const blockHpText = tile.maxHp > 0 ? `${Math.ceil(tile.hp)} / ${tile.maxHp}` : "--";
+    const blockValueText = tile.definition.drop
+      ? `${ITEM_DEFINITIONS[tile.definition.drop]?.value ?? 0}€`
+      : (tile.type === TILE_TYPES.CHEST ? "Reward" : "0€");
+    const blockRangeText = target.distance ? `${(target.distance / TILE_SIZE).toFixed(1)} tiles` : "In range";
+    const dropRange = this.world.getOreDropRange(target.row, tile.type, player?.bonuses);
+    const blockYieldText = tile.type === TILE_TYPES.CHEST
+      ? "1 card pick"
+      : dropRange
+        ? this.formatOreDropRange(dropRange)
+        : "--";
+
+    const blockSignature = [
+      tile.type,
+      tile.definition.label,
+      blockTypeText,
+      blockHpText,
+      blockValueText,
+      blockRangeText,
+      blockYieldText,
+    ].join("|");
+
+    if (blockSignature === this.blockSignature) {
+      return;
+    }
+
+    this.blockSignature = blockSignature;
+    if (this.lastBlockIconType !== tile.type) {
+      this.worldRenderer.paintIcon(this.dom.blockIcon, tile.type);
+      this.lastBlockIconType = tile.type;
+    }
+    this.setTextContentIfChanged(this.dom.blockName, tile.definition.label);
+    this.setTextContentIfChanged(this.dom.blockType, blockTypeText);
+    this.setTextContentIfChanged(this.dom.blockHp, blockHpText);
+    this.setTextContentIfChanged(this.dom.blockValue, blockValueText);
+    this.setTextContentIfChanged(this.dom.blockRange, blockRangeText);
+    this.setTextContentIfChanged(this.dom.blockYield, blockYieldText);
+  }
+
+  formatOreDropRange(dropRange) {
+    const normalRange = dropRange.normalMin === dropRange.normalMax
+      ? `${dropRange.normalMin}`
+      : `${dropRange.normalMin}-${dropRange.normalMax}`;
+
+    if (!dropRange.bonusMax) {
+      return normalRange;
+    }
+
+    return `${normalRange} (+${dropRange.bonusMax})`;
+  }
+
+  drawHotbar(inventory) {
+    const slots = inventory.getSlots();
+    const slotsPerRow = 8;
+    const slotSize = 52;
+    const gap = 8;
+    const iconPadding = 5;
+    const iconSize = slotSize - iconPadding * 2;
+    const rowCount = Math.max(1, Math.ceil(slots.length / slotsPerRow));
+    const columns = Math.min(slots.length, slotsPerRow);
+    const totalWidth = columns * slotSize + Math.max(0, columns - 1) * gap;
+    const startX = (this.viewport.width - totalWidth) * 0.5;
+    const startY = this.viewport.height - rowCount * slotSize - Math.max(0, rowCount - 1) * gap - 24;
+
+    for (let index = 0; index < slots.length; index += 1) {
+      const column = index % slotsPerRow;
+      const row = Math.floor(index / slotsPerRow);
+      const x = startX + column * (slotSize + gap);
+      const y = startY + row * (slotSize + gap);
+      const slot = slots[index];
+      this.ctx.fillStyle = "rgba(9, 16, 28, 0.82)";
+      this.ctx.fillRect(x, y, slotSize, slotSize);
+      this.ctx.strokeStyle = slot ? "rgba(242, 237, 227, 0.45)" : "rgba(136, 185, 216, 0.22)";
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(x, y, slotSize, slotSize);
+
+      if (!slot) {
+        continue;
+      }
+
+      this.worldRenderer.drawHotbarItemIcon(x + iconPadding, y + iconPadding, iconSize, slot.itemId);
+      this.ctx.font = "bold 13px 'Segoe UI'";
+      this.ctx.fillStyle = "#f2ede3";
+      this.ctx.fillText(String(slot.count), x + slotSize - 15, y + slotSize - 11);
+    }
+  }
+
+  getHotbarLayout(inventory) {
+    const slots = inventory.getSlots();
+    const slotsPerRow = 8;
+    const slotSize = 52;
+    const gap = 8;
+    const rowCount = Math.max(1, Math.ceil(slots.length / slotsPerRow));
+    const columns = Math.min(slots.length, slotsPerRow);
+    const totalWidth = columns * slotSize + Math.max(0, columns - 1) * gap;
+    const startX = (this.viewport.width - totalWidth) * 0.5;
+    const startY = this.viewport.height - rowCount * slotSize - Math.max(0, rowCount - 1) * gap - 24;
+    return {
+      slotSize,
+      gap,
+      totalWidth,
+      startX,
+      startY,
+    };
+  }
+
+  drawToolCooldownIndicators(roundInfo) {
+    const { startX, startY, totalWidth, slotSize } = this.getHotbarLayout({ getSlots: () => Array(8).fill(null) });
+    const centerY = startY + slotSize * 0.5;
+    this.drawCooldownDial({
+      centerX: startX - 42,
+      centerY,
+      progress: roundInfo.platformCooldown ?? 0,
+      charges: roundInfo.platformCharges ?? 0,
+      capacity: roundInfo.platformCapacity ?? 1,
+      accent: "rgba(241, 208, 77, 0.8)",
+      mutedAccent: "rgba(136, 185, 216, 0.5)",
+      plateStroke: "rgba(215, 176, 123, 0.52)",
+      label: "Platform",
+      actions: [
+        { label: "Q" },
+        { icon: "mouse" },
+      ],
+      drawIcon: () => this.drawPlatformClockIcon(),
+    });
+    this.drawCooldownDial({
+      centerX: startX + totalWidth + 42,
+      centerY,
+      progress: roundInfo.bombCooldown ?? 0,
+      charges: roundInfo.bombCharges ?? 0,
+      capacity: roundInfo.bombCapacity ?? 0,
+      accent: "rgba(255, 146, 96, 0.88)",
+      mutedAccent: "rgba(226, 182, 120, 0.48)",
+      plateStroke: "rgba(255, 146, 96, 0.52)",
+      label: "Bombs",
+      actions: [
+        { label: "B" },
+      ],
+      drawIcon: () => this.drawBombRackIcon(),
+    });
+  }
+
+  drawCooldownDial({ centerX, centerY, progress, charges, capacity, accent, mutedAccent, plateStroke, label, actions = [], drawIcon }) {
+    const radius = 26;
+    const disabled = capacity <= 0;
+    const remainingArc = Math.max(0, Math.min(1, progress));
+    const ready = !disabled && charges > 0;
+    const dialFill = disabled ? "rgba(18, 23, 32, 0.88)" : "rgba(10, 16, 28, 0.9)";
+    const dialStroke = disabled ? "rgba(108, 118, 132, 0.4)" : (ready ? accent : mutedAccent);
+    const arcFill = disabled ? "rgba(82, 90, 102, 0.3)" : "rgba(120, 132, 148, 0.4)";
+    const labelFill = disabled ? "rgba(136, 145, 156, 0.7)" : "rgba(136, 185, 216, 0.88)";
+    const badgeStroke = disabled ? "rgba(108, 118, 132, 0.35)" : plateStroke;
+
+    this.ctx.save();
+    this.ctx.translate(centerX, centerY);
+    this.ctx.fillStyle = dialFill;
+    this.ctx.beginPath();
+    this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.strokeStyle = dialStroke;
+    this.ctx.lineWidth = 2.5;
+    this.ctx.stroke();
+
+    if (remainingArc > 0) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, 0);
+      this.ctx.fillStyle = arcFill;
+      this.ctx.arc(-0.0001, -0.0001, radius - 2, -Math.PI * 0.5, -Math.PI * 0.5 - Math.PI * 2 * remainingArc, true);
+      this.ctx.closePath();
+      this.ctx.fill();
+    }
+
+    if (disabled) {
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.4;
+      drawIcon();
+      this.ctx.restore();
+    } else {
+      drawIcon();
+    }
+
+    this.ctx.fillStyle = labelFill;
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "alphabetic";
+    this.ctx.font = "700 9px 'Segoe UI'";
+    this.ctx.fillText(label, 0, -32);
+
+    actions.forEach((action, index) => {
+      const angle = index === 0 ? -Math.PI * 0.75 : -Math.PI * 0.25;
+      const badgeX = Math.cos(angle) * radius;
+      const badgeY = Math.sin(angle) * radius;
+      this.drawDialBadge({ x: badgeX, y: badgeY, radius: 10, stroke: badgeStroke, action, disabled });
+    });
+
+    this.drawCounterPlate({
+      x: 0,
+      y: radius + 1,
+      width: 32,
+      height: 18,
+      stroke: badgeStroke,
+      valueText: `${charges}/${capacity}`,
+      disabled,
+    });
+    this.ctx.restore();
+  }
+
+  drawDialBadge({ x, y, radius, stroke, action = null, valueText = null, disabled = false }) {
+    this.ctx.save();
+    this.ctx.translate(x, y);
+    this.ctx.fillStyle = disabled ? "rgba(22, 27, 36, 0.92)" : "rgba(16, 23, 36, 0.94)";
+    this.ctx.beginPath();
+    this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.strokeStyle = stroke;
+    this.ctx.lineWidth = 1.4;
+    this.ctx.stroke();
+
+    if (valueText !== null) {
+      this.ctx.fillStyle = disabled ? "rgba(188, 192, 198, 0.75)" : "#f2ede3";
+      this.ctx.textAlign = "center";
+      this.ctx.textBaseline = "middle";
+      this.ctx.font = "800 9px 'Segoe UI'";
+      this.ctx.fillText(valueText, 0, 0);
+      this.ctx.restore();
+      return;
+    }
+
+    if (action?.icon === "mouse") {
+      if (disabled) {
+        this.ctx.globalAlpha = 0.45;
+      }
+      this.drawMouseActionIcon();
+      this.ctx.restore();
+      return;
+    }
+
+    this.ctx.fillStyle = disabled ? "rgba(188, 192, 198, 0.75)" : "#f2ede3";
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "middle";
+    this.ctx.font = "500 11px 'Segoe UI'";
+    this.ctx.fillText(action?.label ?? "", 0, 0);
+    this.ctx.restore();
+  }
+
+  drawCounterPlate({ x, y, width, height, stroke, valueText, disabled = false }) {
+    this.ctx.save();
+    this.ctx.translate(x, y);
+    this.drawRoundedPlate(
+      -width * 0.5,
+      -height * 0.5,
+      width,
+      height,
+      8,
+      disabled ? "rgba(22, 27, 36, 0.92)" : "rgba(16, 23, 36, 0.94)",
+      stroke,
+    );
+    this.ctx.fillStyle = disabled ? "rgba(188, 192, 198, 0.75)" : "#f2ede3";
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "middle";
+    this.ctx.font = "500 11px 'Segoe UI'";
+    this.ctx.fillText(valueText, 0, 0);
+    this.ctx.restore();
+  }
+
+  drawMouseActionIcon() {
+    this.ctx.save();
+    this.ctx.translate(-4.5, -6.5);
+    this.ctx.strokeStyle = "rgba(242, 237, 227, 0.94)";
+    this.ctx.lineWidth = 1.25;
+    this.ctx.beginPath();
+    this.ctx.roundRect(0, 0, 9, 13, 4);
+    this.ctx.stroke();
+    this.ctx.fillStyle = "rgba(242, 237, 227, 0.9)";
+    this.ctx.fillRect(4.75, 1.1, 2.4, 4.2);
+    this.ctx.fillStyle = "rgba(16, 23, 36, 0.94)";
+    this.ctx.fillRect(4.1, 1.1, 0.8, 4.2);
+    this.ctx.restore();
+  }
+
+  drawRoundedPlate(x, y, width, height, radius, fill, stroke) {
+    this.ctx.fillStyle = fill;
+    this.drawRoundedRectPath(x, y, width, height, radius);
+    this.ctx.fill();
+    this.ctx.strokeStyle = stroke;
+    this.ctx.lineWidth = 1.4;
+    this.ctx.stroke();
+  }
+
+  drawRoundedRectPath(x, y, width, height, radius) {
+    const r = Math.min(radius, width * 0.5, height * 0.5);
+    this.ctx.beginPath();
+    this.ctx.moveTo(x + r, y);
+    this.ctx.arcTo(x + width, y, x + width, y + height, r);
+    this.ctx.arcTo(x + width, y + height, x, y + height, r);
+    this.ctx.arcTo(x, y + height, x, y, r);
+    this.ctx.arcTo(x, y, x + width, y, r);
+    this.ctx.closePath();
+  }
+
+  drawPlatformClockIcon() {
+    this.ctx.fillStyle = "#d7b07b";
+    this.ctx.fillRect(-12, 2, 24, 6);
+    this.ctx.fillRect(-10, -1, 20, 3);
+    this.ctx.fillStyle = "#4f3720";
+    this.ctx.fillRect(-9, 8, 3, 5);
+    this.ctx.fillRect(-1, 8, 3, 5);
+    this.ctx.fillRect(7, 8, 3, 5);
+    this.ctx.fillStyle = "rgba(255, 246, 208, 0.75)";
+    this.ctx.fillRect(-10, 0, 20, 1);
+  }
+
+  drawBombRackIcon() {
+    if (this.assets?.bombIcon) {
+      this.ctx.drawImage(this.assets.bombIcon, -12, -14, 24, 24);
+      return;
+    }
+
+    this.ctx.fillStyle = "#1f1a21";
+    this.ctx.beginPath();
+    this.ctx.arc(0, -2, 9, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.fillStyle = "#b78356";
+    this.ctx.fillRect(4, -13, 3, 7);
+  }
+}
