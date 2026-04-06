@@ -1491,8 +1491,11 @@
       top: 12px;
       left: 25%;
       right: 25%;
-      height: 1px;
-      background: rgba(136, 185, 216, 0.28);
+      height: 10px;
+      background:
+        linear-gradient(rgba(136, 185, 216, 0.28), rgba(136, 185, 216, 0.28)) center top / 100% 1px no-repeat,
+        linear-gradient(rgba(136, 185, 216, 0.24), rgba(136, 185, 216, 0.24)) left top / 1px 8px no-repeat,
+        linear-gradient(rgba(136, 185, 216, 0.24), rgba(136, 185, 216, 0.24)) right top / 1px 8px no-repeat;
     }
 
     .store-root-node {
@@ -1523,20 +1526,30 @@
       color: rgba(242, 237, 227, 0.52);
       font-size: 0.68rem;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
       justify-self: center;
+      letter-spacing: 0.06em;
     }
 
     .store-node-wrap {
+      position: relative;
       display: grid;
       justify-items: center;
       gap: 4px;
     }
 
-    .store-node-link-vertical {
+    .store-node-wrap[data-connected="true"]::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
       width: 1px;
-      height: 8px;
+      height: 12px;
+      transform: translateX(-50%);
       background: rgba(136, 185, 216, 0.24);
+    }
+
+    .store-node-wrap[data-connected="true"] {
+      padding-top: 12px;
     }
 
     .store-node {

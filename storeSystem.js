@@ -273,29 +273,22 @@ export function createStoreController({
       for (let nodeIndex = 0; nodeIndex < branch.nodes.length; nodeIndex += 1) {
         const node = branch.nodes[nodeIndex];
         const baseRow = rowStart + nodeIndex * 2;
-        const tierLabel = document.createElement("div");
-        tierLabel.className = "store-tier-label";
-        tierLabel.textContent = `Tier ${node.tool.tier}`;
-        tierLabel.style.gridColumn = column;
-        tierLabel.style.gridRow = String(baseRow);
-
         const nodeWrap = document.createElement("div");
         nodeWrap.className = "store-node-wrap";
         nodeWrap.style.gridColumn = column;
-        nodeWrap.style.gridRow = String(baseRow + 1);
+        nodeWrap.style.gridRow = String(baseRow);
+        nodeWrap.dataset.connected = nodeIndex > 0 ? "true" : "false";
 
-        if (nodeIndex > 0) {
-          const connector = document.createElement("div");
-          connector.className = "store-node-link-vertical";
-          nodeWrap.append(connector);
-        }
+        const tierLabel = document.createElement("div");
+        tierLabel.className = "store-tier-label";
+        tierLabel.textContent = `Tier ${node.tool.tier}`;
+        nodeWrap.append(tierLabel);
 
         nodeWrap.append(createStoreNode(node.tool, {
           state: node.state,
           interactive: node.state === "available",
         }));
 
-        grid.append(tierLabel);
         grid.append(nodeWrap);
       }
     }
@@ -321,13 +314,15 @@ export function createStoreController({
     unlockLabel.textContent = unlockBranch.label;
     wrapper.append(unlockLabel);
 
+    const unlockWrap = document.createElement("div");
+    unlockWrap.className = "store-node-wrap store-bomb-root-wrap";
+    unlockWrap.dataset.connected = "false";
+
     const unlockTier = document.createElement("div");
     unlockTier.className = "store-tier-label store-bomb-root-tier";
     unlockTier.textContent = `Tier ${unlockNode.tool.tier}`;
-    wrapper.append(unlockTier);
+    unlockWrap.append(unlockTier);
 
-    const unlockWrap = document.createElement("div");
-    unlockWrap.className = "store-node-wrap store-bomb-root-wrap";
     unlockWrap.append(createStoreNode(unlockNode.tool, {
       state: unlockNode.state,
       interactive: unlockNode.state === "available",
@@ -336,7 +331,7 @@ export function createStoreController({
 
     const childrenShell = document.createElement("div");
     childrenShell.className = "store-bomb-children-shell";
-  childrenShell.append(createStoreBranchGrid([visibleCapacityBranch, visibleTypeBranch], { showBranchLabels: false }));
+    childrenShell.append(createStoreBranchGrid([visibleCapacityBranch, visibleTypeBranch], { showBranchLabels: false }));
     wrapper.append(childrenShell);
 
     return wrapper;
