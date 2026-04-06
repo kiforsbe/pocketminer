@@ -352,7 +352,6 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
       accent: "rgba(241, 208, 77, 0.8)",
       mutedAccent: "rgba(136, 185, 216, 0.5)",
       plateStroke: "rgba(215, 176, 123, 0.52)",
-      label: "Platform",
       actions: [{ label: "Q" }],
       drawIcon: () => this.drawPlatformClockIcon(),
     };
@@ -363,7 +362,6 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
       accent: "rgba(255, 146, 96, 0.88)",
       mutedAccent: "rgba(226, 182, 120, 0.48)",
       plateStroke: "rgba(255, 146, 96, 0.52)",
-      label: "Bombs",
       actions: [{ label: "E" }],
       drawIcon: () => this.drawBombRackIcon(roundInfo.bombSpriteRow ?? 0),
     };
@@ -387,7 +385,7 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
     });
   }
 
-  drawCooldownDial({ centerX, centerY, progress, charges, capacity, accent, mutedAccent, plateStroke, label, actions = [], drawIcon }) {
+  drawCooldownDial({ centerX, centerY, progress, charges, capacity, accent, mutedAccent, plateStroke, actions = [], drawIcon }) {
     const radius = 26;
     const disabled = capacity <= 0;
     const remainingArc = Math.max(0, Math.min(1, progress));
@@ -395,7 +393,6 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
     const dialFill = disabled ? "rgba(18, 23, 32, 0.88)" : "rgba(10, 16, 28, 0.9)";
     const dialStroke = disabled ? "rgba(108, 118, 132, 0.4)" : (ready ? accent : mutedAccent);
     const arcFill = disabled ? "rgba(82, 90, 102, 0.3)" : "rgba(120, 132, 148, 0.4)";
-    const labelFill = disabled ? "rgba(136, 145, 156, 0.7)" : "rgba(136, 185, 216, 0.88)";
     const badgeStroke = disabled ? "rgba(108, 118, 132, 0.35)" : plateStroke;
 
     this.ctx.save();
@@ -425,12 +422,6 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
     } else {
       drawIcon();
     }
-
-    this.ctx.fillStyle = labelFill;
-    this.ctx.textAlign = "center";
-    this.ctx.textBaseline = "alphabetic";
-    this.ctx.font = "700 9px 'Segoe UI'";
-    this.ctx.fillText(label, 0, -32);
 
     actions.forEach((action, index) => {
       const angle = index === 0 ? -Math.PI * 0.75 : -Math.PI * 0.25;

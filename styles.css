@@ -419,8 +419,8 @@
       border: 2px solid rgba(255, 255, 255, 0.9);
       background: rgba(9, 16, 28, 0.72);
       box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.34);
-      color: #fff1c7;
-      font-family: var(--font-display);
+      color: #ffffff;
+      font-family: var(--font-ui);
       font-size: clamp(3rem, 10vw, 5.4rem);
       font-weight: 800;
       line-height: 1;
