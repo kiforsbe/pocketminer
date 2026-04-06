@@ -220,8 +220,11 @@ function Draw-TilePattern {
   )
 
   $unit = $Size / 32.0
-  Fill-Rect $Graphics (New-HexColor $Definition.fill) $X $Y $Size $Size
-  Draw-Rect $Graphics (New-RgbaColor 0 0 0 46) $X $Y ($Size - 1) ($Size - 1) 1
+  $hasSolidBackdrop = $Definition.pattern -notin @('chest', 'platform')
+  if ($hasSolidBackdrop) {
+    Fill-Rect $Graphics (New-HexColor $Definition.fill) $X $Y $Size $Size
+    Draw-Rect $Graphics (New-RgbaColor 0 0 0 46) $X $Y ($Size - 1) ($Size - 1) 1
+  }
   $accent = New-HexColor $Definition.accent
 
   switch ($Definition.pattern) {
@@ -249,15 +252,17 @@ function Draw-TilePattern {
       Draw-MagmaPattern $Graphics $Definition $X $Y $Size $Time $Column $Row
     }
     'chest' {
-      Fill-Rect $Graphics $accent ($X + 5 * $unit) ($Y + 10 * $unit) (22 * $unit) (14 * $unit)
-      Fill-Rect $Graphics $accent ($X + 7 * $unit) ($Y + 7 * $unit) (18 * $unit) (5 * $unit)
+      $base = New-HexColor $Definition.fill
+      Fill-Rect $Graphics $base ($X + 5 * $unit) ($Y + 10 * $unit) (22 * $unit) (14 * $unit)
+      Fill-Rect $Graphics $base ($X + 7 * $unit) ($Y + 7 * $unit) (18 * $unit) (5 * $unit)
       Fill-Rect $Graphics (New-HexColor '#34210c') ($X + 5 * $unit) ($Y + 12 * $unit) (22 * $unit) (2 * $unit)
       Fill-Rect $Graphics (New-HexColor $Definition.accent) ($X + 14 * $unit) ($Y + 13 * $unit) (4 * $unit) (8 * $unit)
       Fill-Rect $Graphics (New-HexColor $Definition.accent) ($X + 5 * $unit) ($Y + 16 * $unit) (22 * $unit) (2 * $unit)
     }
     'platform' {
-      Fill-Rect $Graphics $accent ($X + 4 * $unit) ($Y + 1 * $unit) (24 * $unit) (5 * $unit)
-      Fill-Rect $Graphics $accent ($X + 6 * $unit) ($Y + 6 * $unit) (20 * $unit) (2 * $unit)
+      $base = New-HexColor $Definition.fill
+      Fill-Rect $Graphics $base ($X + 4 * $unit) ($Y + 1 * $unit) (24 * $unit) (5 * $unit)
+      Fill-Rect $Graphics $base ($X + 6 * $unit) ($Y + 6 * $unit) (20 * $unit) (2 * $unit)
       $support = New-HexColor '#4f3720'
       Fill-Rect $Graphics $support ($X + 8 * $unit) ($Y + 8 * $unit) (3 * $unit) (6 * $unit)
       Fill-Rect $Graphics $support ($X + 15 * $unit) ($Y + 8 * $unit) (3 * $unit) (6 * $unit)

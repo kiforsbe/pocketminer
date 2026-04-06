@@ -119,10 +119,13 @@ export class RendererWorldSubsystem extends RendererSubsystem {
 
   paintTilePattern(context, definition, x, y, size, { time = 0, column = 0, row = 0 } = {}) {
     const unit = size / 32;
-    context.fillStyle = definition.fill;
-    context.fillRect(x, y, size, size);
-    context.strokeStyle = "rgba(0, 0, 0, 0.18)";
-    context.strokeRect(x, y, size, size);
+    const hasSolidBackdrop = !["chest", "platform"].includes(definition.pattern);
+    if (hasSolidBackdrop) {
+      context.fillStyle = definition.fill;
+      context.fillRect(x, y, size, size);
+      context.strokeStyle = "rgba(0, 0, 0, 0.18)";
+      context.strokeRect(x, y, size, size);
+    }
     context.fillStyle = definition.accent;
 
     switch (definition.pattern) {
@@ -150,6 +153,7 @@ export class RendererWorldSubsystem extends RendererSubsystem {
         this.drawMagmaPattern(context, definition, x, y, size, time, column, row);
         break;
       case "chest":
+        context.fillStyle = definition.fill;
         context.fillRect(x + 5 * unit, y + 10 * unit, 22 * unit, 14 * unit);
         context.fillRect(x + 7 * unit, y + 7 * unit, 18 * unit, 5 * unit);
         context.fillStyle = "#34210c";
@@ -159,6 +163,7 @@ export class RendererWorldSubsystem extends RendererSubsystem {
         context.fillRect(x + 5 * unit, y + 16 * unit, 22 * unit, 2 * unit);
         break;
       case "platform":
+        context.fillStyle = definition.fill;
         context.fillRect(x + 4 * unit, y + 1 * unit, 24 * unit, 5 * unit);
         context.fillRect(x + 6 * unit, y + 6 * unit, 20 * unit, 2 * unit);
         context.fillStyle = "#4f3720";
