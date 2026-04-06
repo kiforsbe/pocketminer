@@ -311,7 +311,7 @@ const endOfRoundSystem = createEndOfRoundSystem({
   gameState,
   audio,
   storeController,
-  getWorld: () => world,
+  worldRenderer: renderer.worldRenderer,
   onStartSummaryMusic: () => {
     return musicSystem.startSummary({ immediate: true });
   },

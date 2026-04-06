@@ -8,7 +8,7 @@ export function createEndOfRoundSystem({
   gameState,
   audio,
   storeController,
-  getWorld,
+  worldRenderer,
   onStartSummaryMusic,
 }) {
   const roundOverlay = document.getElementById("round-overlay");
@@ -101,15 +101,7 @@ export function createEndOfRoundSystem({
       return;
     }
 
-    const context = canvasEl.getContext("2d");
-    const definition = getWorld().getTileDefinition(itemId);
-    context.imageSmoothingEnabled = false;
-    context.fillStyle = definition.fill;
-    context.fillRect(0, 0, canvasEl.width, canvasEl.height);
-    context.fillStyle = definition.accent;
-    context.fillRect(5, 5, 6, 6);
-    context.fillRect(14, 9, 7, 7);
-    context.fillRect(10, 16, 8, 8);
+    worldRenderer?.paintIcon(canvasEl, itemId);
   }
 
   function populateSummaryOverlay() {
