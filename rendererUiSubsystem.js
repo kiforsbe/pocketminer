@@ -2,56 +2,54 @@ import { ITEM_DEFINITIONS } from "./inventory.js";
 import { TILE_SIZE, TILE_TYPES } from "./tile.js";
 import { RendererSubsystem } from "./rendererSubsystem.js";
 
-export class RendererUiSubsystem extends RendererSubsystem {
-  constructor(renderer, worldRenderer) {
-    super(renderer);
-    this.worldRenderer = worldRenderer;
-    this.bonusStatsSignature = "";
-    this.hudSignature = "";
-    this.stratumSignature = "";
-    this.blockSignature = "";
-    this.lastStratumIconType = null;
-    this.lastBlockIconType = null;
-    this.lastFrameTimestamp = 0;
-    this.fpsSampleElapsed = 0;
-    this.fpsSampleFrames = 0;
-    this.displayedFps = 0;
-    this.dom = {
-      roundTimer: document.getElementById("round-timer"),
-      roundTimerValue: document.getElementById("round-timer-value"),
-      bankValue: document.getElementById("bank-value"),
-      bonusStats: document.getElementById("bonus-stats"),
-      roundValue: document.getElementById("round-value"),
-      roundToast: document.getElementById("round-toast"),
-      stratumIcon: document.getElementById("stratum-icon"),
-      stratumName: document.getElementById("stratum-name"),
-      stratumDepth: document.getElementById("stratum-depth"),
-      stratumCoreSwatches: document.getElementById("stratum-core-swatches"),
-      stratumBonusSwatches: document.getElementById("stratum-bonus-swatches"),
-      blockIcon: document.getElementById("block-icon"),
-      blockName: document.getElementById("block-name"),
-      blockType: document.getElementById("block-type"),
-      blockHp: document.getElementById("block-hp"),
-      blockValue: document.getElementById("block-value"),
-      blockRange: document.getElementById("block-range"),
-      blockYield: document.getElementById("block-yield"),
-    };
+class RendererUiSection extends RendererSubsystem {
+  constructor(uiRenderer) {
+    super(uiRenderer.renderer);
+    this.uiRenderer = uiRenderer;
   }
 
+  get dom() {
+    return this.uiRenderer.dom;
+  }
+
+  get state() {
+    return this.uiRenderer.state;
+  }
+
+  get worldRenderer() {
+    return this.uiRenderer.worldRenderer;
+  }
+
+  setTextContentIfChanged(element, nextText) {
+    if (element && element.textContent !== nextText) {
+      element.textContent = nextText;
+    }
+  }
+
+  setDataAttributeIfChanged(element, name, value) {
+    if (!element || element.getAttribute(name) === value) {
+      return;
+    }
+
+    element.setAttribute(name, value);
+  }
+}
+
+class RendererUiPerformanceSection extends RendererUiSection {
   updateFrameRateCounter() {
     const now = performance.now();
-    if (this.lastFrameTimestamp > 0) {
-      const deltaMs = now - this.lastFrameTimestamp;
-      this.fpsSampleElapsed += deltaMs;
-      this.fpsSampleFrames += 1;
-      if (this.fpsSampleElapsed >= 250) {
-        this.displayedFps = Math.round((this.fpsSampleFrames * 1000) / this.fpsSampleElapsed);
-        this.fpsSampleElapsed = 0;
-        this.fpsSampleFrames = 0;
+    if (this.state.lastFrameTimestamp > 0) {
+      const deltaMs = now - this.state.lastFrameTimestamp;
+      this.state.fpsSampleElapsed += deltaMs;
+      this.state.fpsSampleFrames += 1;
+      if (this.state.fpsSampleElapsed >= 250) {
+        this.state.displayedFps = Math.round((this.state.fpsSampleFrames * 1000) / this.state.fpsSampleElapsed);
+        this.state.fpsSampleElapsed = 0;
+        this.state.fpsSampleFrames = 0;
       }
     }
 
-    this.lastFrameTimestamp = now;
+    this.state.lastFrameTimestamp = now;
   }
 
   drawPerformanceCounters(roundInfo = {}) {
@@ -68,7 +66,7 @@ export class RendererUiSubsystem extends RendererSubsystem {
     this.ctx.lineWidth = 3;
     this.ctx.lineJoin = "round";
     const x = this.viewport.width - 18;
-    const lines = [`FPS ${this.displayedFps}`, `TPS ${roundInfo.tickRate ?? 0}`];
+    const lines = [`FPS ${this.state.displayedFps}`, `TPS ${roundInfo.tickRate ?? 0}`];
     lines.forEach((text, index) => {
       const y = 18 + index * 12;
       this.ctx.strokeText(text, x, y);
@@ -76,22 +74,10 @@ export class RendererUiSubsystem extends RendererSubsystem {
     });
     this.ctx.restore();
   }
+}
 
-  setTextContentIfChanged(element, nextText) {
-    if (element && element.textContent !== nextText) {
-      element.textContent = nextText;
-    }
-  }
-
-  setDataAttributeIfChanged(element, name, value) {
-    if (!element || element.getAttribute(name) === value) {
-      return;
-    }
-
-    element.setAttribute(name, value);
-  }
-
-  drawHud(inventory, roundInfo) {
+class RendererUiHudSection extends RendererUiSection {
+  drawHud(roundInfo) {
     const toastMessage = roundInfo.notification?.message ?? "";
     const toastUrgent = roundInfo.notification?.urgent ? "true" : "false";
     const hudSignature = [
@@ -103,8 +89,8 @@ export class RendererUiSubsystem extends RendererSubsystem {
       toastUrgent,
     ].join("|");
 
-    if (hudSignature !== this.hudSignature) {
-      this.hudSignature = hudSignature;
+    if (hudSignature !== this.state.hudSignature) {
+      this.state.hudSignature = hudSignature;
       this.setDataAttributeIfChanged(this.dom.roundTimer, "data-urgent", roundInfo.urgent ? "true" : "false");
       this.setTextContentIfChanged(this.dom.roundTimerValue, `${roundInfo.timeLeft}s`);
       this.setTextContentIfChanged(this.dom.roundValue, String(roundInfo.round));
@@ -122,7 +108,6 @@ export class RendererUiSubsystem extends RendererSubsystem {
     }
 
     this.drawBonusStats(this.dom.bonusStats, roundInfo.bonuses);
-    this.drawToolCooldownIndicators(roundInfo);
   }
 
   drawBonusStats(container, bonuses = {}) {
@@ -135,11 +120,11 @@ export class RendererUiSubsystem extends RendererSubsystem {
       .map(({ label, value, active }) => `${label}:${value}:${active ? 1 : 0}`)
       .join("|");
 
-    if (signature === this.bonusStatsSignature) {
+    if (signature === this.state.bonusStatsSignature) {
       return;
     }
 
-    this.bonusStatsSignature = signature;
+    this.state.bonusStatsSignature = signature;
     container.replaceChildren(...bonusStats.map(({ label, value, active }) => {
       const statEl = document.createElement("div");
       statEl.className = "bonus-stat";
@@ -160,15 +145,15 @@ export class RendererUiSubsystem extends RendererSubsystem {
 
   getBonusStats(bonuses = {}) {
     const definitions = [
-      { key: "moveSpeed", label: "Move", value: bonuses.moveSpeed ?? 0 },
-      { key: "jumpPower", label: "Jump", value: bonuses.jumpPower ?? 0 },
-      { key: "swingRate", label: "Swing", value: bonuses.swingRate ?? 0 },
-      { key: "platformCooldown", label: "Platform", value: bonuses.platformCooldown ?? 0 },
-      { key: "bombDamage", label: "Bomb Dmg", value: bonuses.bombDamage ?? 0 },
-      { key: "bombRestock", label: "Bomb Load", value: bonuses.bombRestock ?? 0 },
-      { key: "luck", label: "Luck", value: bonuses.luck ?? 0 },
-      { key: "mastery", label: "Mastery", value: bonuses.mastery ?? 0 },
-      { key: "toolDamage", label: "Damage", value: bonuses.toolDamage ?? 0 },
+      { label: "Move", value: bonuses.moveSpeed ?? 0 },
+      { label: "Jump", value: bonuses.jumpPower ?? 0 },
+      { label: "Swing", value: bonuses.swingRate ?? 0 },
+      { label: "Platform", value: bonuses.platformCooldown ?? 0 },
+      { label: "Bomb Dmg", value: bonuses.bombDamage ?? 0 },
+      { label: "Bomb Load", value: bonuses.bombRestock ?? 0 },
+      { label: "Luck", value: bonuses.luck ?? 0 },
+      { label: "Mastery", value: bonuses.mastery ?? 0 },
+      { label: "Damage", value: bonuses.toolDamage ?? 0 },
     ];
 
     return definitions.map(({ label, value }) => ({
@@ -182,7 +167,9 @@ export class RendererUiSubsystem extends RendererSubsystem {
     const percent = Math.round(value * 100);
     return `${percent >= 0 ? "+" : ""}${percent}%`;
   }
+}
 
+class RendererUiSurveySection extends RendererUiSection {
   drawSurveyPanel(player, target) {
     const stratum = this.world.getStratumAtPixel(player.getCenter().y);
     const stratumSignature = [
@@ -193,11 +180,11 @@ export class RendererUiSubsystem extends RendererSubsystem {
       [...stratum.bonusFromPrev, ...stratum.bonusFromNext].map((ore) => ore.type).join(","),
     ].join("|");
 
-    if (stratumSignature !== this.stratumSignature) {
-      this.stratumSignature = stratumSignature;
-      if (this.lastStratumIconType !== stratum.base[0].type) {
+    if (stratumSignature !== this.state.stratumSignature) {
+      this.state.stratumSignature = stratumSignature;
+      if (this.state.lastStratumIconType !== stratum.base[0].type) {
         this.worldRenderer.paintIcon(this.dom.stratumIcon, stratum.base[0].type);
-        this.lastStratumIconType = stratum.base[0].type;
+        this.state.lastStratumIconType = stratum.base[0].type;
       }
       this.setTextContentIfChanged(this.dom.stratumName, stratum.name);
       this.setTextContentIfChanged(this.dom.stratumDepth, `Depth ${stratum.depth}m`);
@@ -222,41 +209,13 @@ export class RendererUiSubsystem extends RendererSubsystem {
     }
 
     if (!target) {
-      if (this.blockSignature === "empty") {
-        return;
-      }
-
-      this.blockSignature = "empty";
-      if (this.lastBlockIconType !== TILE_TYPES.EMPTY) {
-        this.worldRenderer.paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
-        this.lastBlockIconType = TILE_TYPES.EMPTY;
-      }
-      this.setTextContentIfChanged(this.dom.blockName, "None");
-      this.setTextContentIfChanged(this.dom.blockType, "No target");
-      this.setTextContentIfChanged(this.dom.blockHp, "--");
-      this.setTextContentIfChanged(this.dom.blockValue, "--");
-      this.setTextContentIfChanged(this.dom.blockRange, "--");
-      this.setTextContentIfChanged(this.dom.blockYield, "--");
+      this.clearBlockPanel();
       return;
     }
 
     const tile = this.world.getTile(target.column, target.row);
     if (!tile) {
-      if (this.blockSignature === "empty") {
-        return;
-      }
-
-      this.blockSignature = "empty";
-      if (this.lastBlockIconType !== TILE_TYPES.EMPTY) {
-        this.worldRenderer.paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
-        this.lastBlockIconType = TILE_TYPES.EMPTY;
-      }
-      this.setTextContentIfChanged(this.dom.blockName, "None");
-      this.setTextContentIfChanged(this.dom.blockType, "No target");
-      this.setTextContentIfChanged(this.dom.blockHp, "--");
-      this.setTextContentIfChanged(this.dom.blockValue, "--");
-      this.setTextContentIfChanged(this.dom.blockRange, "--");
-      this.setTextContentIfChanged(this.dom.blockYield, "--");
+      this.clearBlockPanel();
       return;
     }
 
@@ -283,14 +242,14 @@ export class RendererUiSubsystem extends RendererSubsystem {
       blockYieldText,
     ].join("|");
 
-    if (blockSignature === this.blockSignature) {
+    if (blockSignature === this.state.blockSignature) {
       return;
     }
 
-    this.blockSignature = blockSignature;
-    if (this.lastBlockIconType !== tile.type) {
+    this.state.blockSignature = blockSignature;
+    if (this.state.lastBlockIconType !== tile.type) {
       this.worldRenderer.paintIcon(this.dom.blockIcon, tile.type);
-      this.lastBlockIconType = tile.type;
+      this.state.lastBlockIconType = tile.type;
     }
     this.setTextContentIfChanged(this.dom.blockName, tile.definition.label);
     this.setTextContentIfChanged(this.dom.blockType, blockTypeText);
@@ -298,6 +257,24 @@ export class RendererUiSubsystem extends RendererSubsystem {
     this.setTextContentIfChanged(this.dom.blockValue, blockValueText);
     this.setTextContentIfChanged(this.dom.blockRange, blockRangeText);
     this.setTextContentIfChanged(this.dom.blockYield, blockYieldText);
+  }
+
+  clearBlockPanel() {
+    if (this.state.blockSignature === "empty") {
+      return;
+    }
+
+    this.state.blockSignature = "empty";
+    if (this.state.lastBlockIconType !== TILE_TYPES.EMPTY) {
+      this.worldRenderer.paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
+      this.state.lastBlockIconType = TILE_TYPES.EMPTY;
+    }
+    this.setTextContentIfChanged(this.dom.blockName, "None");
+    this.setTextContentIfChanged(this.dom.blockType, "No target");
+    this.setTextContentIfChanged(this.dom.blockHp, "--");
+    this.setTextContentIfChanged(this.dom.blockValue, "--");
+    this.setTextContentIfChanged(this.dom.blockRange, "--");
+    this.setTextContentIfChanged(this.dom.blockYield, "--");
   }
 
   formatOreDropRange(dropRange) {
@@ -311,31 +288,26 @@ export class RendererUiSubsystem extends RendererSubsystem {
 
     return `${normalRange} (+${dropRange.bonusMax})`;
   }
+}
 
+class RendererUiHotbarElement extends RendererUiSection {
   drawHotbar(inventory) {
     const slots = inventory.getSlots();
-    const slotsPerRow = 8;
-    const slotSize = 52;
-    const gap = 8;
+    const layout = this.getHotbarLayout(inventory);
     const iconPadding = 5;
-    const iconSize = slotSize - iconPadding * 2;
-    const rowCount = Math.max(1, Math.ceil(slots.length / slotsPerRow));
-    const columns = Math.min(slots.length, slotsPerRow);
-    const totalWidth = columns * slotSize + Math.max(0, columns - 1) * gap;
-    const startX = (this.viewport.width - totalWidth) * 0.5;
-    const startY = this.viewport.height - rowCount * slotSize - Math.max(0, rowCount - 1) * gap - 24;
+    const iconSize = layout.slotSize - iconPadding * 2;
 
     for (let index = 0; index < slots.length; index += 1) {
-      const column = index % slotsPerRow;
-      const row = Math.floor(index / slotsPerRow);
-      const x = startX + column * (slotSize + gap);
-      const y = startY + row * (slotSize + gap);
+      const column = index % 8;
+      const row = Math.floor(index / 8);
+      const x = layout.startX + column * (layout.slotSize + layout.gap);
+      const y = layout.startY + row * (layout.slotSize + layout.gap);
       const slot = slots[index];
       this.ctx.fillStyle = "rgba(9, 16, 28, 0.82)";
-      this.ctx.fillRect(x, y, slotSize, slotSize);
+      this.ctx.fillRect(x, y, layout.slotSize, layout.slotSize);
       this.ctx.strokeStyle = slot ? "rgba(242, 237, 227, 0.45)" : "rgba(136, 185, 216, 0.22)";
       this.ctx.lineWidth = 2;
-      this.ctx.strokeRect(x, y, slotSize, slotSize);
+      this.ctx.strokeRect(x, y, layout.slotSize, layout.slotSize);
 
       if (!slot) {
         continue;
@@ -344,7 +316,7 @@ export class RendererUiSubsystem extends RendererSubsystem {
       this.worldRenderer.drawHotbarItemIcon(x + iconPadding, y + iconPadding, iconSize, slot.itemId);
       this.ctx.font = "bold 13px 'Segoe UI'";
       this.ctx.fillStyle = "#f2ede3";
-      this.ctx.fillText(String(slot.count), x + slotSize - 15, y + slotSize - 11);
+      this.ctx.fillText(String(slot.count), x + layout.slotSize - 15, y + layout.slotSize - 11);
     }
   }
 
@@ -358,18 +330,20 @@ export class RendererUiSubsystem extends RendererSubsystem {
     const totalWidth = columns * slotSize + Math.max(0, columns - 1) * gap;
     const startX = (this.viewport.width - totalWidth) * 0.5;
     const startY = this.viewport.height - rowCount * slotSize - Math.max(0, rowCount - 1) * gap - 24;
-    return {
-      slotSize,
-      gap,
-      totalWidth,
-      startX,
-      startY,
-    };
+    return { slotSize, gap, totalWidth, startX, startY };
+  }
+}
+
+class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
+  constructor(uiRenderer, hotbarElement) {
+    super(uiRenderer);
+    this.hotbarElement = hotbarElement;
   }
 
   drawToolCooldownIndicators(roundInfo) {
-    const { startX, startY, totalWidth, slotSize } = this.getHotbarLayout({ getSlots: () => Array(8).fill(null) });
+    const { startX, startY, totalWidth, slotSize } = this.hotbarElement.getHotbarLayout({ getSlots: () => Array(8).fill(null) });
     const centerY = startY + slotSize * 0.5;
+
     this.drawCooldownDial({
       centerX: startX - 42,
       centerY,
@@ -380,10 +354,7 @@ export class RendererUiSubsystem extends RendererSubsystem {
       mutedAccent: "rgba(136, 185, 216, 0.5)",
       plateStroke: "rgba(215, 176, 123, 0.52)",
       label: "Platform",
-      actions: [
-        { label: "Q" },
-        { icon: "mouse" },
-      ],
+      actions: [{ label: "Q" }, { icon: "mouse" }],
       drawIcon: () => this.drawPlatformClockIcon(),
     });
     this.drawCooldownDial({
@@ -396,9 +367,7 @@ export class RendererUiSubsystem extends RendererSubsystem {
       mutedAccent: "rgba(226, 182, 120, 0.48)",
       plateStroke: "rgba(255, 146, 96, 0.52)",
       label: "Bombs",
-      actions: [
-        { label: "B" },
-      ],
+      actions: [{ label: "B" }],
       drawIcon: () => this.drawBombRackIcon(),
     });
   }
@@ -550,13 +519,13 @@ export class RendererUiSubsystem extends RendererSubsystem {
   }
 
   drawRoundedRectPath(x, y, width, height, radius) {
-    const r = Math.min(radius, width * 0.5, height * 0.5);
+    const rounded = Math.min(radius, width * 0.5, height * 0.5);
     this.ctx.beginPath();
-    this.ctx.moveTo(x + r, y);
-    this.ctx.arcTo(x + width, y, x + width, y + height, r);
-    this.ctx.arcTo(x + width, y + height, x, y + height, r);
-    this.ctx.arcTo(x, y + height, x, y, r);
-    this.ctx.arcTo(x, y, x + width, y, r);
+    this.ctx.moveTo(x + rounded, y);
+    this.ctx.arcTo(x + width, y, x + width, y + height, rounded);
+    this.ctx.arcTo(x + width, y + height, x, y + height, rounded);
+    this.ctx.arcTo(x, y + height, x, y, rounded);
+    this.ctx.arcTo(x, y, x + width, y, rounded);
     this.ctx.closePath();
   }
 
@@ -584,5 +553,89 @@ export class RendererUiSubsystem extends RendererSubsystem {
     this.ctx.fill();
     this.ctx.fillStyle = "#b78356";
     this.ctx.fillRect(4, -13, 3, 7);
+  }
+}
+
+class RendererUiHotbarSection extends RendererUiSection {
+  constructor(uiRenderer) {
+    super(uiRenderer);
+    this.hotbarElement = new RendererUiHotbarElement(uiRenderer);
+    this.toolCooldownIndicatorsElement = new RendererUiToolCooldownIndicatorsElement(uiRenderer, this.hotbarElement);
+  }
+
+  drawHotbar(inventory) {
+    this.hotbarElement.drawHotbar(inventory);
+  }
+
+  getHotbarLayout(inventory) {
+    return this.hotbarElement.getHotbarLayout(inventory);
+  }
+
+  drawToolCooldownIndicators(roundInfo) {
+    this.toolCooldownIndicatorsElement.drawToolCooldownIndicators(roundInfo);
+  }
+}
+
+export class RendererUiSubsystem extends RendererSubsystem {
+  constructor(renderer, worldRenderer) {
+    super(renderer);
+    this.worldRenderer = worldRenderer;
+    this.state = {
+      bonusStatsSignature: "",
+      hudSignature: "",
+      stratumSignature: "",
+      blockSignature: "",
+      lastStratumIconType: null,
+      lastBlockIconType: null,
+      lastFrameTimestamp: 0,
+      fpsSampleElapsed: 0,
+      fpsSampleFrames: 0,
+      displayedFps: 0,
+    };
+    this.dom = {
+      roundTimer: document.getElementById("round-timer"),
+      roundTimerValue: document.getElementById("round-timer-value"),
+      bankValue: document.getElementById("bank-value"),
+      bonusStats: document.getElementById("bonus-stats"),
+      roundValue: document.getElementById("round-value"),
+      roundToast: document.getElementById("round-toast"),
+      stratumIcon: document.getElementById("stratum-icon"),
+      stratumName: document.getElementById("stratum-name"),
+      stratumDepth: document.getElementById("stratum-depth"),
+      stratumCoreSwatches: document.getElementById("stratum-core-swatches"),
+      stratumBonusSwatches: document.getElementById("stratum-bonus-swatches"),
+      blockIcon: document.getElementById("block-icon"),
+      blockName: document.getElementById("block-name"),
+      blockType: document.getElementById("block-type"),
+      blockHp: document.getElementById("block-hp"),
+      blockValue: document.getElementById("block-value"),
+      blockRange: document.getElementById("block-range"),
+      blockYield: document.getElementById("block-yield"),
+    };
+    this.performanceSection = new RendererUiPerformanceSection(this);
+    this.hudSection = new RendererUiHudSection(this);
+    this.surveySection = new RendererUiSurveySection(this);
+    this.hotbarSection = new RendererUiHotbarSection(this);
+  }
+
+  updateFrameRateCounter() {
+    this.performanceSection.updateFrameRateCounter();
+  }
+
+  drawPerformanceCounters(roundInfo = {}) {
+    this.performanceSection.drawPerformanceCounters(roundInfo);
+  }
+
+  drawHud(inventory, roundInfo) {
+    this.hudSection.drawHud(roundInfo);
+    this.hotbarSection.drawToolCooldownIndicators(roundInfo);
+  }
+
+  drawSurveyPanel(player, target) {
+    this.surveySection.drawSurveyPanel(player, target);
+  }
+
+  drawHotbar(inventory) {
+    this.hotbarSection.drawHotbar(inventory);
   }
 }
