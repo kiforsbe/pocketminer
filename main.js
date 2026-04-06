@@ -16,7 +16,7 @@ import { createPlatformPlacementSystem } from "./platformPlacement.js";
 import { createPickupSystem } from "./pickups.js";
 import { Renderer } from "./renderer.js";
 import { createStoreController } from "./storeSystem.js";
-import { TILE_SIZE, TILE_TYPES } from "./tile.js";
+import { TILE_TYPES } from "./tile.js";
 import {
   DEFAULT_BAG_ROOT_ID,
   DEFAULT_CAPACITY_ROOT_ID,
@@ -75,11 +75,6 @@ const AUDIO_MANIFEST = [
   ...createMusicManifest(WORLD_STRATA),
 ];
 const PLATFORM_COOLDOWN_SECONDS = 3;
-const BOMB_COOLDOWN_SECONDS = 3;
-const BOMB_BLAST_RADIUS = 1;
-const BOMB_DAMAGE = 90;
-const BOMB_PLAYER_IMPULSE_RADIUS = TILE_SIZE * 2.25;
-const BOMB_PLAYER_MAX_IMPULSE = 540;
 const NOTIFICATION_DURATION = 3.2;
 
 const canvas = document.getElementById("game");
@@ -101,18 +96,6 @@ function getPlatformCooldownDuration() {
 
 function getPlatformCapacity() {
   return getToolDefinition(gameState.platformUpgradeId ?? DEFAULT_PLATFORM_ROOT_ID)?.platformCapacity ?? 1;
-}
-
-function getBombCooldownDuration() {
-  return BOMB_COOLDOWN_SECONDS / (1 + (gameState.playerBonuses.bombRestock ?? 0));
-}
-
-function getBombCapacity() {
-  return getToolDefinition(gameState.bombUpgradeId)?.bombCapacity ?? 0;
-}
-
-function getBombDamageAmount() {
-  return BOMB_DAMAGE * (1 + (gameState.playerBonuses.bombDamage ?? 0));
 }
 
 function getMiningHitSoundId(miningResult) {
@@ -266,9 +249,9 @@ const bombSystem = createBombSystem({
   audio,
   getPlayer: () => player,
   getWorld: () => world,
-  getBombCapacity,
-  getBombCooldownDuration,
-  onDetonate: detonateBomb,
+  floatingTextSystem,
+  particleSystem,
+  onBrokenTileResult: handleBrokenTileResult,
 });
 
 const pickupSystem = createPickupSystem({
@@ -301,7 +284,7 @@ const chestRewardController = createChestRewardController({
   syncPlayerBonuses,
   showRoundNotification,
   getPlatformCooldownDuration,
-  getBombCooldownDuration,
+  getBombCooldownDuration: () => bombSystem.getCooldownDuration(),
 });
 
 const cheatCodeController = createCheatCodeController({
@@ -712,9 +695,11 @@ function render() {
         : 0,
       platformCharges: gameState.platformCharges,
       platformCapacity: getPlatformCapacity(),
-      bombCooldown: gameState.bombCharges < getBombCapacity() ? gameState.bombCooldown / getBombCooldownDuration() : 0,
+      bombCooldown: gameState.bombCharges < bombSystem.getCapacity()
+        ? gameState.bombCooldown / bombSystem.getCooldownDuration()
+        : 0,
       bombCharges: gameState.bombCharges,
-      bombCapacity: getBombCapacity(),
+      bombCapacity: bombSystem.getCapacity(),
       urgent: gameState.phase === "playing" && gameState.timeLeft <= 30,
       notification: gameState.notification,
     },
@@ -809,7 +794,7 @@ function startNextRound() {
   gameState.platformCooldown = 0;
   gameState.platformCharges = getPlatformCapacity();
   gameState.bombCooldown = 0;
-  gameState.bombCharges = getBombCapacity();
+  gameState.bombCharges = bombSystem.getCapacity();
   gameState.roundStats = createRoundStats();
   gameState.summary = null;
   gameState.chestReward = null;
@@ -878,113 +863,6 @@ function handleBrokenTileResult(miningResult, { playOreSound = false, playBreakS
   if (playBreakSound) {
     audio.playSound("blockBreak", { playbackRate: 0.98 + Math.random() * 0.08 });
   }
-}
-
-function hasExplosionLineOfSight(origin, target) {
-  const distance = Math.hypot(target.x - origin.x, target.y - origin.y);
-  const steps = Math.max(1, Math.ceil(distance / 8));
-  for (let step = 1; step < steps; step += 1) {
-    const progress = step / steps;
-    const sampleX = origin.x + (target.x - origin.x) * progress;
-    const sampleY = origin.y + (target.y - origin.y) * progress;
-    const column = Math.floor(sampleX / TILE_SIZE);
-    const row = Math.floor(sampleY / TILE_SIZE);
-    if (world.isSolid(column, row)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function applyBombImpulseToPlayer(bomb) {
-  const bombCenter = {
-    x: bomb.column * TILE_SIZE + TILE_SIZE * 0.5,
-    y: bomb.row * TILE_SIZE + TILE_SIZE * 0.5,
-  };
-  const playerCenter = player.getCenter();
-  const dx = playerCenter.x - bombCenter.x;
-  const dy = playerCenter.y - bombCenter.y;
-  const distance = Math.hypot(dx, dy);
-
-  if (distance > BOMB_PLAYER_IMPULSE_RADIUS) {
-    return;
-  }
-
-  if (!hasExplosionLineOfSight(bombCenter, playerCenter)) {
-    return;
-  }
-
-  const falloff = Math.max(0, 1 - distance / BOMB_PLAYER_IMPULSE_RADIUS);
-  if (falloff <= 0) {
-    return;
-  }
-
-  const safeDistance = Math.max(6, distance);
-  const directionX = distance < 6 ? 0 : dx / safeDistance;
-  const directionY = distance < 6 ? -1 : dy / safeDistance;
-  const force = BOMB_PLAYER_MAX_IMPULSE * falloff;
-  player.applyImpulse({
-    x: directionX * force,
-    y: directionY * force,
-  });
-}
-
-function detonateBomb(bomb) {
-  let brokeAnyTile = false;
-  let clearedAnyDebris = false;
-  const blastTargets = [];
-  audio.playSound("bombExplode", { volume: 0.34 });
-  particleSystem.spawnExplosionBurst({
-    x: bomb.column * 32 + 16,
-    y: bomb.row * 32 + 16,
-  });
-
-  for (let rowOffset = -BOMB_BLAST_RADIUS; rowOffset <= BOMB_BLAST_RADIUS; rowOffset += 1) {
-    for (let columnOffset = -BOMB_BLAST_RADIUS; columnOffset <= BOMB_BLAST_RADIUS; columnOffset += 1) {
-      const targetColumn = bomb.column + columnOffset;
-      blastTargets.push({
-        column: targetColumn,
-        row: bomb.row + rowOffset,
-      });
-    }
-  }
-
-  blastTargets
-    .sort((left, right) => {
-      if (left.row !== right.row) {
-        return right.row - left.row;
-      }
-
-      return left.column - right.column;
-    })
-    .forEach(({ column: targetColumn, row: targetRow }) => {
-      if (world.clearDebris(targetColumn, targetRow)) {
-        clearedAnyDebris = true;
-      }
-      const miningResult = world.damageTile(targetColumn, targetRow, getBombDamageAmount(), { luck: gameState.playerBonuses.luck });
-      if (miningResult.hit) {
-        floatingTextSystem.spawnCombatText({
-          ...miningResult,
-          target: {
-            column: targetColumn,
-            row: targetRow,
-          },
-        });
-      }
-      if (!miningResult.broken) {
-        return;
-      }
-
-      brokeAnyTile = true;
-      handleBrokenTileResult(miningResult);
-    });
-
-  if (brokeAnyTile || clearedAnyDebris) {
-    renderer.markTerrainDirty();
-  }
-
-  applyBombImpulseToPlayer(bomb);
 }
 
 function getEquippedTool() {
