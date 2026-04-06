@@ -180,6 +180,7 @@ export const DEFAULT_GAME_CREDITS = Object.freeze([
     heading: "Thanks",
     style: "simple",
     lines: Object.freeze([
+      "Over 90% of the code was written by GitHub Copilot, with the rest being edited by hand.",
       "This game was made on a budget of 20€ in Github Copilot credits, and 85€ in living expenses over a period of 3 days.",
       "Just under 20 hours have been spent on the development on the game.",
     ]),
