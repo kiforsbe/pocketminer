@@ -6,8 +6,339 @@ const SUNNY_SKY_TOP = "#8fd8ff";
 const SUNNY_SKY_MID = "#dff6ff";
 const CLOUD_BAND_HEIGHT = 168;
 const SURFACE_TRANSITION_DEPTH = TILE_SIZE * 3;
+const ATLAS_TILE_OVERFLOW_TOP = 4;
+const ATLAS_TILE_HEIGHT = TILE_SIZE + ATLAS_TILE_OVERFLOW_TOP;
+const MAGMA_FRAME_COUNT = 6;
+const MAGMA_ANIMATION_FPS = 6;
+const TILE_ATLAS_COLUMNS = 8;
+const SURFACE_VARIANTS = Object.freeze([
+  Object.freeze({ surfaceTreatment: null, surfaceVariant: 0 }),
+  Object.freeze({ surfaceTreatment: "grass", surfaceVariant: 0 }),
+  Object.freeze({ surfaceTreatment: "grass", surfaceVariant: 1 }),
+  Object.freeze({ surfaceTreatment: "grass", surfaceVariant: 2 }),
+  Object.freeze({ surfaceTreatment: "moss", surfaceVariant: 0 }),
+  Object.freeze({ surfaceTreatment: "rock", surfaceVariant: 0 }),
+  Object.freeze({ surfaceTreatment: "rock-spires", surfaceVariant: 0 }),
+]);
+
+function createRenderCanvas(width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
+}
 
 export class RendererWorldSubsystem extends RendererSubsystem {
+  constructor(renderer) {
+    super(renderer);
+    this.tileAtlas = null;
+    this.tileAtlasLookup = new Map();
+    this.tileAtlasSource = undefined;
+  }
+
+  ensureTileAtlas() {
+    const sourceTilesheet = this.assets?.tilesheet ?? null;
+    if (this.tileAtlas && this.tileAtlasSource === sourceTilesheet) {
+      return;
+    }
+
+    this.buildTileAtlas(sourceTilesheet);
+  }
+
+  buildTileAtlas(sourceTilesheet) {
+    const entries = [];
+    for (const [type] of Object.entries(TILE_DEFINITIONS)) {
+      if (type === TILE_TYPES.EMPTY) {
+        continue;
+      }
+
+      const variants = this.supportsSurfaceTreatment(type)
+        ? SURFACE_VARIANTS
+        : [{ surfaceTreatment: null, surfaceVariant: 0 }];
+      const frameCount = type === TILE_TYPES.MAGMA ? MAGMA_FRAME_COUNT : 1;
+      for (let frame = 0; frame < frameCount; frame += 1) {
+        for (const variant of variants) {
+          const key = this.buildTileAtlasKey({
+            type,
+            surfaceTreatment: variant.surfaceTreatment,
+            surfaceVariant: variant.surfaceVariant,
+            frame,
+          });
+          entries.push({
+            key,
+            paint: (context, x, y) => {
+              this.paintAtlasTileEntry(context, x, y, {
+                type,
+                surfaceTreatment: variant.surfaceTreatment,
+                surfaceVariant: variant.surfaceVariant,
+                frame,
+                sourceTilesheet,
+              });
+            },
+          });
+        }
+      }
+    }
+
+    for (const [type] of Object.entries(TILE_DEFINITIONS)) {
+      if (type === TILE_TYPES.EMPTY) {
+        continue;
+      }
+
+      for (let variant = 0; variant < 3; variant += 1) {
+        entries.push({
+          key: this.buildDebrisAtlasKey(type, variant, "ground"),
+          paint: (context, x, y) => {
+            this.drawDebris(context, x, y + ATLAS_TILE_OVERFLOW_TOP + TILE_SIZE - 8, type, variant);
+          },
+        });
+        entries.push({
+          key: this.buildDebrisAtlasKey(type, variant, "top"),
+          paint: (context, x, y) => {
+            this.drawDebris(context, x, y + ATLAS_TILE_OVERFLOW_TOP, type, variant);
+          },
+        });
+      }
+    }
+
+    for (let crackLevel = 1; crackLevel <= 4; crackLevel += 1) {
+      entries.push({
+        key: this.buildCrackAtlasKey(crackLevel),
+        paint: (context, x, y) => {
+          this.drawDamageCracks(context, x, y + ATLAS_TILE_OVERFLOW_TOP, crackLevel / 4);
+        },
+      });
+    }
+
+    const rowCount = Math.ceil(entries.length / TILE_ATLAS_COLUMNS);
+    const atlas = createRenderCanvas(TILE_ATLAS_COLUMNS * TILE_SIZE, rowCount * ATLAS_TILE_HEIGHT);
+    const atlasContext = atlas.getContext("2d");
+    atlasContext.imageSmoothingEnabled = false;
+
+    const lookup = new Map();
+    entries.forEach((entry, index) => {
+      const x = (index % TILE_ATLAS_COLUMNS) * TILE_SIZE;
+      const y = Math.floor(index / TILE_ATLAS_COLUMNS) * ATLAS_TILE_HEIGHT;
+      atlasContext.clearRect(x, y, TILE_SIZE, ATLAS_TILE_HEIGHT);
+      entry.paint(atlasContext, x, y);
+      lookup.set(entry.key, { x, y });
+    });
+
+    this.tileAtlas = atlas;
+    this.tileAtlasLookup = lookup;
+    this.tileAtlasSource = sourceTilesheet;
+  }
+
+  supportsSurfaceTreatment(type) {
+    return ![
+      TILE_TYPES.EMPTY,
+      TILE_TYPES.CHEST,
+      TILE_TYPES.PLATFORM,
+      TILE_TYPES.MAGMA,
+    ].includes(type);
+  }
+
+  buildTileAtlasKey({ type, surfaceTreatment = null, surfaceVariant = 0, frame = 0 }) {
+    const treatment = surfaceTreatment ?? "none";
+    const variant = surfaceTreatment === "grass" ? surfaceVariant % 3 : 0;
+    return `tile:${type}:${treatment}:${variant}:${frame}`;
+  }
+
+  buildDebrisAtlasKey(type, variant, placement) {
+    return `debris:${placement}:${type}:${variant % 3}`;
+  }
+
+  buildCrackAtlasKey(crackLevel) {
+    return `crack:${Math.max(1, Math.min(4, crackLevel))}`;
+  }
+
+  canDrawDefinitionFromSource(definition, sourceTilesheet) {
+    if (!definition || !sourceTilesheet) {
+      return false;
+    }
+
+    if (["empty", "chest", "platform", "magma"].includes(definition.pattern)) {
+      return false;
+    }
+
+    return definition.sprite.x * TILE_SIZE + TILE_SIZE <= sourceTilesheet.width
+      && definition.sprite.y * TILE_SIZE + TILE_SIZE <= sourceTilesheet.height;
+  }
+
+  paintAtlasTileEntry(context, x, y, { type, surfaceTreatment, surfaceVariant, frame, sourceTilesheet }) {
+    const definition = TILE_DEFINITIONS[type];
+    const drawY = y + ATLAS_TILE_OVERFLOW_TOP;
+    if (type === TILE_TYPES.MAGMA) {
+      this.paintTilePattern(context, definition, x, drawY, TILE_SIZE, {
+        time: frame / MAGMA_ANIMATION_FPS,
+        column: 0,
+        row: 0,
+      });
+    } else if (this.canDrawDefinitionFromSource(definition, sourceTilesheet)) {
+      context.drawImage(
+        sourceTilesheet,
+        definition.sprite.x * TILE_SIZE,
+        definition.sprite.y * TILE_SIZE,
+        TILE_SIZE,
+        TILE_SIZE,
+        x,
+        drawY,
+        TILE_SIZE,
+        TILE_SIZE,
+      );
+    } else {
+      this.paintTilePattern(context, definition, x, drawY, TILE_SIZE, {
+        time: 0,
+        column: 0,
+        row: 0,
+      });
+    }
+
+    this.drawSurfaceTreatment(context, x, drawY, surfaceTreatment, surfaceVariant);
+  }
+
+  drawPreRenderedTile(context, tile, x, y, column, row) {
+    this.ensureTileAtlas();
+
+    const frame = tile.type === TILE_TYPES.MAGMA ? this.getMagmaFrame(column, row) : 0;
+    return this.drawAtlasEntry(
+      context,
+      this.buildTileAtlasKey({
+        type: tile.type,
+        surfaceTreatment: tile.surfaceTreatment,
+        surfaceVariant: tile.surfaceVariant ?? 0,
+        frame,
+      }),
+      x,
+      y,
+    );
+  }
+
+  drawPreRenderedDebris(context, x, y, debrisType, debrisVariant, placement = "ground") {
+    this.ensureTileAtlas();
+    return this.drawAtlasEntry(context, this.buildDebrisAtlasKey(debrisType, debrisVariant ?? 0, placement), x, y);
+  }
+
+  drawPreRenderedDamageCracks(context, x, y, breakRatio) {
+    this.ensureTileAtlas();
+    const crackLevel = Math.min(4, Math.max(1, Math.ceil(breakRatio * 4)));
+    return this.drawAtlasEntry(context, this.buildCrackAtlasKey(crackLevel), x, y);
+  }
+
+  drawAtlasEntry(context, key, x, y) {
+    if (!this.tileAtlas) {
+      return false;
+    }
+
+    const atlasSprite = this.tileAtlasLookup.get(key);
+    if (!atlasSprite) {
+      return false;
+    }
+
+    context.drawImage(
+      this.tileAtlas,
+      atlasSprite.x,
+      atlasSprite.y,
+      TILE_SIZE,
+      ATLAS_TILE_HEIGHT,
+      x,
+      y - ATLAS_TILE_OVERFLOW_TOP,
+      TILE_SIZE,
+      ATLAS_TILE_HEIGHT,
+    );
+    return true;
+  }
+
+  getMagmaFrame(column, row) {
+    const elapsedFrames = Math.floor(performance.now() * 0.001 * MAGMA_ANIMATION_FPS);
+    const offset = Math.abs((column * 17 + row * 31) % MAGMA_FRAME_COUNT);
+    return (elapsedFrames + offset) % MAGMA_FRAME_COUNT;
+  }
+
+  drawSurfaceTreatment(context, x, y, surfaceTreatment, surfaceVariant = 0) {
+    if (surfaceTreatment === "grass") {
+      this.drawGrassCap(context, x, y, surfaceVariant);
+    } else if (surfaceTreatment === "moss") {
+      this.drawMossCap(context, x, y);
+    } else if (surfaceTreatment === "rock") {
+      this.drawRockCap(context, x, y, { drawStalagmites: false });
+    } else if (surfaceTreatment === "rock-spires") {
+      this.drawRockCap(context, x, y, { drawStalagmites: true });
+    }
+  }
+
+  paintTilePattern(context, definition, x, y, size, { time = 0, column = 0, row = 0 } = {}) {
+    const unit = size / 32;
+    context.fillStyle = definition.fill;
+    context.fillRect(x, y, size, size);
+    context.strokeStyle = "rgba(0, 0, 0, 0.18)";
+    context.strokeRect(x, y, size, size);
+    context.fillStyle = definition.accent;
+
+    switch (definition.pattern) {
+      case "speck":
+        for (const offset of [4, 11, 18, 24]) {
+          context.fillRect(x + offset * unit, y + (6 + (offset % 4) * 4) * unit, 4 * unit, 4 * unit);
+        }
+        break;
+      case "bands":
+        context.fillRect(x + 4 * unit, y + 6 * unit, 22 * unit, 2 * unit);
+        context.fillRect(x + 7 * unit, y + 14 * unit, 18 * unit, 2 * unit);
+        context.fillRect(x + 5 * unit, y + 22 * unit, 20 * unit, 2 * unit);
+        break;
+      case "slate":
+        context.fillRect(x + 5 * unit, y + 5 * unit, 20 * unit, 3 * unit);
+        context.fillRect(x + 9 * unit, y + 12 * unit, 16 * unit, 2 * unit);
+        context.fillRect(x + 4 * unit, y + 19 * unit, 22 * unit, 3 * unit);
+        break;
+      case "blocks":
+        context.fillRect(x + 5 * unit, y + 5 * unit, 8 * unit, 8 * unit);
+        context.fillRect(x + 17 * unit, y + 8 * unit, 9 * unit, 9 * unit);
+        context.fillRect(x + 9 * unit, y + 19 * unit, 12 * unit, 6 * unit);
+        break;
+      case "magma":
+        this.drawMagmaPattern(context, definition, x, y, size, time, column, row);
+        break;
+      case "chest":
+        context.fillRect(x + 5 * unit, y + 10 * unit, 22 * unit, 14 * unit);
+        context.fillRect(x + 7 * unit, y + 7 * unit, 18 * unit, 5 * unit);
+        context.fillStyle = "#34210c";
+        context.fillRect(x + 5 * unit, y + 12 * unit, 22 * unit, 2 * unit);
+        context.fillStyle = definition.accent;
+        context.fillRect(x + 14 * unit, y + 13 * unit, 4 * unit, 8 * unit);
+        context.fillRect(x + 5 * unit, y + 16 * unit, 22 * unit, 2 * unit);
+        break;
+      case "platform":
+        context.fillRect(x + 4 * unit, y + 1 * unit, 24 * unit, 5 * unit);
+        context.fillRect(x + 6 * unit, y + 6 * unit, 20 * unit, 2 * unit);
+        context.fillStyle = "#4f3720";
+        context.fillRect(x + 8 * unit, y + 8 * unit, 3 * unit, 6 * unit);
+        context.fillRect(x + 15 * unit, y + 8 * unit, 3 * unit, 6 * unit);
+        context.fillRect(x + 22 * unit, y + 8 * unit, 3 * unit, 6 * unit);
+        context.fillStyle = definition.accent;
+        context.fillRect(x + 6 * unit, y + 2 * unit, 20 * unit, 1 * unit);
+        break;
+      case "ore-cluster":
+        context.fillRect(x + 6 * unit, y + 5 * unit, 6 * unit, 6 * unit);
+        context.fillRect(x + 18 * unit, y + 8 * unit, 7 * unit, 7 * unit);
+        context.fillRect(x + 11 * unit, y + 19 * unit, 8 * unit, 8 * unit);
+        break;
+      case "ore-gem":
+        context.fillRect(x + 7 * unit, y + 6 * unit, 5 * unit, 5 * unit);
+        context.fillRect(x + 19 * unit, y + 10 * unit, 6 * unit, 6 * unit);
+        context.fillRect(x + 13 * unit, y + 18 * unit, 7 * unit, 7 * unit);
+        context.fillRect(x + 9 * unit, y + 14 * unit, 3 * unit, 3 * unit);
+        break;
+      case "gem-shard":
+        context.fillRect(x + 8 * unit, y + 6 * unit, 4 * unit, 8 * unit);
+        context.fillRect(x + 20 * unit, y + 9 * unit, 5 * unit, 9 * unit);
+        context.fillRect(x + 13 * unit, y + 19 * unit, 6 * unit, 7 * unit);
+        break;
+      default:
+        break;
+    }
+  }
+
   drawBackground(player) {
     const stratum = player
       ? this.world.getStratumAtPixel(player.getCenter().y)
@@ -232,121 +563,38 @@ export class RendererWorldSubsystem extends RendererSubsystem {
   drawTileToContext(context, tile, x, y, column, row) {
     if (tile.type === TILE_TYPES.EMPTY) {
       if (tile.debrisType) {
-        this.drawDebris(context, x, y + TILE_SIZE - 8, tile.debrisType, tile.debrisVariant ?? 0);
+        if (!this.drawPreRenderedDebris(context, x, y, tile.debrisType, tile.debrisVariant ?? 0, "ground")) {
+          this.drawDebris(context, x, y + TILE_SIZE - 8, tile.debrisType, tile.debrisVariant ?? 0);
+        }
       }
       return;
     }
 
-    const canUseTilesheet = this.assets?.tilesheet
-      && tile.sprite.x * TILE_SIZE + TILE_SIZE <= this.assets.tilesheet.width
-      && tile.sprite.y * TILE_SIZE + TILE_SIZE <= this.assets.tilesheet.height
-      && [TILE_TYPES.DIRT, TILE_TYPES.STONE, TILE_TYPES.COAL, TILE_TYPES.IRON].includes(tile.type);
-
-    if (canUseTilesheet) {
-      context.drawImage(
-        this.assets.tilesheet,
-        tile.sprite.x * TILE_SIZE,
-        tile.sprite.y * TILE_SIZE,
-        TILE_SIZE,
-        TILE_SIZE,
-        x,
-        y,
-        TILE_SIZE,
-        TILE_SIZE,
-      );
-    } else {
+    if (!this.drawPreRenderedTile(context, tile, x, y, column, row)) {
       this.drawProceduralTile(context, tile, x, y, column, row);
-    }
-
-    const surfaceTreatment = tile.surfaceTreatment;
-    if (surfaceTreatment === "grass") {
-      this.drawGrassCap(context, x, y, tile.surfaceVariant ?? 0);
-    } else if (surfaceTreatment === "moss") {
-      this.drawMossCap(context, x, y);
-    } else if (surfaceTreatment === "rock") {
-      this.drawRockCap(context, x, y, { drawStalagmites: false });
-    } else if (surfaceTreatment === "rock-spires") {
-      this.drawRockCap(context, x, y, { drawStalagmites: true });
+      this.drawSurfaceTreatment(context, x, y, tile.surfaceTreatment, tile.surfaceVariant ?? 0);
     }
 
     if (tile.debrisType) {
-      this.drawDebris(context, x, this.getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
+      const placement = tile.type === TILE_TYPES.PLATFORM ? "top" : "ground";
+      if (!this.drawPreRenderedDebris(context, x, y, tile.debrisType, tile.debrisVariant ?? 0, placement)) {
+        this.drawDebris(context, x, this.getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
+      }
     }
 
     if (tile.breakRatio > 0) {
-      this.drawDamageCracks(context, x, y, tile.breakRatio);
+      if (!this.drawPreRenderedDamageCracks(context, x, y, tile.breakRatio)) {
+        this.drawDamageCracks(context, x, y, tile.breakRatio);
+      }
     }
   }
 
   drawProceduralTile(context, tile, x, y, column = 0, row = 0) {
-    context.fillStyle = tile.definition.fill;
-    context.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-    context.strokeStyle = "rgba(0, 0, 0, 0.18)";
-    context.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
-    context.fillStyle = tile.definition.accent;
-
-    switch (tile.definition.pattern) {
-      case "speck":
-        for (const offset of [4, 11, 18, 24]) {
-          context.fillRect(x + offset, y + 6 + (offset % 4) * 4, 4, 4);
-        }
-        break;
-      case "bands":
-        context.fillRect(x + 4, y + 6, 22, 2);
-        context.fillRect(x + 7, y + 14, 18, 2);
-        context.fillRect(x + 5, y + 22, 20, 2);
-        break;
-      case "slate":
-        context.fillRect(x + 5, y + 5, 20, 3);
-        context.fillRect(x + 9, y + 12, 16, 2);
-        context.fillRect(x + 4, y + 19, 22, 3);
-        break;
-      case "blocks":
-        context.fillRect(x + 5, y + 5, 8, 8);
-        context.fillRect(x + 17, y + 8, 9, 9);
-        context.fillRect(x + 9, y + 19, 12, 6);
-        break;
-      case "magma":
-        this.drawMagmaPattern(context, tile.definition, x, y, TILE_SIZE, performance.now() * 0.0018, column, row);
-        break;
-      case "chest":
-        context.fillRect(x + 5, y + 10, 22, 14);
-        context.fillRect(x + 7, y + 7, 18, 5);
-        context.fillStyle = "#34210c";
-        context.fillRect(x + 5, y + 12, 22, 2);
-        context.fillStyle = tile.definition.accent;
-        context.fillRect(x + 14, y + 13, 4, 8);
-        context.fillRect(x + 5, y + 16, 22, 2);
-        break;
-      case "platform":
-        context.fillRect(x + 4, y + 1, 24, 5);
-        context.fillRect(x + 6, y + 6, 20, 2);
-        context.fillStyle = "#4f3720";
-        context.fillRect(x + 8, y + 8, 3, 6);
-        context.fillRect(x + 15, y + 8, 3, 6);
-        context.fillRect(x + 22, y + 8, 3, 6);
-        context.fillStyle = tile.definition.accent;
-        context.fillRect(x + 6, y + 2, 20, 1);
-        break;
-      case "ore-cluster":
-        context.fillRect(x + 6, y + 5, 6, 6);
-        context.fillRect(x + 18, y + 8, 7, 7);
-        context.fillRect(x + 11, y + 19, 8, 8);
-        break;
-      case "ore-gem":
-        context.fillRect(x + 7, y + 6, 5, 5);
-        context.fillRect(x + 19, y + 10, 6, 6);
-        context.fillRect(x + 13, y + 18, 7, 7);
-        context.fillRect(x + 9, y + 14, 3, 3);
-        break;
-      case "gem-shard":
-        context.fillRect(x + 8, y + 6, 4, 8);
-        context.fillRect(x + 20, y + 9, 5, 9);
-        context.fillRect(x + 13, y + 19, 6, 7);
-        break;
-      default:
-        break;
-    }
+    this.paintTilePattern(context, tile.definition, x, y, TILE_SIZE, {
+      time: performance.now() * 0.0018,
+      column,
+      row,
+    });
   }
 
   drawProceduralTilePreview(context, definition, size) {
@@ -355,75 +603,7 @@ export class RendererWorldSubsystem extends RendererSubsystem {
       return;
     }
 
-    context.fillStyle = definition.fill;
-    context.fillRect(0, 0, size, size);
-    context.strokeStyle = "rgba(0, 0, 0, 0.2)";
-    context.strokeRect(0, 0, size, size);
-    context.fillStyle = definition.accent;
-    const unit = size / 32;
-
-    switch (definition.pattern) {
-      case "speck":
-        for (const offset of [4, 11, 18, 24]) {
-          context.fillRect(offset * unit, (6 + (offset % 4) * 4) * unit, 4 * unit, 4 * unit);
-        }
-        break;
-      case "bands":
-        context.fillRect(4 * unit, 6 * unit, 22 * unit, 2 * unit);
-        context.fillRect(7 * unit, 14 * unit, 18 * unit, 2 * unit);
-        context.fillRect(5 * unit, 22 * unit, 20 * unit, 2 * unit);
-        break;
-      case "slate":
-        context.fillRect(5 * unit, 5 * unit, 20 * unit, 3 * unit);
-        context.fillRect(9 * unit, 12 * unit, 16 * unit, 2 * unit);
-        context.fillRect(4 * unit, 19 * unit, 22 * unit, 3 * unit);
-        break;
-      case "blocks":
-        context.fillRect(5 * unit, 5 * unit, 8 * unit, 8 * unit);
-        context.fillRect(17 * unit, 8 * unit, 9 * unit, 9 * unit);
-        context.fillRect(9 * unit, 19 * unit, 12 * unit, 6 * unit);
-        break;
-      case "magma":
-        this.drawMagmaPattern(context, definition, 0, 0, size, 0, 0, 0);
-        break;
-      case "chest":
-        context.fillRect(5 * unit, 10 * unit, 22 * unit, 14 * unit);
-        context.fillRect(7 * unit, 7 * unit, 18 * unit, 5 * unit);
-        context.fillStyle = "#34210c";
-        context.fillRect(5 * unit, 12 * unit, 22 * unit, 2 * unit);
-        context.fillStyle = definition.accent;
-        context.fillRect(14 * unit, 13 * unit, 4 * unit, 8 * unit);
-        context.fillRect(5 * unit, 16 * unit, 22 * unit, 2 * unit);
-        break;
-      case "platform":
-        context.fillRect(4 * unit, 1 * unit, 24 * unit, 5 * unit);
-        context.fillRect(6 * unit, 6 * unit, 20 * unit, 2 * unit);
-        context.fillStyle = "#4f3720";
-        context.fillRect(8 * unit, 8 * unit, 3 * unit, 6 * unit);
-        context.fillRect(15 * unit, 8 * unit, 3 * unit, 6 * unit);
-        context.fillRect(22 * unit, 8 * unit, 3 * unit, 6 * unit);
-        context.fillStyle = definition.accent;
-        context.fillRect(6 * unit, 2 * unit, 20 * unit, 1 * unit);
-        break;
-      case "ore-cluster":
-        context.fillRect(6 * unit, 5 * unit, 6 * unit, 6 * unit);
-        context.fillRect(18 * unit, 8 * unit, 7 * unit, 7 * unit);
-        context.fillRect(11 * unit, 19 * unit, 8 * unit, 8 * unit);
-        break;
-      case "ore-gem":
-        context.fillRect(7 * unit, 6 * unit, 5 * unit, 5 * unit);
-        context.fillRect(19 * unit, 10 * unit, 6 * unit, 6 * unit);
-        context.fillRect(13 * unit, 18 * unit, 7 * unit, 7 * unit);
-        context.fillRect(9 * unit, 14 * unit, 3 * unit, 3 * unit);
-        break;
-      case "gem-shard":
-        context.fillRect(8 * unit, 6 * unit, 4 * unit, 8 * unit);
-        context.fillRect(20 * unit, 9 * unit, 5 * unit, 9 * unit);
-        context.fillRect(13 * unit, 19 * unit, 6 * unit, 7 * unit);
-        break;
-      default:
-        break;
-    }
+    this.paintTilePattern(context, definition, 0, 0, size, { time: 0, column: 0, row: 0 });
   }
 
   drawMagmaPattern(context, definition, x, y, size, time, column, row) {
@@ -612,24 +792,7 @@ export class RendererWorldSubsystem extends RendererSubsystem {
   drawPlatformTile(tile, column, row) {
     const x = column * TILE_SIZE - this.camera.x;
     const y = row * TILE_SIZE - this.camera.y;
-
-    this.ctx.fillStyle = tile.definition.fill;
-    this.ctx.fillRect(x + 4, y + 1, 24, 5);
-    this.ctx.fillRect(x + 6, y + 6, 20, 2);
-    this.ctx.fillStyle = "#4f3720";
-    this.ctx.fillRect(x + 8, y + 8, 3, 6);
-    this.ctx.fillRect(x + 15, y + 8, 3, 6);
-    this.ctx.fillRect(x + 22, y + 8, 3, 6);
-    this.ctx.fillStyle = tile.definition.accent;
-    this.ctx.fillRect(x + 6, y + 2, 20, 1);
-
-    if (tile.debrisType) {
-      this.drawDebris(this.ctx, x, this.getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
-    }
-
-    if (tile.breakRatio > 0) {
-      this.drawDamageCracks(this.ctx, x, y, tile.breakRatio);
-    }
+    this.drawTileToContext(this.ctx, tile, x, y, column, row);
   }
 
   getDebrisDrawY(tile, y) {
@@ -648,7 +811,9 @@ export class RendererWorldSubsystem extends RendererSubsystem {
         continue;
       }
 
-      this.drawDebris(this.ctx, x, y, debris.type, debris.variant);
+      if (!this.drawPreRenderedDebris(this.ctx, x, y, debris.type, debris.variant, "top")) {
+        this.drawDebris(this.ctx, x, y, debris.type, debris.variant);
+      }
     }
   }
 
