@@ -507,7 +507,7 @@
 
     .gameover-credits-music-track {
       display: grid;
-      gap: 4px;
+      gap: 2px;
       width: min(100%, 620px);
       padding: 10px 14px 8px;
       margin: 0;
@@ -515,7 +515,7 @@
     }
 
     .gameover-credits-music-title {
-      margin: 0 0 2px 0;
+      margin: 0 0 1px 0;
       font-size: clamp(1.12rem, 2vw, 1.38rem);
       line-height: 1.25;
       font-weight: 700;
@@ -543,7 +543,7 @@
       margin: 0;
       width: 100%;
       font-size: clamp(1rem, 1.65vw, 1.22rem);
-      line-height: 1.36;
+      line-height: 1.2;
       font-weight: 600;
       text-align: center;
       text-shadow:
