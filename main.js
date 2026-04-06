@@ -126,6 +126,7 @@ const audio = new AudioManager();
 
 const gameState = {
   gameMode: DEFAULT_GAME_MODE,
+  primaryTool: "platform",
   equippedToolId: DEFAULT_TOOL_ID,
   bagUpgradeId: DEFAULT_BAG_ROOT_ID,
   capacityUpgradeId: DEFAULT_CAPACITY_ROOT_ID,
@@ -357,10 +358,30 @@ input.addKeyPressListener((event) => {
     return;
   }
 
+  if (event.code === "Tab") {
+    togglePrimaryTool();
+    return;
+  }
+
   if (["KeyP", "Pause", "Escape"].includes(event.code) && gameState.phase === "playing") {
     pauseCurrentShift();
   }
 });
+
+function togglePrimaryTool() {
+  if (gameState.phase !== "playing") {
+    return;
+  }
+
+  const nextPrimaryTool = gameState.primaryTool === "platform" ? "bomb" : "platform";
+  if (nextPrimaryTool === "bomb" && !gameState.bombUnlockId) {
+    showRoundNotification("Bombs not unlocked yet.");
+    return;
+  }
+
+  gameState.primaryTool = nextPrimaryTool;
+  showRoundNotification(`Primary tool: ${nextPrimaryTool === "platform" ? "Platform" : "Bomb"}.`);
+}
 
 let player = createPlayer();
 
@@ -473,6 +494,7 @@ function triggerGameOver({ endingType }) {
 
 function resetGameToIntro() {
   gameState.gameMode = DEFAULT_GAME_MODE;
+  gameState.primaryTool = "platform";
   gameState.equippedToolId = DEFAULT_TOOL_ID;
   gameState.bagUpgradeId = DEFAULT_BAG_ROOT_ID;
   gameState.capacityUpgradeId = DEFAULT_CAPACITY_ROOT_ID;
@@ -739,6 +761,7 @@ function render() {
       timeLeft: Math.ceil(gameState.timeLeft),
       bank: gameState.bank,
       bonuses: gameState.playerBonuses,
+      primaryTool: gameState.primaryTool,
       showPerformance: gameState.performance.visible,
       tickRate: gameState.performance.displayedTickRate,
       platformCooldown: gameState.platformCharges < getPlatformCapacity()
@@ -835,6 +858,7 @@ function refillPlatformChargesIfReady() {
 function startNextRound() {
   gameState.round += 1;
   gameState.phase = "countdown";
+  gameState.primaryTool = gameState.bombUnlockId ? gameState.primaryTool : "platform";
   gameState.timeLeft = getRoundDuration();
   gameState.inventory = createInventoryForLoadout();
   gameState.miningResult = null;

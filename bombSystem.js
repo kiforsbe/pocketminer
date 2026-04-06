@@ -188,7 +188,15 @@ export function createBombSystem({
   }
 
   function placeBomb() {
-    if (gameState.phase !== "playing" || getCurrentCapacity() <= 0 || gameState.bombCharges <= 0 || !input.wasPressed("placeBomb")) {
+    const bombIsPrimary = gameState.primaryTool === "bomb";
+    const usingPrimaryTool = bombIsPrimary && input.wasPressed("usePrimaryTool");
+    const usingBombKey = bombIsPrimary ? input.wasPressed("placePlatform") : input.wasPressed("placeBomb");
+    if (
+      gameState.phase !== "playing"
+      || getCurrentCapacity() <= 0
+      || gameState.bombCharges <= 0
+      || !(usingBombKey || usingPrimaryTool)
+    ) {
       return;
     }
 

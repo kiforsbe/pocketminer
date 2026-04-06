@@ -74,7 +74,15 @@ export function createPlatformPlacementSystem({
 
   return {
     update() {
-      if (gameState.phase !== "playing" || getPlatformCapacity() <= 0 || gameState.platformCharges <= 0 || !input.wasPressed("placePlatform")) {
+      const platformIsPrimary = gameState.primaryTool === "platform";
+      const usingPrimaryTool = gameState.primaryTool === "platform" && input.wasPressed("usePrimaryTool");
+      const usingPlatformKey = platformIsPrimary ? input.wasPressed("placePlatform") : input.wasPressed("placeBomb");
+      if (
+        gameState.phase !== "playing"
+        || getPlatformCapacity() <= 0
+        || gameState.platformCharges <= 0
+        || !(usingPlatformKey || usingPrimaryTool)
+      ) {
         return;
       }
 

@@ -345,9 +345,7 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
     const { startX, startY, totalWidth, slotSize } = this.hotbarElement.getHotbarLayout({ getSlots: () => Array(8).fill(null) });
     const centerY = startY + slotSize * 0.5;
 
-    this.drawCooldownDial({
-      centerX: startX - 42,
-      centerY,
+    const platformDial = {
       progress: roundInfo.platformCooldown ?? 0,
       charges: roundInfo.platformCharges ?? 0,
       capacity: roundInfo.platformCapacity ?? 1,
@@ -355,12 +353,10 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
       mutedAccent: "rgba(136, 185, 216, 0.5)",
       plateStroke: "rgba(215, 176, 123, 0.52)",
       label: "Platform",
-      actions: [{ label: "Q" }, { icon: "mouse" }],
+      actions: [{ label: "Q" }],
       drawIcon: () => this.drawPlatformClockIcon(),
-    });
-    this.drawCooldownDial({
-      centerX: startX + totalWidth + 42,
-      centerY,
+    };
+    const bombDial = {
       progress: roundInfo.bombCooldown ?? 0,
       charges: roundInfo.bombCharges ?? 0,
       capacity: roundInfo.bombCapacity ?? 0,
@@ -368,8 +364,26 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
       mutedAccent: "rgba(226, 182, 120, 0.48)",
       plateStroke: "rgba(255, 146, 96, 0.52)",
       label: "Bombs",
-      actions: [{ label: "B" }],
+      actions: [{ label: "E" }],
       drawIcon: () => this.drawBombRackIcon(roundInfo.bombSpriteRow ?? 0),
+    };
+    const primaryTool = roundInfo.primaryTool === "bomb" ? "bomb" : "platform";
+    const leftDial = primaryTool === "bomb"
+      ? { ...bombDial, actions: [{ label: "Q" }, { icon: "mouse" }] }
+      : { ...platformDial, actions: [{ label: "Q" }, { icon: "mouse" }] };
+    const rightDial = primaryTool === "bomb"
+      ? { ...platformDial, actions: [{ label: "E" }] }
+      : { ...bombDial, actions: [{ label: "E" }] };
+
+    this.drawCooldownDial({
+      centerX: startX - 42,
+      centerY,
+      ...leftDial,
+    });
+    this.drawCooldownDial({
+      centerX: startX + totalWidth + 42,
+      centerY,
+      ...rightDial,
     });
   }
 

@@ -24,9 +24,10 @@ export class Input {
       right: ["KeyD", "ArrowRight"],
       jump: ["KeyW", "ArrowUp"],
       dropPlatform: ["KeyS", "ArrowDown"],
-      mine: ["KeyE", "Space"],
+      mine: ["Space"],
       placePlatform: ["KeyQ"],
-      placeBomb: ["KeyB"],
+      placeBomb: ["KeyE"],
+      togglePrimaryTool: ["Tab"],
       rewardPrev: ["KeyA", "ArrowLeft", "KeyW", "ArrowUp"],
       rewardNext: ["KeyD", "ArrowRight", "KeyS", "ArrowDown"],
       rewardConfirm: ["Enter", "Space", "KeyE"],
@@ -46,7 +47,7 @@ export class Input {
   }
 
   #handleKeyDown(event) {
-    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) {
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Tab"].includes(event.code)) {
       event.preventDefault();
     }
 
@@ -97,7 +98,7 @@ export class Input {
       return keyboardMatch || this.pointer.buttonsDown.has(0);
     }
 
-    if (action === "placePlatform") {
+    if (action === "usePrimaryTool") {
       return keyboardMatch || this.pointer.buttonsDown.has(2);
     }
 
@@ -105,7 +106,7 @@ export class Input {
   }
 
   wasPressed(action) {
-    if (action === "placePlatform") {
+    if (action === "usePrimaryTool") {
       const keyboardMatch = this.bindings[action]?.some((code) => this.keysPressed.has(code)) ?? false;
       return keyboardMatch || this.pointer.buttonsPressed.has(2);
     }

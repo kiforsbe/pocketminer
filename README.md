@@ -18,9 +18,12 @@ Your long-term goal is to dig deeper, carry more loot, and improve your permanen
 - `D` or `Right Arrow`: move right
 - `W` or `Up Arrow`: jump
 - `S` or `Down Arrow`: drop down through a platform
-- `E`, `Space`, or `Left Mouse Button`: mine the block under your cursor
-- `Q` or `Right Mouse Button`: place a temporary platform at the cursor
-- `B` places a bomb at the cursor using the same placement rules as platforms.
+- `Space` or `Left Mouse Button`: mine the block under your cursor
+- `Q` or `Right Mouse Button`: use the current primary tool at the cursor
+- `E`: use the current secondary tool at the cursor
+- `Tab`: swap which tool is primary and secondary
+
+At the start of a run, Platform is the primary tool and Bombs are secondary once unlocked. After swapping with `Tab`, `Q` and `Right Mouse Button` follow the tool shown in the left hotbar dial, while `E` follows the tool shown in the right hotbar dial.
 
 ### Reward Screen
 
