@@ -1430,6 +1430,14 @@
       text-transform: uppercase;
     }
 
+    .store-category-layout {
+      display: flex;
+      align-items: flex-start;
+      gap: 30px;
+      width: max-content;
+      min-width: 100%;
+    }
+
     .store-tree-grid {
       --store-columns: 1;
       display: grid;
@@ -1440,6 +1448,51 @@
       column-gap: 26px;
       row-gap: 8px;
       padding: 4px 0 10px;
+    }
+
+    .store-bomb-fork {
+      display: grid;
+      justify-items: center;
+      align-content: start;
+      gap: 6px;
+      min-width: max-content;
+      padding-top: 4px;
+    }
+
+    .store-bomb-root-label,
+    .store-bomb-root-tier {
+      text-align: center;
+    }
+
+    .store-bomb-root-wrap {
+      min-height: 76px;
+    }
+
+    .store-bomb-children-shell {
+      position: relative;
+      padding-top: 22px;
+      margin-top: 2px;
+    }
+
+    .store-bomb-children-shell::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 1px;
+      height: 12px;
+      transform: translateX(-50%);
+      background: rgba(136, 185, 216, 0.28);
+    }
+
+    .store-bomb-children-shell::after {
+      content: "";
+      position: absolute;
+      top: 12px;
+      left: 25%;
+      right: 25%;
+      height: 1px;
+      background: rgba(136, 185, 216, 0.28);
     }
 
     .store-root-node {
@@ -1719,6 +1772,13 @@
         grid-auto-columns: auto;
       }
 
+      .store-category-layout {
+        flex-direction: column;
+        gap: 18px;
+        width: 100%;
+        min-width: 100%;
+      }
+
       .store-category-section {
         min-width: 100%;
         padding-left: 0;
@@ -1734,6 +1794,10 @@
 
       .store-tree-grid {
         column-gap: 16px;
+      }
+
+      .store-bomb-fork {
+        width: 100%;
       }
     }
 

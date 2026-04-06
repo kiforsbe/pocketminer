@@ -218,56 +218,128 @@ export function createStoreController({
       title.textContent = category.label;
       section.append(title);
 
-      const grid = document.createElement("div");
-      grid.className = "store-tree-grid";
-      grid.style.setProperty("--store-columns", String(Math.max(1, category.branches.length)));
+      section.append(createCategoryContent(category));
+      treeRoot.append(section);
+    }
 
-      for (let branchIndex = 0; branchIndex < category.branches.length; branchIndex += 1) {
-        const branch = category.branches[branchIndex];
-        const column = String(branchIndex + 1);
+    storeGrid.append(treeRoot);
+    requestAnimationFrame(() => centerStoreViewOnCurrentNode());
+  }
+
+  function createCategoryContent(category) {
+    const categoryLayout = document.createElement("div");
+    categoryLayout.className = "store-category-layout";
+
+    const bombUnlockBranch = category.branches.find((branch) => branch.id === "bomb-unlock");
+    const bombCapacityBranch = category.branches.find((branch) => branch.id === "bomb-capacity");
+    const bombTypeBranch = category.branches.find((branch) => branch.id === "bomb-type");
+    const regularBranches = category.branches.filter((branch) => !["bomb-unlock", "bomb-capacity", "bomb-type"].includes(branch.id));
+
+    if (regularBranches.length > 0) {
+      categoryLayout.append(createStoreBranchGrid(regularBranches));
+    }
+
+    if (bombUnlockBranch && bombCapacityBranch && bombTypeBranch) {
+      categoryLayout.append(createBombForkGrid({
+        unlockBranch: bombUnlockBranch,
+        capacityBranch: bombCapacityBranch,
+        typeBranch: bombTypeBranch,
+      }));
+    } else if (categoryLayout.childElementCount === 0) {
+      categoryLayout.append(createStoreBranchGrid(category.branches));
+    }
+
+    return categoryLayout;
+  }
+
+  function createStoreBranchGrid(branches = [], { showBranchLabels = true } = {}) {
+    const grid = document.createElement("div");
+    grid.className = "store-tree-grid";
+    grid.style.setProperty("--store-columns", String(Math.max(1, branches.length)));
+    const rowStart = showBranchLabels ? 2 : 1;
+
+    for (let branchIndex = 0; branchIndex < branches.length; branchIndex += 1) {
+      const branch = branches[branchIndex];
+      const column = String(branchIndex + 1);
+      if (showBranchLabels) {
         const label = document.createElement("div");
         label.className = "store-branch-label";
         label.textContent = branch.label;
         label.style.gridColumn = column;
         label.style.gridRow = "1";
         grid.append(label);
-
-        for (let nodeIndex = 0; nodeIndex < branch.nodes.length; nodeIndex += 1) {
-          const node = branch.nodes[nodeIndex];
-          const baseRow = 2 + nodeIndex * 2;
-          const tierLabel = document.createElement("div");
-          tierLabel.className = "store-tier-label";
-          tierLabel.textContent = `Tier ${node.tool.tier}`;
-          tierLabel.style.gridColumn = column;
-          tierLabel.style.gridRow = String(baseRow);
-
-          const nodeWrap = document.createElement("div");
-          nodeWrap.className = "store-node-wrap";
-          nodeWrap.style.gridColumn = column;
-          nodeWrap.style.gridRow = String(baseRow + 1);
-
-          if (nodeIndex > 0) {
-            const connector = document.createElement("div");
-            connector.className = "store-node-link-vertical";
-            nodeWrap.append(connector);
-          }
-
-          nodeWrap.append(createStoreNode(node.tool, {
-            state: node.state,
-            interactive: node.state === "available",
-          }));
-
-          grid.append(tierLabel);
-          grid.append(nodeWrap);
-        }
       }
 
-      section.append(grid);
-      treeRoot.append(section);
+      for (let nodeIndex = 0; nodeIndex < branch.nodes.length; nodeIndex += 1) {
+        const node = branch.nodes[nodeIndex];
+        const baseRow = rowStart + nodeIndex * 2;
+        const tierLabel = document.createElement("div");
+        tierLabel.className = "store-tier-label";
+        tierLabel.textContent = `Tier ${node.tool.tier}`;
+        tierLabel.style.gridColumn = column;
+        tierLabel.style.gridRow = String(baseRow);
+
+        const nodeWrap = document.createElement("div");
+        nodeWrap.className = "store-node-wrap";
+        nodeWrap.style.gridColumn = column;
+        nodeWrap.style.gridRow = String(baseRow + 1);
+
+        if (nodeIndex > 0) {
+          const connector = document.createElement("div");
+          connector.className = "store-node-link-vertical";
+          nodeWrap.append(connector);
+        }
+
+        nodeWrap.append(createStoreNode(node.tool, {
+          state: node.state,
+          interactive: node.state === "available",
+        }));
+
+        grid.append(tierLabel);
+        grid.append(nodeWrap);
+      }
     }
 
-    storeGrid.append(treeRoot);
-    requestAnimationFrame(() => centerStoreViewOnCurrentNode());
+    return grid;
+  }
+
+  function createBombForkGrid({ unlockBranch, capacityBranch, typeBranch }) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "store-bomb-fork";
+    const visibleCapacityBranch = {
+      ...capacityBranch,
+      nodes: capacityBranch.nodes.filter((node) => !node.tool.isRoot),
+    };
+    const visibleTypeBranch = {
+      ...typeBranch,
+      nodes: typeBranch.nodes.filter((node) => !node.tool.isRoot),
+    };
+
+    const unlockNode = unlockBranch.nodes[0];
+    const unlockLabel = document.createElement("div");
+    unlockLabel.className = "store-branch-label store-bomb-root-label";
+    unlockLabel.textContent = unlockBranch.label;
+    wrapper.append(unlockLabel);
+
+    const unlockTier = document.createElement("div");
+    unlockTier.className = "store-tier-label store-bomb-root-tier";
+    unlockTier.textContent = `Tier ${unlockNode.tool.tier}`;
+    wrapper.append(unlockTier);
+
+    const unlockWrap = document.createElement("div");
+    unlockWrap.className = "store-node-wrap store-bomb-root-wrap";
+    unlockWrap.append(createStoreNode(unlockNode.tool, {
+      state: unlockNode.state,
+      interactive: unlockNode.state === "available",
+    }));
+    wrapper.append(unlockWrap);
+
+    const childrenShell = document.createElement("div");
+    childrenShell.className = "store-bomb-children-shell";
+  childrenShell.append(createStoreBranchGrid([visibleCapacityBranch, visibleTypeBranch], { showBranchLabels: false }));
+    wrapper.append(childrenShell);
+
+    return wrapper;
   }
 
   function createStoreNode(tool, { state, interactive } = {}) {

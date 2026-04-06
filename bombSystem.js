@@ -6,6 +6,7 @@ const BOMB_FALL_GRAVITY = 1400;
 const BOMB_COOLDOWN_SECONDS = 3;
 const BOMB_BLAST_RADIUS = 1;
 const DEFAULT_BOMB_DAMAGE = 10;
+const DEFAULT_BOMB_BLAST_RADIUS = 1;
 const BOMB_PLAYER_IMPULSE_RADIUS = TILE_SIZE * 2.25;
 const BOMB_PLAYER_MAX_IMPULSE = 540;
 
@@ -48,6 +49,32 @@ export function createBombSystem({
 
   function getCurrentCapacity() {
     return getCurrentBombCapacityDefinition()?.bombCapacity ?? 0;
+  }
+
+  function getBlastDistanceLimit(blastRadius) {
+    return blastRadius <= 1 ? Math.SQRT2 : blastRadius;
+  }
+
+  function getBlastOffsets(blastRadius) {
+    const distanceLimit = getBlastDistanceLimit(blastRadius);
+    const maxOffset = Math.ceil(distanceLimit);
+    const offsets = [];
+
+    for (let rowOffset = -maxOffset; rowOffset <= maxOffset; rowOffset += 1) {
+      for (let columnOffset = -maxOffset; columnOffset <= maxOffset; columnOffset += 1) {
+        if (columnOffset === 0 && rowOffset === 0) {
+          continue;
+        }
+
+        if (Math.hypot(columnOffset, rowOffset) > distanceLimit) {
+          continue;
+        }
+
+        offsets.push({ columnOffset, rowOffset });
+      }
+    }
+
+    return offsets;
   }
 
   function hasLineOfSightToCell(origin, target, targetColumn, targetRow) {
@@ -180,6 +207,7 @@ export function createBombSystem({
       fuseRemaining: BOMB_FUSE_SECONDS,
       animationElapsed: 0,
       damage: currentBomb?.bombDamage ?? DEFAULT_BOMB_DAMAGE,
+      blastRadius: currentBomb?.bombBlastRadius ?? DEFAULT_BOMB_BLAST_RADIUS,
       spriteRow: currentBomb?.bombSpriteRow ?? 0,
     });
     gameState.bombCharges = Math.max(0, gameState.bombCharges - 1);
@@ -228,6 +256,7 @@ export function createBombSystem({
     let brokeAnyTile = false;
     let clearedAnyDebris = false;
     const blastTargets = [];
+    const blastRadius = Math.max(0, bomb.blastRadius ?? BOMB_BLAST_RADIUS);
 
     audio.playSound("bombExplode", { volume: 0.34 });
     particleSystem.spawnExplosionBurst({
@@ -235,13 +264,11 @@ export function createBombSystem({
       y: bomb.row * TILE_SIZE + TILE_SIZE * 0.5,
     });
 
-    for (let rowOffset = -BOMB_BLAST_RADIUS; rowOffset <= BOMB_BLAST_RADIUS; rowOffset += 1) {
-      for (let columnOffset = -BOMB_BLAST_RADIUS; columnOffset <= BOMB_BLAST_RADIUS; columnOffset += 1) {
-        blastTargets.push({
-          column: bomb.column + columnOffset,
-          row: bomb.row + rowOffset,
-        });
-      }
+    for (const { columnOffset, rowOffset } of getBlastOffsets(blastRadius)) {
+      blastTargets.push({
+        column: bomb.column + columnOffset,
+        row: bomb.row + rowOffset,
+      });
     }
 
     blastTargets
