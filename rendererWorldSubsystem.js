@@ -21,32 +21,27 @@ const SURFACE_VARIANTS = Object.freeze([
   Object.freeze({ surfaceTreatment: "rock-spires", surfaceVariant: 0 }),
 ]);
 
-function createRenderCanvas(width, height) {
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  return canvas;
-}
-
 export class RendererWorldSubsystem extends RendererSubsystem {
   constructor(renderer) {
     super(renderer);
     this.tileAtlas = null;
     this.tileAtlasLookup = new Map();
-    this.tileAtlasSource = undefined;
   }
 
   ensureTileAtlas() {
-    const sourceTilesheet = this.assets?.tilesheet ?? null;
-    if (this.tileAtlas && this.tileAtlasSource === sourceTilesheet) {
+    const nextAtlas = this.assets?.tilesheet ?? null;
+    if (this.tileAtlas === nextAtlas) {
       return;
     }
 
-    this.buildTileAtlas(sourceTilesheet);
+    this.tileAtlas = nextAtlas;
+    this.tileAtlasLookup = this.buildTileAtlasLookup();
   }
 
-  buildTileAtlas(sourceTilesheet) {
-    const entries = [];
+  buildTileAtlasLookup() {
+    const lookup = new Map();
+    let index = 0;
+
     for (const [type] of Object.entries(TILE_DEFINITIONS)) {
       if (type === TILE_TYPES.EMPTY) {
         continue;
@@ -58,24 +53,16 @@ export class RendererWorldSubsystem extends RendererSubsystem {
       const frameCount = type === TILE_TYPES.MAGMA ? MAGMA_FRAME_COUNT : 1;
       for (let frame = 0; frame < frameCount; frame += 1) {
         for (const variant of variants) {
-          const key = this.buildTileAtlasKey({
+          lookup.set(this.buildTileAtlasKey({
             type,
             surfaceTreatment: variant.surfaceTreatment,
             surfaceVariant: variant.surfaceVariant,
             frame,
+          }), {
+            x: (index % TILE_ATLAS_COLUMNS) * TILE_SIZE,
+            y: Math.floor(index / TILE_ATLAS_COLUMNS) * ATLAS_TILE_HEIGHT,
           });
-          entries.push({
-            key,
-            paint: (context, x, y) => {
-              this.paintAtlasTileEntry(context, x, y, {
-                type,
-                surfaceTreatment: variant.surfaceTreatment,
-                surfaceVariant: variant.surfaceVariant,
-                frame,
-                sourceTilesheet,
-              });
-            },
-          });
+          index += 1;
         }
       }
     }
@@ -86,47 +73,25 @@ export class RendererWorldSubsystem extends RendererSubsystem {
       }
 
       for (let variant = 0; variant < 3; variant += 1) {
-        entries.push({
-          key: this.buildDebrisAtlasKey(type, variant, "ground"),
-          paint: (context, x, y) => {
-            this.drawDebris(context, x, y + ATLAS_TILE_OVERFLOW_TOP + TILE_SIZE - 8, type, variant);
-          },
-        });
-        entries.push({
-          key: this.buildDebrisAtlasKey(type, variant, "top"),
-          paint: (context, x, y) => {
-            this.drawDebris(context, x, y + ATLAS_TILE_OVERFLOW_TOP, type, variant);
-          },
-        });
+        for (const placement of ["ground", "top"]) {
+          lookup.set(this.buildDebrisAtlasKey(type, variant, placement), {
+            x: (index % TILE_ATLAS_COLUMNS) * TILE_SIZE,
+            y: Math.floor(index / TILE_ATLAS_COLUMNS) * ATLAS_TILE_HEIGHT,
+          });
+          index += 1;
+        }
       }
     }
 
     for (let crackLevel = 1; crackLevel <= 4; crackLevel += 1) {
-      entries.push({
-        key: this.buildCrackAtlasKey(crackLevel),
-        paint: (context, x, y) => {
-          this.drawDamageCracks(context, x, y + ATLAS_TILE_OVERFLOW_TOP, crackLevel / 4);
-        },
+      lookup.set(this.buildCrackAtlasKey(crackLevel), {
+        x: (index % TILE_ATLAS_COLUMNS) * TILE_SIZE,
+        y: Math.floor(index / TILE_ATLAS_COLUMNS) * ATLAS_TILE_HEIGHT,
       });
+      index += 1;
     }
 
-    const rowCount = Math.ceil(entries.length / TILE_ATLAS_COLUMNS);
-    const atlas = createRenderCanvas(TILE_ATLAS_COLUMNS * TILE_SIZE, rowCount * ATLAS_TILE_HEIGHT);
-    const atlasContext = atlas.getContext("2d");
-    atlasContext.imageSmoothingEnabled = false;
-
-    const lookup = new Map();
-    entries.forEach((entry, index) => {
-      const x = (index % TILE_ATLAS_COLUMNS) * TILE_SIZE;
-      const y = Math.floor(index / TILE_ATLAS_COLUMNS) * ATLAS_TILE_HEIGHT;
-      atlasContext.clearRect(x, y, TILE_SIZE, ATLAS_TILE_HEIGHT);
-      entry.paint(atlasContext, x, y);
-      lookup.set(entry.key, { x, y });
-    });
-
-    this.tileAtlas = atlas;
-    this.tileAtlasLookup = lookup;
-    this.tileAtlasSource = sourceTilesheet;
+    return lookup;
   }
 
   supportsSurfaceTreatment(type) {
@@ -150,51 +115,6 @@ export class RendererWorldSubsystem extends RendererSubsystem {
 
   buildCrackAtlasKey(crackLevel) {
     return `crack:${Math.max(1, Math.min(4, crackLevel))}`;
-  }
-
-  canDrawDefinitionFromSource(definition, sourceTilesheet) {
-    if (!definition || !sourceTilesheet) {
-      return false;
-    }
-
-    if (["empty", "chest", "platform", "magma"].includes(definition.pattern)) {
-      return false;
-    }
-
-    return definition.sprite.x * TILE_SIZE + TILE_SIZE <= sourceTilesheet.width
-      && definition.sprite.y * TILE_SIZE + TILE_SIZE <= sourceTilesheet.height;
-  }
-
-  paintAtlasTileEntry(context, x, y, { type, surfaceTreatment, surfaceVariant, frame, sourceTilesheet }) {
-    const definition = TILE_DEFINITIONS[type];
-    const drawY = y + ATLAS_TILE_OVERFLOW_TOP;
-    if (type === TILE_TYPES.MAGMA) {
-      this.paintTilePattern(context, definition, x, drawY, TILE_SIZE, {
-        time: frame / MAGMA_ANIMATION_FPS,
-        column: 0,
-        row: 0,
-      });
-    } else if (this.canDrawDefinitionFromSource(definition, sourceTilesheet)) {
-      context.drawImage(
-        sourceTilesheet,
-        definition.sprite.x * TILE_SIZE,
-        definition.sprite.y * TILE_SIZE,
-        TILE_SIZE,
-        TILE_SIZE,
-        x,
-        drawY,
-        TILE_SIZE,
-        TILE_SIZE,
-      );
-    } else {
-      this.paintTilePattern(context, definition, x, drawY, TILE_SIZE, {
-        time: 0,
-        column: 0,
-        row: 0,
-      });
-    }
-
-    this.drawSurfaceTreatment(context, x, drawY, surfaceTreatment, surfaceVariant);
   }
 
   drawPreRenderedTile(context, tile, x, y, column, row) {

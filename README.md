@@ -130,3 +130,20 @@ http://localhost:8000/
 - Keep asset filenames and letter casing exactly as they are in the repository. Linux-based hosts are case-sensitive.
 - The intro title art is expected at `./assets/title.png` if you want a custom title image. If that file is missing, the game falls back to the text title automatically.
 - The project is a static site, so no bundler or transpiler is required for deployment.
+
+## Asset Generation
+
+The runtime terrain atlas used by the renderer is checked in under `assets/tiles/tilesheet.png`.
+
+Regenerate it after changing tile visuals with:
+
+```powershell
+.\generate_tile_assets.ps1
+```
+
+That script writes:
+
+- `assets/tiles/tilesheet.png`
+- `assets/tiles/source-tilesheet.png` on first run, to preserve the source tile art it composites from
+- `assets/tiles/terrain-atlas-manifest.json`
+- `assets/tiles/terrain-atlas-manifest.js`
