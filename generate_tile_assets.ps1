@@ -146,23 +146,76 @@ function Build-CrackKey {
   return "crack:${normalized}"
 }
 
-function Can-DrawDefinitionFromSource {
+function Draw-LegacyTilePattern {
   param(
+    [System.Drawing.Graphics]$Graphics,
     $Definition,
-    [System.Drawing.Bitmap]$SourceTilesheet,
-    [int]$TileSize
+    [double]$X,
+    [double]$Y,
+    [double]$Unit
   )
 
-  if (-not $SourceTilesheet) {
-    return $false
+  switch ($Definition.type) {
+    'dirt' {
+      $accent = New-HexColor $Definition.accent
+      foreach ($chunk in @(
+        @{ x = 4; y = 4; w = 4; h = 4 },
+        @{ x = 10; y = 4; w = 4; h = 4 },
+        @{ x = 18; y = 4; w = 4; h = 4 },
+        @{ x = 24; y = 8; w = 4; h = 4 },
+        @{ x = 7; y = 14; w = 4; h = 4 },
+        @{ x = 14; y = 18; w = 4; h = 4 },
+        @{ x = 22; y = 21; w = 4; h = 4 }
+      )) {
+        Fill-Rect $Graphics $accent ($X + $chunk.x * $Unit) ($Y + $chunk.y * $Unit) ($chunk.w * $Unit) ($chunk.h * $Unit)
+      }
+      return $true
+    }
+    'stone' {
+      Fill-Rect $Graphics (New-HexColor '#5c6678') ($X + 4 * $Unit) ($Y + 4 * $Unit) (24 * $Unit) (24 * $Unit)
+      $accent = New-HexColor $Definition.accent
+      Fill-Rect $Graphics $accent ($X + 6 * $Unit) ($Y + 6 * $Unit) (20 * $Unit) (2 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 6 * $Unit) ($Y + 14 * $Unit) (20 * $Unit) (2 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 6 * $Unit) ($Y + 22 * $Unit) (20 * $Unit) (2 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 6 * $Unit) ($Y + 6 * $Unit) (2 * $Unit) (18 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 14 * $Unit) ($Y + 8 * $Unit) (2 * $Unit) (18 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 22 * $Unit) ($Y + 6 * $Unit) (2 * $Unit) (18 * $Unit)
+      return $true
+    }
+    'coal' {
+      $cavity = New-HexColor '#221d26'
+      Fill-Rect $Graphics $cavity ($X + 5 * $Unit) ($Y + 5 * $Unit) (8 * $Unit) (8 * $Unit)
+      Fill-Rect $Graphics $cavity ($X + 18 * $Unit) ($Y + 5 * $Unit) (7 * $Unit) (7 * $Unit)
+      Fill-Rect $Graphics $cavity ($X + 8 * $Unit) ($Y + 18 * $Unit) (7 * $Unit) (7 * $Unit)
+      Fill-Rect $Graphics $cavity ($X + 20 * $Unit) ($Y + 19 * $Unit) (5 * $Unit) (5 * $Unit)
+      $shine = New-RgbaColor 255 255 255 20
+      Fill-Rect $Graphics $shine ($X + 5 * $Unit) ($Y + 5 * $Unit) (8 * $Unit) (1 * $Unit)
+      Fill-Rect $Graphics $shine ($X + 18 * $Unit) ($Y + 5 * $Unit) (7 * $Unit) (1 * $Unit)
+      Fill-Rect $Graphics $shine ($X + 8 * $Unit) ($Y + 18 * $Unit) (7 * $Unit) (1 * $Unit)
+      return $true
+    }
+    'iron' {
+      $accent = New-HexColor $Definition.accent
+      foreach ($vein in @(
+        @{ x = 6; y = 6; w = 4; h = 8 },
+        @{ x = 4; y = 8; w = 8; h = 4 },
+        @{ x = 19; y = 9; w = 4; h = 7 },
+        @{ x = 17; y = 11; w = 8; h = 3 },
+        @{ x = 12; y = 19; w = 5; h = 7 },
+        @{ x = 10; y = 21; w = 9; h = 3 }
+      )) {
+        Fill-Rect $Graphics $accent ($X + $vein.x * $Unit) ($Y + $vein.y * $Unit) ($vein.w * $Unit) ($vein.h * $Unit)
+      }
+      $shine = New-RgbaColor 255 214 184 71
+      Fill-Rect $Graphics $shine ($X + 7 * $Unit) ($Y + 6 * $Unit) (1 * $Unit) (8 * $Unit)
+      Fill-Rect $Graphics $shine ($X + 20 * $Unit) ($Y + 9 * $Unit) (1 * $Unit) (7 * $Unit)
+      Fill-Rect $Graphics $shine ($X + 13 * $Unit) ($Y + 19 * $Unit) (1 * $Unit) (7 * $Unit)
+      return $true
+    }
+    default {
+      return $false
+    }
   }
-
-  if ($Definition.pattern -in @('empty', 'chest', 'platform', 'magma')) {
-    return $false
-  }
-
-  return ($Definition.sprite.x * $TileSize + $TileSize) -le $SourceTilesheet.Width -and
-    ($Definition.sprite.y * $TileSize + $TileSize) -le $SourceTilesheet.Height
 }
 
 function Draw-MagmaPattern {
@@ -224,6 +277,9 @@ function Draw-TilePattern {
   if ($hasSolidBackdrop) {
     Fill-Rect $Graphics (New-HexColor $Definition.fill) $X $Y $Size $Size
     Draw-Rect $Graphics (New-RgbaColor 0 0 0 46) $X $Y ($Size - 1) ($Size - 1) 1
+  }
+  if (Draw-LegacyTilePattern $Graphics $Definition $X $Y $unit) {
+    return
   }
   $accent = New-HexColor $Definition.accent
 
@@ -517,8 +573,6 @@ function Draw-SurfaceTreatment {
 $root = Split-Path -Parent $PSCommandPath
 $tilesDir = Join-Path $root 'assets/tiles'
 $terrainAtlasPath = Join-Path $tilesDir 'terrain-atlas.png'
-$sourceTilesheetPath = Join-Path $tilesDir 'source-tilesheet.png'
-$legacyTilesheetPath = Join-Path $tilesDir 'tilesheet.png'
 $terrainManifestPath = Join-Path $tilesDir 'terrain-atlas-manifest.json'
 $terrainManifestModulePath = Join-Path $tilesDir 'terrain-atlas-manifest.js'
 
@@ -580,20 +634,8 @@ function Add-EntriesToLayout {
   }
 }
 
-if (-not (Test-Path $sourceTilesheetPath)) {
-  if (-not (Test-Path $legacyTilesheetPath)) {
-    throw "Missing source tilesheet. Expected $sourceTilesheetPath or legacy tilesheet $legacyTilesheetPath"
-  }
-
-  Copy-Item -Path $legacyTilesheetPath -Destination $sourceTilesheetPath
-}
-
-$sourceTilesheet = [System.Drawing.Bitmap]::FromFile($sourceTilesheetPath)
-
-try {
-  $tileEntriesByType = @{}
-  $debrisEntriesByType = @{}
-
+$tileEntriesByType = @{}
+$debrisEntriesByType = @{}
   foreach ($definition in $tileDefinitions) {
     $definitionEntries = New-EntryList
     $variants = if (Supports-SurfaceTreatment $definition.type) { $surfaceVariants } else { @(@{ surfaceTreatment = $null; surfaceVariant = 0 }) }
@@ -609,6 +651,7 @@ try {
           frame = $frame
         })
       }
+
     }
 
     $tileEntriesByType[$definition.type] = $definitionEntries
@@ -696,11 +739,6 @@ try {
           if ($entry.definition.type -eq 'magma') {
             Draw-TilePattern $graphics $entry.definition $x $drawY $tileSize ($entry.frame / $magmaAnimationFps) 0 0
           }
-          elseif (Can-DrawDefinitionFromSource $entry.definition $sourceTilesheet $tileSize) {
-            $sourceRect = [System.Drawing.Rectangle]::new($entry.definition.sprite.x * $tileSize, $entry.definition.sprite.y * $tileSize, $tileSize, $tileSize)
-            $destRect = [System.Drawing.Rectangle]::new($x, $drawY, $tileSize, $tileSize)
-            $graphics.DrawImage($sourceTilesheet, $destRect, $sourceRect, [System.Drawing.GraphicsUnit]::Pixel)
-          }
           else {
             Draw-TilePattern $graphics $entry.definition $x $drawY $tileSize 0 0 0
           }
@@ -741,12 +779,7 @@ try {
     $graphics.Dispose()
     $atlasBitmap.Dispose()
   }
-}
-finally {
-  $sourceTilesheet.Dispose()
-}
 
 Write-Host "Generated terrain atlas: $terrainAtlasPath"
-Write-Host "Using source tilesheet: $sourceTilesheetPath"
 Write-Host "Generated terrain manifest: $terrainManifestPath"
 Write-Host "Generated terrain manifest module: $terrainManifestModulePath"

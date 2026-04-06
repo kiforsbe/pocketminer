@@ -117,6 +117,66 @@ export class RendererWorldSubsystem extends RendererSubsystem {
     }
   }
 
+  paintLegacyTilePattern(context, definition, x, y, unit) {
+    switch (definition.type) {
+      case TILE_TYPES.DIRT:
+        context.fillStyle = definition.accent;
+        for (const chunk of [
+          { x: 4, y: 4, w: 4, h: 4 },
+          { x: 10, y: 4, w: 4, h: 4 },
+          { x: 18, y: 4, w: 4, h: 4 },
+          { x: 24, y: 8, w: 4, h: 4 },
+          { x: 7, y: 14, w: 4, h: 4 },
+          { x: 14, y: 18, w: 4, h: 4 },
+          { x: 22, y: 21, w: 4, h: 4 },
+        ]) {
+          context.fillRect(x + chunk.x * unit, y + chunk.y * unit, chunk.w * unit, chunk.h * unit);
+        }
+        return true;
+      case TILE_TYPES.STONE:
+        context.fillStyle = "#5c6678";
+        context.fillRect(x + 4 * unit, y + 4 * unit, 24 * unit, 24 * unit);
+        context.fillStyle = definition.accent;
+        context.fillRect(x + 6 * unit, y + 6 * unit, 20 * unit, 2 * unit);
+        context.fillRect(x + 6 * unit, y + 14 * unit, 20 * unit, 2 * unit);
+        context.fillRect(x + 6 * unit, y + 22 * unit, 20 * unit, 2 * unit);
+        context.fillRect(x + 6 * unit, y + 6 * unit, 2 * unit, 18 * unit);
+        context.fillRect(x + 14 * unit, y + 8 * unit, 2 * unit, 18 * unit);
+        context.fillRect(x + 22 * unit, y + 6 * unit, 2 * unit, 18 * unit);
+        return true;
+      case TILE_TYPES.COAL:
+        context.fillStyle = "#221d26";
+        context.fillRect(x + 5 * unit, y + 5 * unit, 8 * unit, 8 * unit);
+        context.fillRect(x + 18 * unit, y + 5 * unit, 7 * unit, 7 * unit);
+        context.fillRect(x + 8 * unit, y + 18 * unit, 7 * unit, 7 * unit);
+        context.fillRect(x + 20 * unit, y + 19 * unit, 5 * unit, 5 * unit);
+        context.fillStyle = "rgba(255, 255, 255, 0.08)";
+        context.fillRect(x + 5 * unit, y + 5 * unit, 8 * unit, 1 * unit);
+        context.fillRect(x + 18 * unit, y + 5 * unit, 7 * unit, 1 * unit);
+        context.fillRect(x + 8 * unit, y + 18 * unit, 7 * unit, 1 * unit);
+        return true;
+      case TILE_TYPES.IRON:
+        context.fillStyle = definition.accent;
+        for (const vein of [
+          { x: 6, y: 6, w: 4, h: 8 },
+          { x: 4, y: 8, w: 8, h: 4 },
+          { x: 19, y: 9, w: 4, h: 7 },
+          { x: 17, y: 11, w: 8, h: 3 },
+          { x: 12, y: 19, w: 5, h: 7 },
+          { x: 10, y: 21, w: 9, h: 3 },
+        ]) {
+          context.fillRect(x + vein.x * unit, y + vein.y * unit, vein.w * unit, vein.h * unit);
+        }
+        context.fillStyle = "rgba(255, 214, 184, 0.28)";
+        context.fillRect(x + 7 * unit, y + 6 * unit, 1 * unit, 8 * unit);
+        context.fillRect(x + 20 * unit, y + 9 * unit, 1 * unit, 7 * unit);
+        context.fillRect(x + 13 * unit, y + 19 * unit, 1 * unit, 7 * unit);
+        return true;
+      default:
+        return false;
+    }
+  }
+
   paintTilePattern(context, definition, x, y, size, { time = 0, column = 0, row = 0 } = {}) {
     const unit = size / 32;
     const hasSolidBackdrop = !["chest", "platform"].includes(definition.pattern);
@@ -125,6 +185,9 @@ export class RendererWorldSubsystem extends RendererSubsystem {
       context.fillRect(x, y, size, size);
       context.strokeStyle = "rgba(0, 0, 0, 0.18)";
       context.strokeRect(x, y, size, size);
+    }
+    if (this.paintLegacyTilePattern(context, definition, x, y, unit)) {
+      return;
     }
     context.fillStyle = definition.accent;
 

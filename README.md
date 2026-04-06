@@ -144,6 +144,7 @@ Regenerate it after changing tile visuals with:
 That script writes:
 
 - `assets/tiles/terrain-atlas.png`
-- `assets/tiles/source-tilesheet.png` on first run, to preserve the original source tile art it composites from
 - `assets/tiles/terrain-atlas-manifest.json`
 - `assets/tiles/terrain-atlas-manifest.js`
+
+The generator is self-contained and recreates all terrain visuals procedurally, so no separate source tilesheet file is required.
