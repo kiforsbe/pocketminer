@@ -1,5 +1,5 @@
 import { ITEM_DEFINITIONS } from "./inventory.js";
-import { PLATFORM_SURFACE_OFFSET, TILE_DEFINITIONS, TILE_SIZE, TILE_TYPES } from "./tile.js";
+import { TILE_DEFINITIONS, TILE_SIZE, TILE_TYPES } from "./tile.js";
 
 const VIEWPORT = { width: 1280, height: 720 };
 const PLAYER_FRAME_WIDTH = 32;
@@ -18,181 +18,34 @@ function loadImage(source) {
   });
 }
 
-function createRenderSurface(width, height) {
-  if (typeof OffscreenCanvas !== "undefined") {
-    return new OffscreenCanvas(width, height);
+class RendererSubsystem {
+  constructor(renderer) {
+    this.renderer = renderer;
   }
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  return canvas;
+  get ctx() {
+    return this.renderer.ctx;
+  }
+
+  get world() {
+    return this.renderer.world;
+  }
+
+  get camera() {
+    return this.renderer.camera;
+  }
+
+  get viewport() {
+    return this.renderer.viewport;
+  }
+
+  get assets() {
+    return this.renderer.assets;
+  }
 }
 
-export class Renderer {
-  constructor(canvas, world) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext("2d");
-    this.world = world;
-    this.viewport = { ...VIEWPORT };
-    this.camera = { x: 0, y: 0 };
-    this.pixelRatio = window.devicePixelRatio || 1;
-    this.assets = null;
-    this.bonusStatsSignature = "";
-    this.hudSignature = "";
-    this.stratumSignature = "";
-    this.blockSignature = "";
-    this.lastStratumIconType = null;
-    this.lastBlockIconType = null;
-    this.lastFrameTimestamp = 0;
-    this.fpsSampleElapsed = 0;
-    this.fpsSampleFrames = 0;
-    this.displayedFps = 0;
-    this.dom = {
-      roundTimer: document.getElementById("round-timer"),
-      roundTimerValue: document.getElementById("round-timer-value"),
-      bankValue: document.getElementById("bank-value"),
-      bonusStats: document.getElementById("bonus-stats"),
-      roundValue: document.getElementById("round-value"),
-      roundToast: document.getElementById("round-toast"),
-      stratumIcon: document.getElementById("stratum-icon"),
-      stratumName: document.getElementById("stratum-name"),
-      stratumDepth: document.getElementById("stratum-depth"),
-      stratumCoreSwatches: document.getElementById("stratum-core-swatches"),
-      stratumBonusSwatches: document.getElementById("stratum-bonus-swatches"),
-      blockIcon: document.getElementById("block-icon"),
-      blockName: document.getElementById("block-name"),
-      blockType: document.getElementById("block-type"),
-      blockHp: document.getElementById("block-hp"),
-      blockValue: document.getElementById("block-value"),
-      blockRange: document.getElementById("block-range"),
-      blockYield: document.getElementById("block-yield"),
-    };
-    this.resize();
-  }
-
-  setWorld(world) {
-    this.world = world;
-  }
-
-  static async loadAssets() {
-    const [tilesheet, spritesheet, bombSpritesheet, bombIcon] = await Promise.all([
-      loadImage("./assets/tiles/tilesheet.png"),
-      loadImage("./assets/sprites/player-spritesheet.png"),
-      loadImage("./assets/sprites/bomb-spritesheet.png"),
-      loadImage("./assets/sprites/bomb-icon.png"),
-    ]);
-
-    return { tilesheet, spritesheet, bombSpritesheet, bombIcon };
-  }
-
-  resize() {
-    const rect = this.canvas.getBoundingClientRect();
-    this.pixelRatio = window.devicePixelRatio || 1;
-    this.canvas.width = Math.round(rect.width * this.pixelRatio);
-    this.canvas.height = Math.round(rect.height * this.pixelRatio);
-    this.ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0);
-    this.ctx.imageSmoothingEnabled = false;
-    this.viewport.width = rect.width || VIEWPORT.width;
-    this.viewport.height = rect.height || VIEWPORT.height;
-  }
-
-  setAssets(assets) {
-    this.assets = assets;
-  }
-
-  markTerrainDirty() {
-    // Terrain is rendered directly from visible tile bounds each frame.
-  }
-
-  screenToWorld(screenX, screenY) {
-    return {
-      x: this.camera.x + screenX,
-      y: this.camera.y + screenY,
-    };
-  }
-
-  updateCamera(player) {
-    const targetX = player.x - this.viewport.width * 0.5 + player.width * 0.5;
-    const targetY = player.y - this.viewport.height * 0.58 + player.height * 0.5;
-    this.camera.x = Math.max(0, Math.min(targetX, this.world.pixelWidth - this.viewport.width));
-    this.camera.y = Math.max(0, Math.min(targetY, this.world.pixelHeight - this.viewport.height));
-  }
-
-  render({ player, world, inventory, miningResult, hoverTarget, particles, bombs, pickups, floatingTexts, roundInfo }) {
-    this.#updateFrameRateCounter();
-    this.updateCamera(player);
-    this.ctx.clearRect(0, 0, this.viewport.width, this.viewport.height);
-    this.#drawBackground(player);
-    this.#drawVisibleTerrain(world);
-    this.#drawFallingDebris(world.getFallingDebris?.() ?? []);
-    this.#drawBombs(bombs ?? []);
-
-    this.#drawMiningHighlight(hoverTarget, miningResult);
-    this.#drawPickups(pickups);
-    this.#drawParticles(particles);
-    this.#drawPlayer(player);
-    this.#drawHud(inventory, roundInfo);
-    this.#drawHotbar(inventory);
-    this.#drawSurveyPanel(player, miningResult?.target ?? hoverTarget);
-    this.#drawFloatingTexts(floatingTexts);
-    this.#drawPerformanceCounters(roundInfo);
-  }
-
-  #updateFrameRateCounter() {
-    const now = performance.now();
-    if (this.lastFrameTimestamp > 0) {
-      const deltaMs = now - this.lastFrameTimestamp;
-      this.fpsSampleElapsed += deltaMs;
-      this.fpsSampleFrames += 1;
-      if (this.fpsSampleElapsed >= 250) {
-        this.displayedFps = Math.round((this.fpsSampleFrames * 1000) / this.fpsSampleElapsed);
-        this.fpsSampleElapsed = 0;
-        this.fpsSampleFrames = 0;
-      }
-    }
-
-    this.lastFrameTimestamp = now;
-  }
-
-  #drawPerformanceCounters(roundInfo = {}) {
-    if (!roundInfo.showPerformance) {
-      return;
-    }
-
-    this.ctx.save();
-    this.ctx.font = '600 10px "Segoe UI", "Trebuchet MS", sans-serif';
-    this.ctx.textAlign = "right";
-    this.ctx.textBaseline = "top";
-    this.ctx.fillStyle = "rgba(242, 237, 227, 0.72)";
-    this.ctx.strokeStyle = "rgba(6, 10, 16, 0.82)";
-    this.ctx.lineWidth = 3;
-    this.ctx.lineJoin = "round";
-    const x = this.viewport.width - 18;
-    const lines = [`FPS ${this.displayedFps}`, `TPS ${roundInfo.tickRate ?? 0}`];
-    lines.forEach((text, index) => {
-      const y = 18 + index * 12;
-      this.ctx.strokeText(text, x, y);
-      this.ctx.fillText(text, x, y);
-    });
-    this.ctx.restore();
-  }
-
-  #setTextContentIfChanged(element, nextText) {
-    if (element && element.textContent !== nextText) {
-      element.textContent = nextText;
-    }
-  }
-
-  #setDataAttributeIfChanged(element, name, value) {
-    if (!element || element.getAttribute(name) === value) {
-      return;
-    }
-
-    element.setAttribute(name, value);
-  }
-
-  #drawBackground(player) {
+class RendererWorldSubsystem extends RendererSubsystem {
+  drawBackground(player) {
     const stratum = player
       ? this.world.getStratumAtPixel(player.getCenter().y)
       : this.world.getStratumAtPixel(this.camera.y + this.viewport.height * 0.5);
@@ -234,7 +87,7 @@ export class Renderer {
       this.ctx.fillStyle = sunGlow;
       this.ctx.fillRect(0, 0, this.viewport.width, skyBottom);
 
-      this.#drawClouds(skyBottom);
+      this.drawClouds(skyBottom);
     }
 
     if (transitionBottom > caveTop) {
@@ -279,10 +132,10 @@ export class Renderer {
     this.ctx.fillStyle = caveTint;
     this.ctx.fillRect(0, caveTop, this.viewport.width, this.viewport.height - caveTop);
 
-    this.#drawCaveNoise(caveTop, theme);
+    this.drawCaveNoise(caveTop, theme);
   }
 
-  #drawClouds(skyBottom) {
+  drawClouds(skyBottom) {
     const surfaceY = this.world.surfaceRow * TILE_SIZE;
     const bandTop = -32;
     const bandBottom = surfaceY - 12;
@@ -311,7 +164,7 @@ export class Renderer {
         const worldY = layer.offsetY + (index % 2) * 12;
         const screenX = worldX - this.camera.x * layer.speed;
         const screenY = worldY - this.camera.y;
-        this.#drawCloudShape(screenX, screenY, 0.9 + (index % 3) * 0.18);
+        this.drawCloudShape(screenX, screenY, 0.9 + (index % 3) * 0.18);
       }
     }
 
@@ -324,7 +177,7 @@ export class Renderer {
     this.ctx.fillRect(0, 0, this.viewport.width, Math.min(CLOUD_BAND_HEIGHT, skyBottom));
   }
 
-  #drawCloudShape(x, y, scale = 1) {
+  drawCloudShape(x, y, scale = 1) {
     const width = 62 * scale;
     const height = 18 * scale;
     this.ctx.beginPath();
@@ -335,7 +188,7 @@ export class Renderer {
     this.ctx.fill();
   }
 
-  #drawCaveNoise(caveTop, theme) {
+  drawCaveNoise(caveTop, theme) {
     if (caveTop >= this.viewport.height) {
       return;
     }
@@ -353,7 +206,7 @@ export class Renderer {
 
     for (let row = startRow; row <= endRow; row += 1) {
       for (let column = startColumn; column <= endColumn; column += 1) {
-        const noise = this.#backgroundNoise(column, row);
+        const noise = this.backgroundNoise(column, row);
         const x = column * cellSize - this.camera.x;
         const y = row * cellSize - this.camera.y;
 
@@ -377,12 +230,12 @@ export class Renderer {
     this.ctx.restore();
   }
 
-  #backgroundNoise(column, row) {
+  backgroundNoise(column, row) {
     const value = Math.sin(column * 12.9898 + row * 78.233 + this.world.seed * 0.0001) * 43758.5453;
     return value - Math.floor(value);
   }
 
-  #drawVisibleTerrain(world) {
+  drawVisibleTerrain(world) {
     const bounds = world.getVisibleTileBounds(this.camera, this.viewport.width, this.viewport.height);
     const platforms = [];
     for (let row = bounds.startRow; row < bounds.endRow; row += 1) {
@@ -397,7 +250,7 @@ export class Renderer {
           continue;
         }
 
-        this.#drawTileToContext(
+        this.drawTileToContext(
           this.ctx,
           tile,
           column * TILE_SIZE - this.camera.x,
@@ -409,14 +262,14 @@ export class Renderer {
     }
 
     for (const platform of platforms) {
-      this.#drawPlatformTile(platform.tile, platform.column, platform.row);
+      this.drawPlatformTile(platform.tile, platform.column, platform.row);
     }
   }
 
-  #drawTileToContext(context, tile, x, y, column, row) {
+  drawTileToContext(context, tile, x, y, column, row) {
     if (tile.type === TILE_TYPES.EMPTY) {
       if (tile.debrisType) {
-        this.#drawDebris(context, x, y + TILE_SIZE - 8, tile.debrisType, tile.debrisVariant ?? 0);
+        this.drawDebris(context, x, y + TILE_SIZE - 8, tile.debrisType, tile.debrisVariant ?? 0);
       }
       return;
     }
@@ -439,30 +292,30 @@ export class Renderer {
         TILE_SIZE,
       );
     } else {
-      this.#drawProceduralTile(context, tile, x, y, column, row);
+      this.drawProceduralTile(context, tile, x, y, column, row);
     }
 
     const surfaceTreatment = tile.surfaceTreatment;
     if (surfaceTreatment === "grass") {
-      this.#drawGrassCap(context, x, y, tile.surfaceVariant ?? 0);
+      this.drawGrassCap(context, x, y, tile.surfaceVariant ?? 0);
     } else if (surfaceTreatment === "moss") {
-      this.#drawMossCap(context, x, y);
+      this.drawMossCap(context, x, y);
     } else if (surfaceTreatment === "rock") {
-      this.#drawRockCap(context, x, y, { drawStalagmites: false });
+      this.drawRockCap(context, x, y, { drawStalagmites: false });
     } else if (surfaceTreatment === "rock-spires") {
-      this.#drawRockCap(context, x, y, { drawStalagmites: true });
+      this.drawRockCap(context, x, y, { drawStalagmites: true });
     }
 
     if (tile.debrisType) {
-      this.#drawDebris(context, x, this.#getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
+      this.drawDebris(context, x, this.getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
     }
 
     if (tile.breakRatio > 0) {
-      this.#drawDamageCracks(context, x, y, tile.breakRatio);
+      this.drawDamageCracks(context, x, y, tile.breakRatio);
     }
   }
 
-  #drawProceduralTile(context, tile, x, y, column = 0, row = 0) {
+  drawProceduralTile(context, tile, x, y, column = 0, row = 0) {
     context.fillStyle = tile.definition.fill;
     context.fillRect(x, y, TILE_SIZE, TILE_SIZE);
     context.strokeStyle = "rgba(0, 0, 0, 0.18)";
@@ -491,7 +344,7 @@ export class Renderer {
         context.fillRect(x + 9, y + 19, 12, 6);
         break;
       case "magma":
-        this.#drawMagmaPattern(context, tile.definition, x, y, TILE_SIZE, performance.now() * 0.0018, column, row);
+        this.drawMagmaPattern(context, tile.definition, x, y, TILE_SIZE, performance.now() * 0.0018, column, row);
         break;
       case "chest":
         context.fillRect(x + 5, y + 10, 22, 14);
@@ -533,7 +386,7 @@ export class Renderer {
     }
   }
 
-  #drawProceduralTilePreview(context, definition, size) {
+  drawProceduralTilePreview(context, definition, size) {
     context.clearRect(0, 0, size, size);
     if (!definition || definition.pattern === "empty") {
       return;
@@ -568,7 +421,7 @@ export class Renderer {
         context.fillRect(9 * unit, 19 * unit, 12 * unit, 6 * unit);
         break;
       case "magma":
-        this.#drawMagmaPattern(context, definition, 0, 0, size, 0, 0, 0);
+        this.drawMagmaPattern(context, definition, 0, 0, size, 0, 0, 0);
         break;
       case "chest":
         context.fillRect(5 * unit, 10 * unit, 22 * unit, 14 * unit);
@@ -610,7 +463,7 @@ export class Renderer {
     }
   }
 
-  #drawMagmaPattern(context, definition, x, y, size, time, column, row) {
+  drawMagmaPattern(context, definition, x, y, size, time, column, row) {
     const unit = size / 32;
     const phase = time * 3.4 + column * 0.73 + row * 0.51;
     const pulseA = (Math.sin(phase) + 1) * 0.5;
@@ -642,7 +495,7 @@ export class Renderer {
     context.fillRect(x + 10 * unit, y + 23 * unit, 8 * unit, 1 * unit);
   }
 
-  #drawGrassCap(context, x, y, variant) {
+  drawGrassCap(context, x, y, variant) {
     context.fillStyle = "#4a922f";
     context.fillRect(x, y, TILE_SIZE, 5);
     context.fillStyle = "#7dcb4f";
@@ -693,7 +546,7 @@ export class Renderer {
     }
   }
 
-  #drawMossCap(context, x, y) {
+  drawMossCap(context, x, y) {
     context.fillStyle = "#2f4a24";
     context.fillRect(x, y, TILE_SIZE, 4);
     context.fillStyle = "#456736";
@@ -712,7 +565,7 @@ export class Renderer {
     context.fillRect(x + 22, y, 1, 1);
   }
 
-  #drawRockCap(context, x, y, { drawStalagmites }) {
+  drawRockCap(context, x, y, { drawStalagmites }) {
     context.fillStyle = "#232934";
     context.fillRect(x, y, TILE_SIZE, 4);
     context.fillStyle = "rgba(188, 198, 214, 0.25)";
@@ -755,7 +608,7 @@ export class Renderer {
     context.stroke();
   }
 
-  #drawDebris(context, x, y, debrisType, debrisVariant) {
+  drawDebris(context, x, y, debrisType, debrisVariant) {
     const definition = TILE_DEFINITIONS[debrisType] ?? TILE_DEFINITIONS[TILE_TYPES.STONE];
     const layouts = [
       [
@@ -793,7 +646,7 @@ export class Renderer {
     }
   }
 
-  #drawPlatformTile(tile, column, row) {
+  drawPlatformTile(tile, column, row) {
     const x = column * TILE_SIZE - this.camera.x;
     const y = row * TILE_SIZE - this.camera.y;
 
@@ -808,15 +661,15 @@ export class Renderer {
     this.ctx.fillRect(x + 6, y + 2, 20, 1);
 
     if (tile.debrisType) {
-      this.#drawDebris(this.ctx, x, this.#getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
+      this.drawDebris(this.ctx, x, this.getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
     }
 
     if (tile.breakRatio > 0) {
-      this.#drawDamageCracks(this.ctx, x, y, tile.breakRatio);
+      this.drawDamageCracks(this.ctx, x, y, tile.breakRatio);
     }
   }
 
-  #getDebrisDrawY(tile, y) {
+  getDebrisDrawY(tile, y) {
     if (tile.type === TILE_TYPES.PLATFORM) {
       return y;
     }
@@ -824,7 +677,7 @@ export class Renderer {
     return y + TILE_SIZE - 8;
   }
 
-  #drawFallingDebris(fallingDebris = []) {
+  drawFallingDebris(fallingDebris = []) {
     for (const debris of fallingDebris) {
       const x = debris.x - this.camera.x;
       const y = debris.y - this.camera.y;
@@ -832,11 +685,11 @@ export class Renderer {
         continue;
       }
 
-      this.#drawDebris(this.ctx, x, y, debris.type, debris.variant);
+      this.drawDebris(this.ctx, x, y, debris.type, debris.variant);
     }
   }
 
-  #drawDamageCracks(context, x, y, breakRatio) {
+  drawDamageCracks(context, x, y, breakRatio) {
     const crackLevel = Math.min(4, Math.max(1, Math.ceil(breakRatio * 4)));
     context.strokeStyle = "rgba(16, 18, 24, 0.72)";
     context.lineWidth = 1.5;
@@ -892,17 +745,17 @@ export class Renderer {
     }
   }
 
-  #paintIcon(canvas, tileType) {
+  paintIcon(canvas, tileType) {
     if (!(canvas instanceof HTMLCanvasElement)) {
       return;
     }
 
     const context = canvas.getContext("2d");
     context.imageSmoothingEnabled = false;
-    this.#drawProceduralTilePreview(context, TILE_DEFINITIONS[tileType], canvas.width);
+    this.drawProceduralTilePreview(context, TILE_DEFINITIONS[tileType], canvas.width);
   }
 
-  #renderOreChip(container, tileType) {
+  renderOreChip(container, tileType) {
     const definition = TILE_DEFINITIONS[tileType];
     if (!definition) {
       return;
@@ -920,17 +773,16 @@ export class Renderer {
 
     const context = canvas.getContext("2d");
     context.imageSmoothingEnabled = false;
-    this.#drawProceduralTilePreview(context, definition, 18);
+    this.drawProceduralTilePreview(context, definition, 18);
   }
 
-  #drawMiningHighlight(hoverTarget, miningResult) {
+  drawMiningHighlight(hoverTarget, miningResult) {
     const target = miningResult?.target ?? hoverTarget;
     if (!target) {
       return;
     }
 
     const { column, row } = target;
-    const tile = this.world.getTile(column, row);
     const x = column * TILE_SIZE - this.camera.x;
     const y = row * TILE_SIZE - this.camera.y;
     this.ctx.strokeStyle = miningResult?.target ? "rgba(255, 228, 156, 0.9)" : "rgba(136, 185, 216, 0.8)";
@@ -938,7 +790,28 @@ export class Renderer {
     this.ctx.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
   }
 
-  #drawPlayer(player) {
+  drawHotbarItemIcon(x, y, size, itemId, context = this.ctx) {
+    const tileDefinition = TILE_DEFINITIONS[itemId];
+    if (!tileDefinition) {
+      context.fillStyle = ITEM_DEFINITIONS[itemId]?.color ?? "#f2ede3";
+      context.fillRect(x, y, size, size);
+      return;
+    }
+
+    context.save();
+    context.translate(x, y);
+    this.drawProceduralTilePreview(context, tileDefinition, size);
+    context.restore();
+  }
+}
+
+class RendererEntitySubsystem extends RendererSubsystem {
+  constructor(renderer, worldRenderer) {
+    super(renderer);
+    this.worldRenderer = worldRenderer;
+  }
+
+  drawPlayer(player) {
     const drawX = Math.round(player.x - this.camera.x - (PLAYER_FRAME_WIDTH - player.width) * 0.5);
     const drawY = Math.round(player.y - this.camera.y - (PLAYER_FRAME_HEIGHT - player.height));
     const frame = player.getAnimationFrame();
@@ -947,14 +820,14 @@ export class Renderer {
     if (player.facing < 0) {
       this.ctx.translate(drawX + PLAYER_FRAME_WIDTH, drawY);
       this.ctx.scale(-1, 1);
-      this.#blitPlayerFrame(frame, 0, 0);
+      this.blitPlayerFrame(frame, 0, 0);
     } else {
-      this.#blitPlayerFrame(frame, drawX, drawY);
+      this.blitPlayerFrame(frame, drawX, drawY);
     }
     this.ctx.restore();
   }
 
-  #drawParticles(particles = []) {
+  drawParticles(particles = []) {
     for (const particle of particles) {
       const x = particle.x - this.camera.x;
       const y = particle.y - this.camera.y;
@@ -976,7 +849,7 @@ export class Renderer {
     }
   }
 
-  #drawPickups(pickups = []) {
+  drawPickups(pickups = []) {
     for (const pickup of pickups) {
       const x = pickup.x - this.camera.x;
       const y = pickup.y - this.camera.y + Math.sin(pickup.bobTime) * 2.5;
@@ -1026,7 +899,7 @@ export class Renderer {
     }
   }
 
-  #drawFloatingTexts(floatingTexts = []) {
+  drawFloatingTexts(floatingTexts = []) {
     this.ctx.save();
     this.ctx.textBaseline = "middle";
     this.ctx.lineJoin = "round";
@@ -1057,14 +930,14 @@ export class Renderer {
 
       if (hasIcon) {
         const iconX = startX + textWidth + iconGap;
-        this.#drawHotbarItemIcon(iconX, y - iconSize * 0.5, iconSize, floatingText.iconItemId);
+        this.worldRenderer.drawHotbarItemIcon(iconX, y - iconSize * 0.5, iconSize, floatingText.iconItemId);
       }
     }
 
     this.ctx.restore();
   }
 
-  #blitPlayerFrame(frame, x, y) {
+  blitPlayerFrame(frame, x, y) {
     if (this.assets?.spritesheet) {
       this.ctx.drawImage(
         this.assets.spritesheet,
@@ -1084,7 +957,144 @@ export class Renderer {
     this.ctx.fillRect(x + 8, y + 8, 16, 24);
   }
 
-  #drawHud(inventory, roundInfo) {
+  drawBombs(bombs = []) {
+    if (!bombs.length) {
+      return;
+    }
+
+    const frameWidth = 32;
+    const frameHeight = 32;
+    const sheet = this.assets?.bombSpritesheet;
+    const frameCount = sheet ? Math.max(1, Math.floor(sheet.width / frameWidth)) : 1;
+
+    for (const bomb of bombs) {
+      const x = bomb.x - this.camera.x;
+      const y = bomb.y - this.camera.y;
+      if (x + frameWidth < 0 || y + frameHeight < 0 || x > this.viewport.width || y > this.viewport.height) {
+        continue;
+      }
+
+      if (sheet) {
+        const frame = Math.floor((bomb.animationElapsed * 8) % frameCount);
+        this.ctx.drawImage(
+          sheet,
+          frame * frameWidth,
+          0,
+          frameWidth,
+          frameHeight,
+          x,
+          y,
+          frameWidth,
+          frameHeight,
+        );
+        continue;
+      }
+
+      this.ctx.save();
+      this.ctx.translate(x + 16, y + 16);
+      this.ctx.fillStyle = "#1f1a21";
+      this.ctx.beginPath();
+      this.ctx.arc(0, 2, 10, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = "#b78356";
+      this.ctx.fillRect(4, -10, 3, 8);
+      this.ctx.fillStyle = "#ffb45a";
+      this.ctx.fillRect(5, -13, 2, 3);
+      this.ctx.restore();
+    }
+  }
+}
+
+class RendererUiSubsystem extends RendererSubsystem {
+  constructor(renderer, worldRenderer) {
+    super(renderer);
+    this.worldRenderer = worldRenderer;
+    this.bonusStatsSignature = "";
+    this.hudSignature = "";
+    this.stratumSignature = "";
+    this.blockSignature = "";
+    this.lastStratumIconType = null;
+    this.lastBlockIconType = null;
+    this.lastFrameTimestamp = 0;
+    this.fpsSampleElapsed = 0;
+    this.fpsSampleFrames = 0;
+    this.displayedFps = 0;
+    this.dom = {
+      roundTimer: document.getElementById("round-timer"),
+      roundTimerValue: document.getElementById("round-timer-value"),
+      bankValue: document.getElementById("bank-value"),
+      bonusStats: document.getElementById("bonus-stats"),
+      roundValue: document.getElementById("round-value"),
+      roundToast: document.getElementById("round-toast"),
+      stratumIcon: document.getElementById("stratum-icon"),
+      stratumName: document.getElementById("stratum-name"),
+      stratumDepth: document.getElementById("stratum-depth"),
+      stratumCoreSwatches: document.getElementById("stratum-core-swatches"),
+      stratumBonusSwatches: document.getElementById("stratum-bonus-swatches"),
+      blockIcon: document.getElementById("block-icon"),
+      blockName: document.getElementById("block-name"),
+      blockType: document.getElementById("block-type"),
+      blockHp: document.getElementById("block-hp"),
+      blockValue: document.getElementById("block-value"),
+      blockRange: document.getElementById("block-range"),
+      blockYield: document.getElementById("block-yield"),
+    };
+  }
+
+  updateFrameRateCounter() {
+    const now = performance.now();
+    if (this.lastFrameTimestamp > 0) {
+      const deltaMs = now - this.lastFrameTimestamp;
+      this.fpsSampleElapsed += deltaMs;
+      this.fpsSampleFrames += 1;
+      if (this.fpsSampleElapsed >= 250) {
+        this.displayedFps = Math.round((this.fpsSampleFrames * 1000) / this.fpsSampleElapsed);
+        this.fpsSampleElapsed = 0;
+        this.fpsSampleFrames = 0;
+      }
+    }
+
+    this.lastFrameTimestamp = now;
+  }
+
+  drawPerformanceCounters(roundInfo = {}) {
+    if (!roundInfo.showPerformance) {
+      return;
+    }
+
+    this.ctx.save();
+    this.ctx.font = '600 10px "Segoe UI", "Trebuchet MS", sans-serif';
+    this.ctx.textAlign = "right";
+    this.ctx.textBaseline = "top";
+    this.ctx.fillStyle = "rgba(242, 237, 227, 0.72)";
+    this.ctx.strokeStyle = "rgba(6, 10, 16, 0.82)";
+    this.ctx.lineWidth = 3;
+    this.ctx.lineJoin = "round";
+    const x = this.viewport.width - 18;
+    const lines = [`FPS ${this.displayedFps}`, `TPS ${roundInfo.tickRate ?? 0}`];
+    lines.forEach((text, index) => {
+      const y = 18 + index * 12;
+      this.ctx.strokeText(text, x, y);
+      this.ctx.fillText(text, x, y);
+    });
+    this.ctx.restore();
+  }
+
+  setTextContentIfChanged(element, nextText) {
+    if (element && element.textContent !== nextText) {
+      element.textContent = nextText;
+    }
+  }
+
+  setDataAttributeIfChanged(element, name, value) {
+    if (!element || element.getAttribute(name) === value) {
+      return;
+    }
+
+    element.setAttribute(name, value);
+  }
+
+  drawHud(inventory, roundInfo) {
     const toastMessage = roundInfo.notification?.message ?? "";
     const toastUrgent = roundInfo.notification?.urgent ? "true" : "false";
     const hudSignature = [
@@ -1098,33 +1108,32 @@ export class Renderer {
 
     if (hudSignature !== this.hudSignature) {
       this.hudSignature = hudSignature;
-      this.#setDataAttributeIfChanged(this.dom.roundTimer, "data-urgent", roundInfo.urgent ? "true" : "false");
-      this.#setTextContentIfChanged(this.dom.roundTimerValue, `${roundInfo.timeLeft}s`);
-      this.#setTextContentIfChanged(this.dom.roundValue, String(roundInfo.round));
-      this.#setTextContentIfChanged(this.dom.bankValue, `${roundInfo.bank}€`);
+      this.setDataAttributeIfChanged(this.dom.roundTimer, "data-urgent", roundInfo.urgent ? "true" : "false");
+      this.setTextContentIfChanged(this.dom.roundTimerValue, `${roundInfo.timeLeft}s`);
+      this.setTextContentIfChanged(this.dom.roundValue, String(roundInfo.round));
+      this.setTextContentIfChanged(this.dom.bankValue, `${roundInfo.bank}€`);
 
       if (toastMessage) {
-        this.#setTextContentIfChanged(this.dom.roundToast, toastMessage);
-        this.#setDataAttributeIfChanged(this.dom.roundToast, "data-visible", "true");
-        this.#setDataAttributeIfChanged(this.dom.roundToast, "data-urgent", toastUrgent);
+        this.setTextContentIfChanged(this.dom.roundToast, toastMessage);
+        this.setDataAttributeIfChanged(this.dom.roundToast, "data-visible", "true");
+        this.setDataAttributeIfChanged(this.dom.roundToast, "data-urgent", toastUrgent);
       } else {
-        this.#setTextContentIfChanged(this.dom.roundToast, "");
-        this.#setDataAttributeIfChanged(this.dom.roundToast, "data-visible", "false");
-        this.#setDataAttributeIfChanged(this.dom.roundToast, "data-urgent", "false");
+        this.setTextContentIfChanged(this.dom.roundToast, "");
+        this.setDataAttributeIfChanged(this.dom.roundToast, "data-visible", "false");
+        this.setDataAttributeIfChanged(this.dom.roundToast, "data-urgent", "false");
       }
     }
 
-    this.#drawBonusStats(this.dom.bonusStats, roundInfo.bonuses);
-
-    this.#drawToolCooldownIndicators(roundInfo);
+    this.drawBonusStats(this.dom.bonusStats, roundInfo.bonuses);
+    this.drawToolCooldownIndicators(roundInfo);
   }
 
-  #drawBonusStats(container, bonuses = {}) {
+  drawBonusStats(container, bonuses = {}) {
     if (!container) {
       return;
     }
 
-    const bonusStats = this.#getBonusStats(bonuses);
+    const bonusStats = this.getBonusStats(bonuses);
     const signature = bonusStats
       .map(({ label, value, active }) => `${label}:${value}:${active ? 1 : 0}`)
       .join("|");
@@ -1152,7 +1161,7 @@ export class Renderer {
     }));
   }
 
-  #getBonusStats(bonuses = {}) {
+  getBonusStats(bonuses = {}) {
     const definitions = [
       { key: "moveSpeed", label: "Move", value: bonuses.moveSpeed ?? 0 },
       { key: "jumpPower", label: "Jump", value: bonuses.jumpPower ?? 0 },
@@ -1166,18 +1175,18 @@ export class Renderer {
     ];
 
     return definitions.map(({ label, value }) => ({
-        label,
-        active: Math.abs(value) > 0.0001,
-        value: this.#formatBonusStatValue(value),
-      }));
+      label,
+      active: Math.abs(value) > 0.0001,
+      value: this.formatBonusStatValue(value),
+    }));
   }
 
-  #formatBonusStatValue(value) {
+  formatBonusStatValue(value) {
     const percent = Math.round(value * 100);
     return `${percent >= 0 ? "+" : ""}${percent}%`;
   }
 
-  #drawSurveyPanel(player, target) {
+  drawSurveyPanel(player, target) {
     const stratum = this.world.getStratumAtPixel(player.getCenter().y);
     const stratumSignature = [
       stratum.name,
@@ -1190,23 +1199,23 @@ export class Renderer {
     if (stratumSignature !== this.stratumSignature) {
       this.stratumSignature = stratumSignature;
       if (this.lastStratumIconType !== stratum.base[0].type) {
-        this.#paintIcon(this.dom.stratumIcon, stratum.base[0].type);
+        this.worldRenderer.paintIcon(this.dom.stratumIcon, stratum.base[0].type);
         this.lastStratumIconType = stratum.base[0].type;
       }
-      this.#setTextContentIfChanged(this.dom.stratumName, stratum.name);
-      this.#setTextContentIfChanged(this.dom.stratumDepth, `Depth ${stratum.depth}m`);
+      this.setTextContentIfChanged(this.dom.stratumName, stratum.name);
+      this.setTextContentIfChanged(this.dom.stratumDepth, `Depth ${stratum.depth}m`);
 
       if (this.dom.stratumCoreSwatches) {
         this.dom.stratumCoreSwatches.replaceChildren();
         for (const ore of stratum.primaryOres) {
-          this.#renderOreChip(this.dom.stratumCoreSwatches, ore.type);
+          this.worldRenderer.renderOreChip(this.dom.stratumCoreSwatches, ore.type);
         }
       }
 
       if (this.dom.stratumBonusSwatches) {
         this.dom.stratumBonusSwatches.replaceChildren();
         for (const ore of [...stratum.bonusFromPrev, ...stratum.bonusFromNext]) {
-          this.#renderOreChip(this.dom.stratumBonusSwatches, ore.type);
+          this.worldRenderer.renderOreChip(this.dom.stratumBonusSwatches, ore.type);
         }
       }
     }
@@ -1222,15 +1231,15 @@ export class Renderer {
 
       this.blockSignature = "empty";
       if (this.lastBlockIconType !== TILE_TYPES.EMPTY) {
-        this.#paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
+        this.worldRenderer.paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
         this.lastBlockIconType = TILE_TYPES.EMPTY;
       }
-      this.#setTextContentIfChanged(this.dom.blockName, "None");
-      this.#setTextContentIfChanged(this.dom.blockType, "No target");
-      this.#setTextContentIfChanged(this.dom.blockHp, "--");
-      this.#setTextContentIfChanged(this.dom.blockValue, "--");
-      this.#setTextContentIfChanged(this.dom.blockRange, "--");
-      this.#setTextContentIfChanged(this.dom.blockYield, "--");
+      this.setTextContentIfChanged(this.dom.blockName, "None");
+      this.setTextContentIfChanged(this.dom.blockType, "No target");
+      this.setTextContentIfChanged(this.dom.blockHp, "--");
+      this.setTextContentIfChanged(this.dom.blockValue, "--");
+      this.setTextContentIfChanged(this.dom.blockRange, "--");
+      this.setTextContentIfChanged(this.dom.blockYield, "--");
       return;
     }
 
@@ -1242,15 +1251,15 @@ export class Renderer {
 
       this.blockSignature = "empty";
       if (this.lastBlockIconType !== TILE_TYPES.EMPTY) {
-        this.#paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
+        this.worldRenderer.paintIcon(this.dom.blockIcon, TILE_TYPES.EMPTY);
         this.lastBlockIconType = TILE_TYPES.EMPTY;
       }
-      this.#setTextContentIfChanged(this.dom.blockName, "None");
-      this.#setTextContentIfChanged(this.dom.blockType, "No target");
-      this.#setTextContentIfChanged(this.dom.blockHp, "--");
-      this.#setTextContentIfChanged(this.dom.blockValue, "--");
-      this.#setTextContentIfChanged(this.dom.blockRange, "--");
-      this.#setTextContentIfChanged(this.dom.blockYield, "--");
+      this.setTextContentIfChanged(this.dom.blockName, "None");
+      this.setTextContentIfChanged(this.dom.blockType, "No target");
+      this.setTextContentIfChanged(this.dom.blockHp, "--");
+      this.setTextContentIfChanged(this.dom.blockValue, "--");
+      this.setTextContentIfChanged(this.dom.blockRange, "--");
+      this.setTextContentIfChanged(this.dom.blockYield, "--");
       return;
     }
 
@@ -1264,8 +1273,8 @@ export class Renderer {
     const blockYieldText = tile.type === TILE_TYPES.CHEST
       ? "1 card pick"
       : dropRange
-      ? this.#formatOreDropRange(dropRange)
-      : "--";
+        ? this.formatOreDropRange(dropRange)
+        : "--";
 
     const blockSignature = [
       tile.type,
@@ -1283,18 +1292,18 @@ export class Renderer {
 
     this.blockSignature = blockSignature;
     if (this.lastBlockIconType !== tile.type) {
-      this.#paintIcon(this.dom.blockIcon, tile.type);
+      this.worldRenderer.paintIcon(this.dom.blockIcon, tile.type);
       this.lastBlockIconType = tile.type;
     }
-    this.#setTextContentIfChanged(this.dom.blockName, tile.definition.label);
-    this.#setTextContentIfChanged(this.dom.blockType, blockTypeText);
-    this.#setTextContentIfChanged(this.dom.blockHp, blockHpText);
-    this.#setTextContentIfChanged(this.dom.blockValue, blockValueText);
-    this.#setTextContentIfChanged(this.dom.blockRange, blockRangeText);
-    this.#setTextContentIfChanged(this.dom.blockYield, blockYieldText);
+    this.setTextContentIfChanged(this.dom.blockName, tile.definition.label);
+    this.setTextContentIfChanged(this.dom.blockType, blockTypeText);
+    this.setTextContentIfChanged(this.dom.blockHp, blockHpText);
+    this.setTextContentIfChanged(this.dom.blockValue, blockValueText);
+    this.setTextContentIfChanged(this.dom.blockRange, blockRangeText);
+    this.setTextContentIfChanged(this.dom.blockYield, blockYieldText);
   }
 
-  #formatOreDropRange(dropRange) {
+  formatOreDropRange(dropRange) {
     const normalRange = dropRange.normalMin === dropRange.normalMax
       ? `${dropRange.normalMin}`
       : `${dropRange.normalMin}-${dropRange.normalMax}`;
@@ -1306,7 +1315,7 @@ export class Renderer {
     return `${normalRange} (+${dropRange.bonusMax})`;
   }
 
-  #drawHotbar(inventory) {
+  drawHotbar(inventory) {
     const slots = inventory.getSlots();
     const slotsPerRow = 8;
     const slotSize = 52;
@@ -1335,14 +1344,14 @@ export class Renderer {
         continue;
       }
 
-      this.#drawHotbarItemIcon(x + iconPadding, y + iconPadding, iconSize, slot.itemId);
+      this.worldRenderer.drawHotbarItemIcon(x + iconPadding, y + iconPadding, iconSize, slot.itemId);
       this.ctx.font = "bold 13px 'Segoe UI'";
       this.ctx.fillStyle = "#f2ede3";
       this.ctx.fillText(String(slot.count), x + slotSize - 15, y + slotSize - 11);
     }
   }
 
-  #getHotbarLayout(inventory) {
+  getHotbarLayout(inventory) {
     const slots = inventory.getSlots();
     const slotsPerRow = 8;
     const slotSize = 52;
@@ -1361,10 +1370,10 @@ export class Renderer {
     };
   }
 
-  #drawToolCooldownIndicators(roundInfo) {
-    const { startX, startY, totalWidth, slotSize } = this.#getHotbarLayout({ getSlots: () => Array(8).fill(null) });
+  drawToolCooldownIndicators(roundInfo) {
+    const { startX, startY, totalWidth, slotSize } = this.getHotbarLayout({ getSlots: () => Array(8).fill(null) });
     const centerY = startY + slotSize * 0.5;
-    this.#drawCooldownDial({
+    this.drawCooldownDial({
       centerX: startX - 42,
       centerY,
       progress: roundInfo.platformCooldown ?? 0,
@@ -1378,9 +1387,9 @@ export class Renderer {
         { label: "Q" },
         { icon: "mouse" },
       ],
-      drawIcon: () => this.#drawPlatformClockIcon(),
+      drawIcon: () => this.drawPlatformClockIcon(),
     });
-    this.#drawCooldownDial({
+    this.drawCooldownDial({
       centerX: startX + totalWidth + 42,
       centerY,
       progress: roundInfo.bombCooldown ?? 0,
@@ -1393,25 +1402,11 @@ export class Renderer {
       actions: [
         { label: "B" },
       ],
-      drawIcon: () => this.#drawBombRackIcon(),
+      drawIcon: () => this.drawBombRackIcon(),
     });
   }
 
-  #drawActionPlate(x, y, width, height, label, tint, stroke) {
-    this.ctx.save();
-    this.#drawRoundedPlate(x, y, width, height, 11, "rgba(9, 16, 28, 0.88)", stroke);
-    this.ctx.fillStyle = tint;
-    this.#drawRoundedRectPath(x + 2, y + 2, width - 4, height - 4, 9);
-    this.ctx.fill();
-    this.ctx.fillStyle = "#f2ede3";
-    this.ctx.textAlign = "center";
-    this.ctx.textBaseline = "middle";
-    this.ctx.font = "800 15px 'Segoe UI'";
-    this.ctx.fillText(label, x + width * 0.5, y + height * 0.56);
-    this.ctx.restore();
-  }
-
-  #drawCooldownDial({ centerX, centerY, progress, charges, capacity, accent, mutedAccent, plateStroke, label, actions = [], drawIcon }) {
+  drawCooldownDial({ centerX, centerY, progress, charges, capacity, accent, mutedAccent, plateStroke, label, actions = [], drawIcon }) {
     const radius = 26;
     const disabled = capacity <= 0;
     const remainingArc = Math.max(0, Math.min(1, progress));
@@ -1460,10 +1455,10 @@ export class Renderer {
       const angle = index === 0 ? -Math.PI * 0.75 : -Math.PI * 0.25;
       const badgeX = Math.cos(angle) * radius;
       const badgeY = Math.sin(angle) * radius;
-      this.#drawDialBadge({ x: badgeX, y: badgeY, radius: 10, stroke: badgeStroke, action, disabled });
+      this.drawDialBadge({ x: badgeX, y: badgeY, radius: 10, stroke: badgeStroke, action, disabled });
     });
 
-    this.#drawCounterPlate({
+    this.drawCounterPlate({
       x: 0,
       y: radius + 1,
       width: 32,
@@ -1475,7 +1470,7 @@ export class Renderer {
     this.ctx.restore();
   }
 
-  #drawDialBadge({ x, y, radius, stroke, action = null, valueText = null, disabled = false }) {
+  drawDialBadge({ x, y, radius, stroke, action = null, valueText = null, disabled = false }) {
     this.ctx.save();
     this.ctx.translate(x, y);
     this.ctx.fillStyle = disabled ? "rgba(22, 27, 36, 0.92)" : "rgba(16, 23, 36, 0.94)";
@@ -1500,7 +1495,7 @@ export class Renderer {
       if (disabled) {
         this.ctx.globalAlpha = 0.45;
       }
-      this.#drawMouseActionIcon();
+      this.drawMouseActionIcon();
       this.ctx.restore();
       return;
     }
@@ -1513,10 +1508,10 @@ export class Renderer {
     this.ctx.restore();
   }
 
-  #drawCounterPlate({ x, y, width, height, stroke, valueText, disabled = false }) {
+  drawCounterPlate({ x, y, width, height, stroke, valueText, disabled = false }) {
     this.ctx.save();
     this.ctx.translate(x, y);
-    this.#drawRoundedPlate(
+    this.drawRoundedPlate(
       -width * 0.5,
       -height * 0.5,
       width,
@@ -1533,7 +1528,7 @@ export class Renderer {
     this.ctx.restore();
   }
 
-  #drawMouseActionIcon() {
+  drawMouseActionIcon() {
     this.ctx.save();
     this.ctx.translate(-4.5, -6.5);
     this.ctx.strokeStyle = "rgba(242, 237, 227, 0.94)";
@@ -1548,16 +1543,16 @@ export class Renderer {
     this.ctx.restore();
   }
 
-  #drawRoundedPlate(x, y, width, height, radius, fill, stroke) {
+  drawRoundedPlate(x, y, width, height, radius, fill, stroke) {
     this.ctx.fillStyle = fill;
-    this.#drawRoundedRectPath(x, y, width, height, radius);
+    this.drawRoundedRectPath(x, y, width, height, radius);
     this.ctx.fill();
     this.ctx.strokeStyle = stroke;
     this.ctx.lineWidth = 1.4;
     this.ctx.stroke();
   }
 
-  #drawRoundedRectPath(x, y, width, height, radius) {
+  drawRoundedRectPath(x, y, width, height, radius) {
     const r = Math.min(radius, width * 0.5, height * 0.5);
     this.ctx.beginPath();
     this.ctx.moveTo(x + r, y);
@@ -1568,7 +1563,7 @@ export class Renderer {
     this.ctx.closePath();
   }
 
-  #drawPlatformClockIcon() {
+  drawPlatformClockIcon() {
     this.ctx.fillStyle = "#d7b07b";
     this.ctx.fillRect(-12, 2, 24, 6);
     this.ctx.fillRect(-10, -1, 20, 3);
@@ -1580,7 +1575,7 @@ export class Renderer {
     this.ctx.fillRect(-10, 0, 20, 1);
   }
 
-  #drawBombRackIcon() {
+  drawBombRackIcon() {
     if (this.assets?.bombIcon) {
       this.ctx.drawImage(this.assets.bombIcon, -12, -14, 24, 24);
       return;
@@ -1593,65 +1588,86 @@ export class Renderer {
     this.ctx.fillStyle = "#b78356";
     this.ctx.fillRect(4, -13, 3, 7);
   }
+}
 
-  #drawBombs(bombs) {
-    if (!bombs.length) {
-      return;
-    }
-
-    const frameWidth = 32;
-    const frameHeight = 32;
-    const sheet = this.assets?.bombSpritesheet;
-    const frameCount = sheet ? Math.max(1, Math.floor(sheet.width / frameWidth)) : 1;
-
-    for (const bomb of bombs) {
-      const x = bomb.x - this.camera.x;
-      const y = bomb.y - this.camera.y;
-      if (x + frameWidth < 0 || y + frameHeight < 0 || x > this.viewport.width || y > this.viewport.height) {
-        continue;
-      }
-
-      if (sheet) {
-        const frame = Math.floor((bomb.animationElapsed * 8) % frameCount);
-        this.ctx.drawImage(
-          sheet,
-          frame * frameWidth,
-          0,
-          frameWidth,
-          frameHeight,
-          x,
-          y,
-          frameWidth,
-          frameHeight,
-        );
-        continue;
-      }
-
-      this.ctx.save();
-      this.ctx.translate(x + 16, y + 16);
-      this.ctx.fillStyle = "#1f1a21";
-      this.ctx.beginPath();
-      this.ctx.arc(0, 2, 10, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.ctx.fillStyle = "#b78356";
-      this.ctx.fillRect(4, -10, 3, 8);
-      this.ctx.fillStyle = "#ffb45a";
-      this.ctx.fillRect(5, -13, 2, 3);
-      this.ctx.restore();
-    }
+export class Renderer {
+  constructor(canvas, world) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.world = world;
+    this.viewport = { ...VIEWPORT };
+    this.camera = { x: 0, y: 0 };
+    this.pixelRatio = window.devicePixelRatio || 1;
+    this.assets = null;
+    this.worldRenderer = new RendererWorldSubsystem(this);
+    this.entityRenderer = new RendererEntitySubsystem(this, this.worldRenderer);
+    this.uiRenderer = new RendererUiSubsystem(this, this.worldRenderer);
+    this.resize();
   }
 
-  #drawHotbarItemIcon(x, y, size, itemId) {
-    const tileDefinition = TILE_DEFINITIONS[itemId];
-    if (!tileDefinition) {
-      this.ctx.fillStyle = ITEM_DEFINITIONS[itemId]?.color ?? "#f2ede3";
-      this.ctx.fillRect(x, y, size, size);
-      return;
-    }
+  setWorld(world) {
+    this.world = world;
+  }
 
-    this.ctx.save();
-    this.ctx.translate(x, y);
-    this.#drawProceduralTilePreview(this.ctx, tileDefinition, size);
-    this.ctx.restore();
+  static async loadAssets() {
+    const [tilesheet, spritesheet, bombSpritesheet, bombIcon] = await Promise.all([
+      loadImage("./assets/tiles/tilesheet.png"),
+      loadImage("./assets/sprites/player-spritesheet.png"),
+      loadImage("./assets/sprites/bomb-spritesheet.png"),
+      loadImage("./assets/sprites/bomb-icon.png"),
+    ]);
+
+    return { tilesheet, spritesheet, bombSpritesheet, bombIcon };
+  }
+
+  resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    this.pixelRatio = window.devicePixelRatio || 1;
+    this.canvas.width = Math.round(rect.width * this.pixelRatio);
+    this.canvas.height = Math.round(rect.height * this.pixelRatio);
+    this.ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0);
+    this.ctx.imageSmoothingEnabled = false;
+    this.viewport.width = rect.width || VIEWPORT.width;
+    this.viewport.height = rect.height || VIEWPORT.height;
+  }
+
+  setAssets(assets) {
+    this.assets = assets;
+  }
+
+  markTerrainDirty() {
+  }
+
+  screenToWorld(screenX, screenY) {
+    return {
+      x: this.camera.x + screenX,
+      y: this.camera.y + screenY,
+    };
+  }
+
+  updateCamera(player) {
+    const targetX = player.x - this.viewport.width * 0.5 + player.width * 0.5;
+    const targetY = player.y - this.viewport.height * 0.58 + player.height * 0.5;
+    this.camera.x = Math.max(0, Math.min(targetX, this.world.pixelWidth - this.viewport.width));
+    this.camera.y = Math.max(0, Math.min(targetY, this.world.pixelHeight - this.viewport.height));
+  }
+
+  render({ player, world, inventory, miningResult, hoverTarget, particles, bombs, pickups, floatingTexts, roundInfo }) {
+    this.uiRenderer.updateFrameRateCounter();
+    this.updateCamera(player);
+    this.ctx.clearRect(0, 0, this.viewport.width, this.viewport.height);
+    this.worldRenderer.drawBackground(player);
+    this.worldRenderer.drawVisibleTerrain(world);
+    this.worldRenderer.drawFallingDebris(world.getFallingDebris?.() ?? []);
+    this.entityRenderer.drawBombs(bombs ?? []);
+    this.worldRenderer.drawMiningHighlight(hoverTarget, miningResult);
+    this.entityRenderer.drawPickups(pickups);
+    this.entityRenderer.drawParticles(particles);
+    this.entityRenderer.drawPlayer(player);
+    this.uiRenderer.drawHud(inventory, roundInfo);
+    this.uiRenderer.drawHotbar(inventory);
+    this.uiRenderer.drawSurveyPanel(player, miningResult?.target ?? hoverTarget);
+    this.entityRenderer.drawFloatingTexts(floatingTexts);
+    this.uiRenderer.drawPerformanceCounters(roundInfo);
   }
 }
