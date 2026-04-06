@@ -6,6 +6,7 @@ export const TERRAIN_ATLAS_MANIFEST =
     "tileHeight": 36,
     "magmaFrames": 6,
     "magmaAnimationFps": 6,
+    "crackLevels": 4,
     "atlasPixelSize": 576
   },
   "entries": {

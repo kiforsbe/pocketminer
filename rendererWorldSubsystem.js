@@ -10,6 +10,7 @@ const ATLAS_TILE_OVERFLOW_TOP = 4;
 const ATLAS_TILE_HEIGHT = TILE_SIZE + ATLAS_TILE_OVERFLOW_TOP;
 const MAGMA_FRAME_COUNT = 6;
 const MAGMA_ANIMATION_FPS = 6;
+const CRACK_LEVEL_COUNT = 4;
 
 export class RendererWorldSubsystem extends RendererSubsystem {
   constructor(renderer) {
@@ -45,7 +46,8 @@ export class RendererWorldSubsystem extends RendererSubsystem {
   }
 
   buildCrackAtlasKey(crackLevel) {
-    return `crack:${Math.max(1, Math.min(4, crackLevel))}`;
+    const maxCrackLevel = this.tileAtlasMeta?.crackLevels ?? CRACK_LEVEL_COUNT;
+    return `crack:${Math.max(1, Math.min(maxCrackLevel, crackLevel))}`;
   }
 
   drawPreRenderedBaseTile(context, tile, x, y, column, row) {
@@ -76,7 +78,8 @@ export class RendererWorldSubsystem extends RendererSubsystem {
 
   drawPreRenderedDamageCracks(context, x, y, breakRatio) {
     this.ensureTileAtlas();
-    const crackLevel = Math.min(4, Math.max(1, Math.ceil(breakRatio * 4)));
+    const maxCrackLevel = this.tileAtlasMeta?.crackLevels ?? CRACK_LEVEL_COUNT;
+    const crackLevel = Math.min(maxCrackLevel, Math.max(1, Math.ceil(breakRatio * maxCrackLevel)));
     return this.drawAtlasEntry(context, this.buildCrackAtlasKey(crackLevel), x, y);
   }
 
@@ -110,210 +113,6 @@ export class RendererWorldSubsystem extends RendererSubsystem {
     const elapsedFrames = Math.floor(performance.now() * 0.001 * animationFps);
     const offset = Math.abs((column * 17 + row * 31) % frameCount);
     return (elapsedFrames + offset) % frameCount;
-  }
-
-  drawSurfaceTreatment(context, x, y, surfaceTreatment, surfaceVariant = 0) {
-    if (surfaceTreatment === "grass") {
-      this.drawGrassCap(context, x, y, surfaceVariant);
-    } else if (surfaceTreatment === "moss") {
-      this.drawMossCap(context, x, y);
-    } else if (surfaceTreatment === "rock") {
-      this.drawRockCap(context, x, y, { drawStalagmites: false });
-    } else if (surfaceTreatment === "rock-spires") {
-      this.drawRockCap(context, x, y, { drawStalagmites: true });
-    }
-  }
-
-  drawBaseTileArt(context, definition, x, y, unit, { time = 0, column = 0, row = 0 } = {}) {
-    const drawBackdrop = !["chest", "platform"].includes(definition.type);
-    if (drawBackdrop) {
-      context.fillStyle = definition.fill;
-      context.fillRect(x, y, 32 * unit, 32 * unit);
-      context.strokeStyle = "rgba(0, 0, 0, 0.18)";
-      context.strokeRect(x, y, 32 * unit, 32 * unit);
-    }
-
-    switch (definition.type) {
-      case TILE_TYPES.DIRT:
-        context.fillStyle = definition.accent;
-        for (const chunk of [
-          { x: 3, y: 4, w: 5, h: 4 },
-          { x: 10, y: 5, w: 4, h: 3 },
-          { x: 19, y: 4, w: 4, h: 4 },
-          { x: 24, y: 9, w: 3, h: 3 },
-          { x: 6, y: 13, w: 5, h: 4 },
-          { x: 14, y: 19, w: 4, h: 4 },
-          { x: 22, y: 22, w: 4, h: 3 },
-        ]) {
-          context.fillRect(x + chunk.x * unit, y + chunk.y * unit, chunk.w * unit, chunk.h * unit);
-        }
-        context.fillStyle = "rgba(58, 37, 16, 0.28)";
-        context.fillRect(x + 8 * unit, y + 9 * unit, 3 * unit, 2 * unit);
-        context.fillRect(x + 20 * unit, y + 15 * unit, 4 * unit, 2 * unit);
-        break;
-      case TILE_TYPES.STONE:
-        context.fillStyle = "#5c6678";
-        context.fillRect(x + 4 * unit, y + 4 * unit, 24 * unit, 24 * unit);
-        context.fillStyle = definition.accent;
-        context.fillRect(x + 6 * unit, y + 6 * unit, 20 * unit, 2 * unit);
-        context.fillRect(x + 6 * unit, y + 14 * unit, 20 * unit, 2 * unit);
-        context.fillRect(x + 6 * unit, y + 22 * unit, 20 * unit, 2 * unit);
-        context.fillRect(x + 6 * unit, y + 6 * unit, 2 * unit, 18 * unit);
-        context.fillRect(x + 14 * unit, y + 8 * unit, 2 * unit, 18 * unit);
-        context.fillRect(x + 22 * unit, y + 6 * unit, 2 * unit, 18 * unit);
-        break;
-      case TILE_TYPES.SHALE:
-        context.fillStyle = definition.accent;
-        context.fillRect(x + 4 * unit, y + 6 * unit, 22 * unit, 2 * unit);
-        context.fillRect(x + 7 * unit, y + 12 * unit, 17 * unit, 2 * unit);
-        context.fillRect(x + 5 * unit, y + 19 * unit, 21 * unit, 2 * unit);
-        context.fillStyle = "rgba(35, 42, 54, 0.33)";
-        context.fillRect(x + 12 * unit, y + 5 * unit, 1 * unit, 7 * unit);
-        context.fillRect(x + 20 * unit, y + 11 * unit, 1 * unit, 10 * unit);
-        context.fillRect(x + 8 * unit, y + 18 * unit, 1 * unit, 8 * unit);
-        break;
-      case TILE_TYPES.BASALT:
-        context.fillStyle = definition.accent;
-        context.fillRect(x + 5 * unit, y + 5 * unit, 8 * unit, 8 * unit);
-        context.fillRect(x + 17 * unit, y + 8 * unit, 9 * unit, 9 * unit);
-        context.fillRect(x + 9 * unit, y + 19 * unit, 12 * unit, 6 * unit);
-        context.fillStyle = "rgba(26, 32, 40, 0.36)";
-        context.fillRect(x + 14 * unit, y + 4 * unit, 2 * unit, 24 * unit);
-        break;
-      case TILE_TYPES.MAGMA:
-        this.drawMagmaPattern(context, definition, x, y, 32 * unit, time, column, row);
-        break;
-      case TILE_TYPES.COAL:
-        context.fillStyle = "#221d26";
-        context.fillRect(x + 5 * unit, y + 5 * unit, 8 * unit, 8 * unit);
-        context.fillRect(x + 18 * unit, y + 5 * unit, 7 * unit, 7 * unit);
-        context.fillRect(x + 8 * unit, y + 18 * unit, 7 * unit, 7 * unit);
-        context.fillRect(x + 20 * unit, y + 19 * unit, 5 * unit, 5 * unit);
-        context.fillStyle = "rgba(255, 255, 255, 0.08)";
-        context.fillRect(x + 5 * unit, y + 5 * unit, 8 * unit, 1 * unit);
-        context.fillRect(x + 18 * unit, y + 5 * unit, 7 * unit, 1 * unit);
-        context.fillRect(x + 8 * unit, y + 18 * unit, 7 * unit, 1 * unit);
-        break;
-      case TILE_TYPES.COPPER:
-        context.fillStyle = definition.accent;
-        for (const vein of [
-          { x: 6, y: 6, w: 5, h: 4 },
-          { x: 18, y: 7, w: 6, h: 4 },
-          { x: 10, y: 17, w: 4, h: 7 },
-          { x: 19, y: 18, w: 5, h: 5 },
-        ]) {
-          context.fillRect(x + vein.x * unit, y + vein.y * unit, vein.w * unit, vein.h * unit);
-        }
-        context.fillStyle = "rgba(245, 177, 122, 0.36)";
-        context.fillRect(x + 7 * unit, y + 6 * unit, 2 * unit, 4 * unit);
-        context.fillRect(x + 20 * unit, y + 7 * unit, 2 * unit, 4 * unit);
-        break;
-      case TILE_TYPES.TIN:
-        context.fillStyle = definition.accent;
-        for (const node of [
-          { x: 6, y: 6, w: 4, h: 4 },
-          { x: 11, y: 7, w: 4, h: 5 },
-          { x: 20, y: 8, w: 5, h: 5 },
-          { x: 9, y: 19, w: 5, h: 4 },
-          { x: 16, y: 18, w: 4, h: 6 },
-        ]) {
-          context.fillRect(x + node.x * unit, y + node.y * unit, node.w * unit, node.h * unit);
-        }
-        context.fillStyle = "rgba(255, 255, 255, 0.25)";
-        context.fillRect(x + 7 * unit, y + 6 * unit, 1 * unit, 4 * unit);
-        context.fillRect(x + 21 * unit, y + 8 * unit, 1 * unit, 5 * unit);
-        break;
-      case TILE_TYPES.IRON:
-        context.fillStyle = definition.accent;
-        for (const vein of [
-          { x: 6, y: 6, w: 4, h: 8 },
-          { x: 4, y: 8, w: 8, h: 4 },
-          { x: 19, y: 9, w: 4, h: 7 },
-          { x: 17, y: 11, w: 8, h: 3 },
-          { x: 12, y: 19, w: 5, h: 7 },
-          { x: 10, y: 21, w: 9, h: 3 },
-        ]) {
-          context.fillRect(x + vein.x * unit, y + vein.y * unit, vein.w * unit, vein.h * unit);
-        }
-        context.fillStyle = "rgba(255, 214, 184, 0.28)";
-        context.fillRect(x + 7 * unit, y + 6 * unit, 1 * unit, 8 * unit);
-        context.fillRect(x + 20 * unit, y + 9 * unit, 1 * unit, 7 * unit);
-        context.fillRect(x + 13 * unit, y + 19 * unit, 1 * unit, 7 * unit);
-        break;
-      case TILE_TYPES.SILVER:
-        context.fillStyle = definition.accent;
-        for (const vein of [
-          { x: 7, y: 6, w: 3, h: 9 },
-          { x: 11, y: 9, w: 6, h: 3 },
-          { x: 20, y: 7, w: 3, h: 8 },
-          { x: 14, y: 19, w: 3, h: 7 },
-        ]) {
-          context.fillRect(x + vein.x * unit, y + vein.y * unit, vein.w * unit, vein.h * unit);
-        }
-        context.fillStyle = "rgba(255, 255, 255, 0.3)";
-        context.fillRect(x + 8 * unit, y + 6 * unit, 1 * unit, 9 * unit);
-        context.fillRect(x + 21 * unit, y + 7 * unit, 1 * unit, 8 * unit);
-        break;
-      case TILE_TYPES.GOLD:
-        context.fillStyle = definition.accent;
-        for (const nugget of [
-          { x: 6, y: 7, w: 5, h: 5 },
-          { x: 18, y: 8, w: 6, h: 5 },
-          { x: 11, y: 18, w: 7, h: 6 },
-        ]) {
-          context.fillRect(x + nugget.x * unit, y + nugget.y * unit, nugget.w * unit, nugget.h * unit);
-        }
-        context.fillStyle = "rgba(255, 232, 151, 0.33)";
-        context.fillRect(x + 7 * unit, y + 7 * unit, 2 * unit, 2 * unit);
-        context.fillRect(x + 19 * unit, y + 8 * unit, 2 * unit, 2 * unit);
-        break;
-      case TILE_TYPES.RUBY:
-        context.fillStyle = definition.accent;
-        context.fillRect(x + 8 * unit, y + 6 * unit, 4 * unit, 8 * unit);
-        context.fillRect(x + 20 * unit, y + 9 * unit, 5 * unit, 9 * unit);
-        context.fillRect(x + 13 * unit, y + 19 * unit, 6 * unit, 7 * unit);
-        context.fillStyle = "rgba(255, 171, 186, 0.32)";
-        context.fillRect(x + 9 * unit, y + 6 * unit, 1 * unit, 8 * unit);
-        context.fillRect(x + 21 * unit, y + 9 * unit, 1 * unit, 9 * unit);
-        break;
-      case TILE_TYPES.SAPPHIRE:
-        context.fillStyle = definition.accent;
-        context.fillRect(x + 7 * unit, y + 6 * unit, 4 * unit, 8 * unit);
-        context.fillRect(x + 19 * unit, y + 9 * unit, 5 * unit, 9 * unit);
-        context.fillRect(x + 12 * unit, y + 19 * unit, 6 * unit, 7 * unit);
-        context.fillStyle = "rgba(187, 225, 255, 0.32)";
-        context.fillRect(x + 8 * unit, y + 6 * unit, 1 * unit, 8 * unit);
-        context.fillRect(x + 20 * unit, y + 9 * unit, 1 * unit, 9 * unit);
-        break;
-      case TILE_TYPES.CHEST:
-        context.fillStyle = definition.fill;
-        context.fillRect(x + 5 * unit, y + 10 * unit, 22 * unit, 14 * unit);
-        context.fillRect(x + 7 * unit, y + 7 * unit, 18 * unit, 5 * unit);
-        context.fillStyle = "#34210c";
-        context.fillRect(x + 5 * unit, y + 12 * unit, 22 * unit, 2 * unit);
-        context.fillStyle = definition.accent;
-        context.fillRect(x + 14 * unit, y + 13 * unit, 4 * unit, 8 * unit);
-        context.fillRect(x + 5 * unit, y + 16 * unit, 22 * unit, 2 * unit);
-        break;
-      case TILE_TYPES.PLATFORM:
-        context.fillStyle = definition.fill;
-        context.fillRect(x + 4 * unit, y + 1 * unit, 24 * unit, 5 * unit);
-        context.fillRect(x + 6 * unit, y + 6 * unit, 20 * unit, 2 * unit);
-        context.fillStyle = "#4f3720";
-        context.fillRect(x + 8 * unit, y + 8 * unit, 3 * unit, 6 * unit);
-        context.fillRect(x + 15 * unit, y + 8 * unit, 3 * unit, 6 * unit);
-        context.fillRect(x + 22 * unit, y + 8 * unit, 3 * unit, 6 * unit);
-        context.fillStyle = definition.accent;
-        context.fillRect(x + 6 * unit, y + 2 * unit, 20 * unit, 1 * unit);
-        break;
-      default:
-        break;
-    }
-  }
-
-  paintTilePattern(context, definition, x, y, size, { time = 0, column = 0, row = 0 } = {}) {
-    const unit = size / 32;
-    this.drawBaseTileArt(context, definition, x, y, unit, { time, column, row });
   }
 
   drawBackground(player) {
@@ -510,20 +309,14 @@ export class RendererWorldSubsystem extends RendererSubsystem {
     if (!tile || tile.type === TILE_TYPES.EMPTY) {
       return;
     }
-
-    if (!this.drawPreRenderedBaseTile(context, tile, x, y, column, row)) {
-      this.drawProceduralTile(context, tile, x, y, column, row);
-    }
+    this.drawPreRenderedBaseTile(context, tile, x, y, column, row);
   }
 
   drawSurfaceOverlayLayer(context, tile, x, y) {
     if (!tile?.surfaceTreatment) {
       return;
     }
-
-    if (!this.drawPreRenderedSurfaceOverlay(context, x, y, tile.surfaceTreatment, tile.surfaceVariant ?? 0)) {
-      this.drawSurfaceTreatment(context, x, y, tile.surfaceTreatment, tile.surfaceVariant ?? 0);
-    }
+    this.drawPreRenderedSurfaceOverlay(context, x, y, tile.surfaceTreatment, tile.surfaceVariant ?? 0);
   }
 
   drawDebrisLayer(context, tile, x, y) {
@@ -532,19 +325,14 @@ export class RendererWorldSubsystem extends RendererSubsystem {
     }
 
     const placement = tile.type === TILE_TYPES.PLATFORM ? "top" : "ground";
-    if (!this.drawPreRenderedDebris(context, x, y, tile.debrisType, tile.debrisVariant ?? 0, placement)) {
-      this.drawDebris(context, x, this.getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
-    }
+    this.drawPreRenderedDebris(context, x, y, tile.debrisType, tile.debrisVariant ?? 0, placement);
   }
 
   drawDamageLayer(context, tile, x, y) {
     if (!tile?.breakRatio || tile.breakRatio <= 0) {
       return;
     }
-
-    if (!this.drawPreRenderedDamageCracks(context, x, y, tile.breakRatio)) {
-      this.drawDamageCracks(context, x, y, tile.breakRatio);
-    }
+    this.drawPreRenderedDamageCracks(context, x, y, tile.breakRatio);
   }
 
   drawVisibleTerrain(world) {
@@ -632,205 +420,6 @@ export class RendererWorldSubsystem extends RendererSubsystem {
     this.drawDamageLayer(context, tile, x, y);
   }
 
-  drawProceduralTile(context, tile, x, y, column = 0, row = 0) {
-    this.paintTilePattern(context, tile.definition, x, y, TILE_SIZE, {
-      time: performance.now() * 0.0018,
-      column,
-      row,
-    });
-  }
-
-  drawProceduralTilePreview(context, definition, size) {
-    context.clearRect(0, 0, size, size);
-    if (!definition || definition.pattern === "empty") {
-      return;
-    }
-
-    this.paintTilePattern(context, definition, 0, 0, size, { time: 0, column: 0, row: 0 });
-  }
-
-  drawMagmaPattern(context, definition, x, y, size, time, column, row) {
-    const unit = size / 32;
-    const phase = time * 3.4 + column * 0.73 + row * 0.51;
-    const pulseA = (Math.sin(phase) + 1) * 0.5;
-    const pulseB = (Math.sin(phase * 1.37 + 1.2) + 1) * 0.5;
-    const pulseC = (Math.cos(phase * 1.91 - 0.8) + 1) * 0.5;
-
-    context.fillStyle = definition.fill;
-    context.fillRect(x, y, size, size);
-
-    context.fillStyle = "rgba(33, 12, 16, 0.92)";
-    context.fillRect(x + 2 * unit, y + 2 * unit, 10 * unit, 9 * unit);
-    context.fillRect(x + 18 * unit, y + 3 * unit, 11 * unit, 8 * unit);
-    context.fillRect(x + 4 * unit, y + 19 * unit, 9 * unit, 9 * unit);
-    context.fillRect(x + 16 * unit, y + 18 * unit, 12 * unit, 10 * unit);
-
-    context.fillStyle = `rgb(${160 + Math.round(pulseA * 60)}, ${46 + Math.round(pulseB * 44)}, ${20 + Math.round(pulseC * 18)})`;
-    context.fillRect(x + 4 * unit, y + (6 + Math.round(pulseA * 2)) * unit, 24 * unit, 4 * unit);
-    context.fillRect(x + 6 * unit, y + (14 + Math.round(pulseB * 2)) * unit, 19 * unit, 4 * unit);
-    context.fillRect(x + 8 * unit, y + (22 - Math.round(pulseC * 2)) * unit, 16 * unit, 3 * unit);
-
-    context.fillStyle = `rgb(${220 + Math.round(pulseB * 28)}, ${112 + Math.round(pulseA * 50)}, ${28 + Math.round(pulseC * 20)})`;
-    context.fillRect(x + 9 * unit, y + (8 + Math.round(pulseC * 1.5)) * unit, 5 * unit, 5 * unit);
-    context.fillRect(x + 20 * unit, y + (12 - Math.round(pulseA * 2)) * unit, 4 * unit, 4 * unit);
-    context.fillRect(x + 13 * unit, y + (19 + Math.round(pulseB * 1.5)) * unit, 6 * unit, 5 * unit);
-
-    context.fillStyle = `rgba(255, ${180 + Math.round(pulseA * 40)}, ${88 + Math.round(pulseB * 32)}, 0.7)`;
-    context.fillRect(x + 7 * unit, y + 7 * unit, 16 * unit, 1 * unit);
-    context.fillRect(x + 11 * unit, y + 15 * unit, 10 * unit, 1 * unit);
-    context.fillRect(x + 10 * unit, y + 23 * unit, 8 * unit, 1 * unit);
-  }
-
-  drawGrassCap(context, x, y, variant) {
-    context.fillStyle = "#4a922f";
-    context.fillRect(x, y, TILE_SIZE, 5);
-    context.fillStyle = "#7dcb4f";
-    context.fillRect(x, y, TILE_SIZE, 2);
-    context.fillRect(x + 3, y + 4, 3, 3);
-    context.fillRect(x + 9, y + 5, 4, 3);
-    context.fillRect(x + 17, y + 4, 3, 4);
-    context.fillRect(x + 24, y + 5, 4, 3);
-
-    const flowerPalettes = [
-      {
-        petal: "#f1d04d",
-        center: "#fff4a3",
-        flowers: [
-          { x: 7, y: 1, stem: 4 },
-          { x: 20, y: 2, stem: 4 },
-        ],
-      },
-      {
-        petal: "#b277e8",
-        center: "#f4d7ff",
-        flowers: [
-          { x: 6, y: 2, stem: 3 },
-          { x: 14, y: 1, stem: 4 },
-          { x: 23, y: 2, stem: 3 },
-        ],
-      },
-      {
-        petal: "#58a8ea",
-        center: "#d8f2ff",
-        flowers: [
-          { x: 8, y: 1, stem: 4 },
-          { x: 18, y: 2, stem: 3 },
-          { x: 25, y: 1, stem: 4 },
-        ],
-      },
-    ];
-
-    const palette = flowerPalettes[variant % flowerPalettes.length];
-    context.fillStyle = palette.petal;
-    for (const flower of palette.flowers) {
-      context.fillRect(x + flower.x, y + flower.y, 2, 2);
-      context.fillRect(x + flower.x + 1, y + flower.y - 1, 1, flower.stem);
-    }
-    context.fillStyle = palette.center;
-    for (const flower of palette.flowers) {
-      context.fillRect(x + flower.x + 1, y + flower.y, 1, 1);
-    }
-  }
-
-  drawMossCap(context, x, y) {
-    context.fillStyle = "#2f4a24";
-    context.fillRect(x, y, TILE_SIZE, 4);
-    context.fillStyle = "#456736";
-    context.fillRect(x + 2, y + 1, TILE_SIZE - 4, 2);
-    context.fillRect(x + 4, y + 4, 5, 2);
-    context.fillRect(x + 13, y + 3, 6, 3);
-    context.fillRect(x + 23, y + 4, 4, 2);
-    context.fillStyle = "#d8d1c6";
-    context.fillRect(x + 8, y + 2, 2, 3);
-    context.fillRect(x + 22, y + 1, 2, 4);
-    context.fillStyle = "#7a685f";
-    context.fillRect(x + 7, y + 1, 4, 2);
-    context.fillRect(x + 21, y, 4, 2);
-    context.fillStyle = "#efe6db";
-    context.fillRect(x + 8, y + 1, 1, 1);
-    context.fillRect(x + 22, y, 1, 1);
-  }
-
-  drawRockCap(context, x, y, { drawStalagmites }) {
-    context.fillStyle = "#232934";
-    context.fillRect(x, y, TILE_SIZE, 4);
-    context.fillStyle = "rgba(188, 198, 214, 0.25)";
-    context.fillRect(x + 3, y + 1, 7, 1);
-    context.fillRect(x + 14, y + 2, 5, 1);
-    context.fillRect(x + 23, y + 1, 4, 1);
-
-    if (drawStalagmites) {
-      context.fillStyle = "#5b6577";
-      context.beginPath();
-      context.moveTo(x + 4, y + 4);
-      context.lineTo(x + 7, y - 1);
-      context.lineTo(x + 10, y + 4);
-      context.closePath();
-      context.fill();
-      context.beginPath();
-      context.moveTo(x + 14, y + 4);
-      context.lineTo(x + 17, y - 3);
-      context.lineTo(x + 20, y + 4);
-      context.closePath();
-      context.fill();
-      context.beginPath();
-      context.moveTo(x + 23, y + 4);
-      context.lineTo(x + 26, y);
-      context.lineTo(x + 29, y + 4);
-      context.closePath();
-      context.fill();
-    }
-
-    context.strokeStyle = "rgba(18, 22, 29, 0.72)";
-    context.lineWidth = 1;
-    context.beginPath();
-    context.moveTo(x + 6, y + 4);
-    context.lineTo(x + 10, y + 7);
-    context.moveTo(x + 15, y + 4);
-    context.lineTo(x + 13, y + 8);
-    context.lineTo(x + 18, y + 10);
-    context.moveTo(x + 24, y + 4);
-    context.lineTo(x + 27, y + 8);
-    context.stroke();
-  }
-
-  drawDebris(context, x, y, debrisType, debrisVariant) {
-    const definition = TILE_DEFINITIONS[debrisType] ?? TILE_DEFINITIONS[TILE_TYPES.STONE];
-    const layouts = [
-      [
-        { x: 4, y: 3, w: 5, h: 3 },
-        { x: 12, y: 2, w: 6, h: 4 },
-        { x: 22, y: 3, w: 4, h: 3 },
-      ],
-      [
-        { x: 6, y: 2, w: 4, h: 4 },
-        { x: 14, y: 3, w: 5, h: 3 },
-        { x: 21, y: 2, w: 6, h: 4 },
-      ],
-      [
-        { x: 5, y: 3, w: 6, h: 3 },
-        { x: 15, y: 1, w: 4, h: 5 },
-        { x: 23, y: 3, w: 3, h: 3 },
-      ],
-    ];
-    const pieces = layouts[debrisVariant % layouts.length];
-
-    context.fillStyle = definition.fill;
-    for (const piece of pieces) {
-      context.fillRect(x + piece.x, y + piece.y, piece.w, piece.h);
-    }
-
-    context.fillStyle = definition.accent;
-    for (const piece of pieces) {
-      context.fillRect(x + piece.x + 1, y + piece.y, Math.max(1, piece.w - 2), 1);
-    }
-
-    context.strokeStyle = "rgba(0, 0, 0, 0.28)";
-    context.lineWidth = 1;
-    for (const piece of pieces) {
-      context.strokeRect(x + piece.x, y + piece.y, piece.w, piece.h);
-    }
-  }
 
   drawPlatformTile(tile, column, row) {
     const x = column * TILE_SIZE - this.camera.x;
@@ -853,67 +442,36 @@ export class RendererWorldSubsystem extends RendererSubsystem {
       if (x < -TILE_SIZE || y < -TILE_SIZE || x > this.viewport.width || y > this.viewport.height + TILE_SIZE) {
         continue;
       }
-
-      if (!this.drawPreRenderedDebris(this.ctx, x, y, debris.type, debris.variant, "top")) {
-        this.drawDebris(this.ctx, x, y, debris.type, debris.variant);
-      }
+      this.drawPreRenderedDebris(this.ctx, x, y, debris.type, debris.variant, "top");
     }
   }
 
-  drawDamageCracks(context, x, y, breakRatio) {
-    const crackLevel = Math.min(4, Math.max(1, Math.ceil(breakRatio * 4)));
-    context.strokeStyle = "rgba(16, 18, 24, 0.72)";
-    context.lineWidth = 1.5;
-    context.lineCap = "round";
-
-    context.beginPath();
-    context.moveTo(x + 16, y + 3);
-    context.lineTo(x + 14, y + 10);
-    context.lineTo(x + 11, y + 16);
-    if (crackLevel >= 2) {
-      context.lineTo(x + 12, y + 23);
-      context.lineTo(x + 9, y + 29);
-    }
-    context.moveTo(x + 14, y + 10);
-    context.lineTo(x + 20, y + 13);
-    if (crackLevel >= 3) {
-      context.lineTo(x + 25, y + 10);
-    }
-    context.stroke();
-
-    if (crackLevel >= 2) {
-      context.beginPath();
-      context.moveTo(x + 20, y + 13);
-      context.lineTo(x + 22, y + 19);
-      context.lineTo(x + 26, y + 24);
-      context.moveTo(x + 11, y + 16);
-      context.lineTo(x + 6, y + 18);
-      context.lineTo(x + 4, y + 24);
-      context.stroke();
+  drawTilePreviewFromAtlas(context, tileType, size) {
+    const definition = TILE_DEFINITIONS[tileType];
+    if (!definition || definition.pattern === "empty") {
+      return;
     }
 
-    if (crackLevel >= 3) {
-      context.beginPath();
-      context.moveTo(x + 12, y + 23);
-      context.lineTo(x + 18, y + 26);
-      context.lineTo(x + 22, y + 30);
-      context.moveTo(x + 22, y + 19);
-      context.lineTo(x + 27, y + 17);
-      context.stroke();
+    this.ensureTileAtlas();
+    const frame = tileType === TILE_TYPES.MAGMA ? this.getMagmaFrame(0, 0) : 0;
+    const key = this.buildBaseTileAtlasKey({ type: tileType, frame });
+    const atlasSprite = this.tileAtlasLookup.get(key);
+    if (!this.tileAtlas || !atlasSprite) {
+      return;
     }
 
-    if (crackLevel >= 4) {
-      context.beginPath();
-      context.moveTo(x + 10, y + 8);
-      context.lineTo(x + 6, y + 11);
-      context.moveTo(x + 17, y + 6);
-      context.lineTo(x + 23, y + 4);
-      context.moveTo(x + 7, y + 25);
-      context.lineTo(x + 4, y + 29);
-      context.moveTo(x + 25, y + 24);
-      context.lineTo(x + 28, y + 28);
-      context.stroke();
-    }
+    context.clearRect(0, 0, size, size);
+    context.drawImage(
+      this.tileAtlas,
+      atlasSprite.x,
+      atlasSprite.y + (this.tileAtlasMeta?.overflowTop ?? ATLAS_TILE_OVERFLOW_TOP),
+      TILE_SIZE,
+      TILE_SIZE,
+      0,
+      0,
+      size,
+      size,
+    );
   }
 
   paintIcon(canvas, tileType) {
@@ -923,7 +481,7 @@ export class RendererWorldSubsystem extends RendererSubsystem {
 
     const context = canvas.getContext("2d");
     context.imageSmoothingEnabled = false;
-    this.drawProceduralTilePreview(context, TILE_DEFINITIONS[tileType], canvas.width);
+    this.drawTilePreviewFromAtlas(context, tileType, canvas.width);
   }
 
   renderOreChip(container, tileType) {
@@ -944,7 +502,7 @@ export class RendererWorldSubsystem extends RendererSubsystem {
 
     const context = canvas.getContext("2d");
     context.imageSmoothingEnabled = false;
-    this.drawProceduralTilePreview(context, definition, 18);
+    this.drawTilePreviewFromAtlas(context, tileType, 18);
   }
 
   drawMiningHighlight(hoverTarget, miningResult) {
@@ -971,7 +529,7 @@ export class RendererWorldSubsystem extends RendererSubsystem {
 
     context.save();
     context.translate(x, y);
-    this.drawProceduralTilePreview(context, tileDefinition, size);
+    this.drawTilePreviewFromAtlas(context, itemId, size);
     context.restore();
   }
 }

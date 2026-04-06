@@ -546,6 +546,8 @@ function Draw-DamageCracks {
     [int]$CrackLevel
   )
 
+  $normalizedLevel = [Math]::Max(1, [Math]::Min($crackLevelCount, $CrackLevel))
+
   $segments = @(
     @(
       [System.Drawing.PointF]::new([float]($X + 16), [float]($Y + 3)),
@@ -558,53 +560,59 @@ function Draw-DamageCracks {
     )
   )
 
-  if ($CrackLevel -ge 2) {
+  if ($normalizedLevel -ge 2) {
     $segments += @(
-      [System.Drawing.PointF]::new([float]($X + 11), [float]($Y + 16)),
-      [System.Drawing.PointF]::new([float]($X + 12), [float]($Y + 23)),
-      [System.Drawing.PointF]::new([float]($X + 9), [float]($Y + 29))
-    )
-    $segments += @(
-      [System.Drawing.PointF]::new([float]($X + 20), [float]($Y + 13)),
-      [System.Drawing.PointF]::new([float]($X + 22), [float]($Y + 19)),
-      [System.Drawing.PointF]::new([float]($X + 26), [float]($Y + 24))
-    )
-    $segments += @(
-      [System.Drawing.PointF]::new([float]($X + 11), [float]($Y + 16)),
-      [System.Drawing.PointF]::new([float]($X + 6), [float]($Y + 18)),
-      [System.Drawing.PointF]::new([float]($X + 4), [float]($Y + 24))
+      @(
+        [System.Drawing.PointF]::new([float]($X + 11), [float]($Y + 16)),
+        [System.Drawing.PointF]::new([float]($X + 12), [float]($Y + 23)),
+        [System.Drawing.PointF]::new([float]($X + 9), [float]($Y + 29))
+      ),
+      @(
+        [System.Drawing.PointF]::new([float]($X + 20), [float]($Y + 13)),
+        [System.Drawing.PointF]::new([float]($X + 22), [float]($Y + 19)),
+        [System.Drawing.PointF]::new([float]($X + 26), [float]($Y + 24))
+      ),
+      @(
+        [System.Drawing.PointF]::new([float]($X + 11), [float]($Y + 16)),
+        [System.Drawing.PointF]::new([float]($X + 6), [float]($Y + 18)),
+        [System.Drawing.PointF]::new([float]($X + 4), [float]($Y + 24))
+      )
     )
   }
 
-  if ($CrackLevel -ge 3) {
+  if ($normalizedLevel -ge 3) {
     $segments[1] += [System.Drawing.PointF]::new([float]($X + 25), [float]($Y + 10))
     $segments += @(
-      [System.Drawing.PointF]::new([float]($X + 12), [float]($Y + 23)),
-      [System.Drawing.PointF]::new([float]($X + 18), [float]($Y + 26)),
-      [System.Drawing.PointF]::new([float]($X + 22), [float]($Y + 30))
-    )
-    $segments += @(
-      [System.Drawing.PointF]::new([float]($X + 22), [float]($Y + 19)),
-      [System.Drawing.PointF]::new([float]($X + 27), [float]($Y + 17))
+      @(
+        [System.Drawing.PointF]::new([float]($X + 12), [float]($Y + 23)),
+        [System.Drawing.PointF]::new([float]($X + 18), [float]($Y + 26)),
+        [System.Drawing.PointF]::new([float]($X + 22), [float]($Y + 30))
+      ),
+      @(
+        [System.Drawing.PointF]::new([float]($X + 22), [float]($Y + 19)),
+        [System.Drawing.PointF]::new([float]($X + 27), [float]($Y + 17))
+      )
     )
   }
 
-  if ($CrackLevel -ge 4) {
+  if ($normalizedLevel -ge 4) {
     $segments += @(
-      [System.Drawing.PointF]::new([float]($X + 10), [float]($Y + 8)),
-      [System.Drawing.PointF]::new([float]($X + 6), [float]($Y + 11))
-    )
-    $segments += @(
-      [System.Drawing.PointF]::new([float]($X + 17), [float]($Y + 6)),
-      [System.Drawing.PointF]::new([float]($X + 23), [float]($Y + 4))
-    )
-    $segments += @(
-      [System.Drawing.PointF]::new([float]($X + 7), [float]($Y + 25)),
-      [System.Drawing.PointF]::new([float]($X + 4), [float]($Y + 29))
-    )
-    $segments += @(
-      [System.Drawing.PointF]::new([float]($X + 25), [float]($Y + 24)),
-      [System.Drawing.PointF]::new([float]($X + 28), [float]($Y + 28))
+      @(
+        [System.Drawing.PointF]::new([float]($X + 10), [float]($Y + 8)),
+        [System.Drawing.PointF]::new([float]($X + 6), [float]($Y + 11))
+      ),
+      @(
+        [System.Drawing.PointF]::new([float]($X + 17), [float]($Y + 6)),
+        [System.Drawing.PointF]::new([float]($X + 23), [float]($Y + 4))
+      ),
+      @(
+        [System.Drawing.PointF]::new([float]($X + 7), [float]($Y + 25)),
+        [System.Drawing.PointF]::new([float]($X + 4), [float]($Y + 29))
+      ),
+      @(
+        [System.Drawing.PointF]::new([float]($X + 25), [float]($Y + 24)),
+        [System.Drawing.PointF]::new([float]($X + 28), [float]($Y + 28))
+      )
     )
   }
 
@@ -640,6 +648,7 @@ $overflowTop = 4
 $tileHeight = $tileSize + $overflowTop
 $magmaFrameCount = 6
 $magmaAnimationFps = 6
+$crackLevelCount = 4
 $atlasPixelSize = 576
 $atlasColumns = [int]($atlasPixelSize / $tileSize)
 $atlasRows = [int]($atlasPixelSize / $tileHeight)
@@ -734,7 +743,7 @@ foreach ($definition in $tileDefinitions) {
 }
 
 $crackEntries = New-EntryList
-for ($crackLevel = 1; $crackLevel -le 4; $crackLevel += 1) {
+for ($crackLevel = 1; $crackLevel -le $crackLevelCount; $crackLevel += 1) {
   $crackEntries.Add([ordered]@{ key = Build-CrackKey $crackLevel; kind = 'crack'; crackLevel = $crackLevel })
 }
 
@@ -832,6 +841,7 @@ Add-EntriesToLayout $layoutEntries $debrisEntriesByType.sapphire 6 7 3
         tileHeight = $tileHeight
         magmaFrames = $magmaFrameCount
         magmaAnimationFps = $magmaAnimationFps
+        crackLevels = $crackLevelCount
         atlasPixelSize = $atlasPixelSize
       }
       entries = $manifestEntries
