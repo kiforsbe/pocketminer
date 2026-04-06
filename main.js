@@ -21,6 +21,7 @@ import {
   DEFAULT_BAG_ROOT_ID,
   DEFAULT_CAPACITY_ROOT_ID,
   DEFAULT_GAME_MODE,
+  DEFAULT_PLATFORM_ROOT_ID,
   DEFAULT_SLOT_COUNT,
   DEFAULT_STACK_SIZE,
   DEFAULT_TIME_ROOT_ID,
@@ -96,6 +97,10 @@ function getPlatformCooldownDuration() {
   return PLATFORM_COOLDOWN_SECONDS / (1 + (gameState.playerBonuses.platformCooldown ?? 0));
 }
 
+function getPlatformCapacity() {
+  return getToolDefinition(gameState.platformUpgradeId ?? DEFAULT_PLATFORM_ROOT_ID)?.platformCapacity ?? 1;
+}
+
 function getBombCooldownDuration() {
   return BOMB_COOLDOWN_SECONDS / (1 + (gameState.playerBonuses.bombRestock ?? 0));
 }
@@ -136,6 +141,7 @@ const gameState = {
   bagUpgradeId: DEFAULT_BAG_ROOT_ID,
   capacityUpgradeId: DEFAULT_CAPACITY_ROOT_ID,
   timeUpgradeId: DEFAULT_TIME_ROOT_ID,
+  platformUpgradeId: DEFAULT_PLATFORM_ROOT_ID,
   bombUpgradeId: null,
   inventory: new Inventory({ slotCount: DEFAULT_SLOT_COUNT, stackSize: DEFAULT_STACK_SIZE }),
   miningResult: null,
@@ -147,6 +153,7 @@ const gameState = {
   pickups: [],
   floatingTexts: [],
   platformCooldown: 0,
+  platformCharges: getToolDefinition(DEFAULT_PLATFORM_ROOT_ID).platformCapacity ?? 1,
   bombCooldown: 0,
   bombCharges: 0,
   phase: "intro",
@@ -246,6 +253,7 @@ const platformPlacementSystem = createPlatformPlacementSystem({
   audio,
   getPlayer: () => player,
   getWorld: () => world,
+  getPlatformCapacity,
   getPlatformCooldownDuration,
 });
 
@@ -450,6 +458,7 @@ function resetGameToIntro() {
   gameState.bagUpgradeId = DEFAULT_BAG_ROOT_ID;
   gameState.capacityUpgradeId = DEFAULT_CAPACITY_ROOT_ID;
   gameState.timeUpgradeId = DEFAULT_TIME_ROOT_ID;
+  gameState.platformUpgradeId = DEFAULT_PLATFORM_ROOT_ID;
   gameState.bombUpgradeId = null;
   gameState.inventory = new Inventory({ slotCount: DEFAULT_SLOT_COUNT, stackSize: DEFAULT_STACK_SIZE });
   gameState.miningResult = null;
@@ -460,6 +469,7 @@ function resetGameToIntro() {
   gameState.pickups = [];
   gameState.floatingTexts = [];
   gameState.platformCooldown = 0;
+  gameState.platformCharges = getPlatformCapacity();
   gameState.bombCooldown = 0;
   gameState.bombCharges = 0;
   gameState.phase = "intro";
@@ -627,6 +637,7 @@ function update(dt, timeSeconds) {
 
   gameState.timeLeft = Math.max(0, gameState.timeLeft - dt);
   gameState.platformCooldown = Math.max(0, gameState.platformCooldown - dt);
+  refillPlatformChargesIfReady();
   updateRoundNotification(dt);
   checkRoundMilestones();
   playCountdownTickIfNeeded(dt);
@@ -694,9 +705,11 @@ function render() {
       bonuses: gameState.playerBonuses,
       showPerformance: gameState.performance.visible,
       tickRate: gameState.performance.displayedTickRate,
-      platformCooldown: gameState.platformCooldown / getPlatformCooldownDuration(),
-      platformCharges: gameState.platformCooldown <= 0 ? 1 : 0,
-      platformCapacity: 1,
+      platformCooldown: gameState.platformCharges < getPlatformCapacity()
+        ? gameState.platformCooldown / getPlatformCooldownDuration()
+        : 0,
+      platformCharges: gameState.platformCharges,
+      platformCapacity: getPlatformCapacity(),
       bombCooldown: gameState.bombCharges < getBombCapacity() ? gameState.bombCooldown / getBombCooldownDuration() : 0,
       bombCharges: gameState.bombCharges,
       bombCapacity: getBombCapacity(),
@@ -757,6 +770,29 @@ function createInventoryForLoadout(previousInventory = null) {
   return inventory;
 }
 
+function refillPlatformChargesIfReady() {
+  const capacity = getPlatformCapacity();
+  if (capacity <= 0) {
+    gameState.platformCharges = 0;
+    gameState.platformCooldown = 0;
+    return;
+  }
+
+  if (gameState.platformCharges > capacity) {
+    gameState.platformCharges = capacity;
+  }
+
+  if (gameState.platformCharges >= capacity) {
+    gameState.platformCooldown = 0;
+    return;
+  }
+
+  if (gameState.platformCooldown <= 0) {
+    gameState.platformCharges += 1;
+    gameState.platformCooldown = gameState.platformCharges < capacity ? getPlatformCooldownDuration() : 0;
+  }
+}
+
 function startNextRound() {
   gameState.round += 1;
   gameState.phase = "countdown";
@@ -769,6 +805,7 @@ function startNextRound() {
   gameState.pickups = [];
   gameState.floatingTexts = [];
   gameState.platformCooldown = 0;
+  gameState.platformCharges = getPlatformCapacity();
   gameState.bombCooldown = 0;
   gameState.bombCharges = getBombCapacity();
   gameState.roundStats = createRoundStats();

@@ -3,6 +3,7 @@ import {
   DEFAULT_BAG_ROOT_ID,
   DEFAULT_CAPACITY_ROOT_ID,
   DEFAULT_GAME_MODE,
+  DEFAULT_PLATFORM_ROOT_ID,
   DEFAULT_SLOT_COUNT,
   DEFAULT_STACK_SIZE,
   DEFAULT_TIME_ROOT_ID,
@@ -15,7 +16,7 @@ import {
 const STORE_CATEGORY_ORDER = Object.freeze([
   { id: "tools", label: "Tools", branchIds: ["pickaxe", "bombs"] },
   { id: "storage", label: "Storage", branchIds: ["bags", "capacity"] },
-  { id: "misc", label: "Misc", branchIds: ["time"] },
+  { id: "misc", label: "Misc", branchIds: ["time", "platforms"] },
 ]);
 
 export function createStoreController({
@@ -399,6 +400,15 @@ export function createStoreController({
       };
     }
 
+    if (tool.category === "platform-root" || tool.category === "platform") {
+      return {
+        text: `${tool.platformCapacity ?? 1}x`.slice(0, 3),
+        background: "linear-gradient(180deg, #6f6345, #2f2518)",
+        glow: "0 0 18px rgba(241, 208, 77, 0.24)",
+        material: "Rigging",
+      };
+    }
+
     if (tool.category === "time") {
       return {
         text: `${tool.durationSeconds}s`,
@@ -511,6 +521,13 @@ export function createStoreController({
         <div>Shift Length: ${tool.durationSeconds}s</div>
         <div>Effect: Longer mining shift</div>
       `;
+    } else if (tool.category === "platform-root" || tool.category === "platform") {
+      storeTooltipStats.innerHTML = `
+        <div>Branch: ${tool.branchLabel}</div>
+        <div>Cost: ${tool.price}€</div>
+        <div>Ready Platforms: ${tool.platformCapacity ?? 1}</div>
+        <div>Reload: One platform every 3s</div>
+      `;
     } else if (tool.category === "bomb") {
       storeTooltipStats.innerHTML = `
         <div>Branch: ${tool.branchLabel}</div>
@@ -599,6 +616,10 @@ export function createStoreController({
       gameState.inventory = createInventoryForLoadout(gameState.inventory);
     } else if (tool.branchId === "time") {
       gameState.timeUpgradeId = tool.id;
+    } else if (tool.branchId === "platforms") {
+      gameState.platformUpgradeId = tool.id;
+      gameState.platformCharges = tool.platformCapacity ?? gameState.platformCharges;
+      gameState.platformCooldown = 0;
     } else if (tool.branchId === "bombs") {
       gameState.bombUpgradeId = tool.id;
       gameState.bombCharges = tool.bombCapacity ?? gameState.bombCharges;
@@ -626,6 +647,10 @@ export function createStoreController({
 
     if (branchId === "time") {
       return gameState.timeUpgradeId ?? DEFAULT_TIME_ROOT_ID;
+    }
+
+    if (branchId === "platforms") {
+      return gameState.platformUpgradeId ?? DEFAULT_PLATFORM_ROOT_ID;
     }
 
     if (branchId === "bombs") {

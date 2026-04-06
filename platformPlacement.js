@@ -7,6 +7,7 @@ export function createPlatformPlacementSystem({
   audio,
   getPlayer,
   getWorld,
+  getPlatformCapacity,
   getPlatformCooldownDuration,
 }) {
   function hasLineOfSightToCell(origin, target, targetColumn, targetRow) {
@@ -73,7 +74,7 @@ export function createPlatformPlacementSystem({
 
   return {
     update() {
-      if (gameState.phase !== "playing" || gameState.platformCooldown > 0 || !input.wasPressed("placePlatform")) {
+      if (gameState.phase !== "playing" || getPlatformCapacity() <= 0 || gameState.platformCharges <= 0 || !input.wasPressed("placePlatform")) {
         return;
       }
 
@@ -87,7 +88,10 @@ export function createPlatformPlacementSystem({
         return;
       }
 
-      gameState.platformCooldown = getPlatformCooldownDuration();
+      gameState.platformCharges = Math.max(0, gameState.platformCharges - 1);
+      if (gameState.platformCharges < getPlatformCapacity() && gameState.platformCooldown <= 0) {
+        gameState.platformCooldown = getPlatformCooldownDuration();
+      }
       audio.playSound("blockBreak", { playbackRate: 1.24, volume: 0.16 });
     },
   };

@@ -1413,31 +1413,44 @@ export class Renderer {
 
   #drawCooldownDial({ centerX, centerY, progress, charges, capacity, accent, mutedAccent, plateStroke, label, actions = [], drawIcon }) {
     const radius = 26;
+    const disabled = capacity <= 0;
     const remainingArc = Math.max(0, Math.min(1, progress));
-    const ready = capacity > 0 ? charges > 0 : progress <= 0;
+    const ready = !disabled && charges > 0;
+    const dialFill = disabled ? "rgba(18, 23, 32, 0.88)" : "rgba(10, 16, 28, 0.9)";
+    const dialStroke = disabled ? "rgba(108, 118, 132, 0.4)" : (ready ? accent : mutedAccent);
+    const arcFill = disabled ? "rgba(82, 90, 102, 0.3)" : "rgba(120, 132, 148, 0.4)";
+    const labelFill = disabled ? "rgba(136, 145, 156, 0.7)" : "rgba(136, 185, 216, 0.88)";
+    const badgeStroke = disabled ? "rgba(108, 118, 132, 0.35)" : plateStroke;
 
     this.ctx.save();
     this.ctx.translate(centerX, centerY);
-    this.ctx.fillStyle = "rgba(10, 16, 28, 0.9)";
+    this.ctx.fillStyle = dialFill;
     this.ctx.beginPath();
     this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
     this.ctx.fill();
-    this.ctx.strokeStyle = ready ? accent : mutedAccent;
+    this.ctx.strokeStyle = dialStroke;
     this.ctx.lineWidth = 2.5;
     this.ctx.stroke();
 
     if (remainingArc > 0) {
       this.ctx.beginPath();
       this.ctx.moveTo(0, 0);
-      this.ctx.fillStyle = "rgba(120, 132, 148, 0.4)";
+      this.ctx.fillStyle = arcFill;
       this.ctx.arc(-0.0001, -0.0001, radius - 2, -Math.PI * 0.5, -Math.PI * 0.5 - Math.PI * 2 * remainingArc, true);
       this.ctx.closePath();
       this.ctx.fill();
     }
 
-    drawIcon();
+    if (disabled) {
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.4;
+      drawIcon();
+      this.ctx.restore();
+    } else {
+      drawIcon();
+    }
 
-    this.ctx.fillStyle = "rgba(136, 185, 216, 0.88)";
+    this.ctx.fillStyle = labelFill;
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "alphabetic";
     this.ctx.font = "700 9px 'Segoe UI'";
@@ -1447,17 +1460,25 @@ export class Renderer {
       const angle = index === 0 ? -Math.PI * 0.75 : -Math.PI * 0.25;
       const badgeX = Math.cos(angle) * radius;
       const badgeY = Math.sin(angle) * radius;
-      this.#drawDialBadge({ x: badgeX, y: badgeY, radius: 10, stroke: plateStroke, action });
+      this.#drawDialBadge({ x: badgeX, y: badgeY, radius: 10, stroke: badgeStroke, action, disabled });
     });
 
-    this.#drawCounterPlate({ x: 0, y: radius + 1, width: 32, height: 18, stroke: plateStroke, valueText: `${charges}/${capacity}` });
+    this.#drawCounterPlate({
+      x: 0,
+      y: radius + 1,
+      width: 32,
+      height: 18,
+      stroke: badgeStroke,
+      valueText: `${charges}/${capacity}`,
+      disabled,
+    });
     this.ctx.restore();
   }
 
-  #drawDialBadge({ x, y, radius, stroke, action = null, valueText = null }) {
+  #drawDialBadge({ x, y, radius, stroke, action = null, valueText = null, disabled = false }) {
     this.ctx.save();
     this.ctx.translate(x, y);
-    this.ctx.fillStyle = "rgba(16, 23, 36, 0.94)";
+    this.ctx.fillStyle = disabled ? "rgba(22, 27, 36, 0.92)" : "rgba(16, 23, 36, 0.94)";
     this.ctx.beginPath();
     this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
     this.ctx.fill();
@@ -1466,7 +1487,7 @@ export class Renderer {
     this.ctx.stroke();
 
     if (valueText !== null) {
-      this.ctx.fillStyle = "#f2ede3";
+      this.ctx.fillStyle = disabled ? "rgba(188, 192, 198, 0.75)" : "#f2ede3";
       this.ctx.textAlign = "center";
       this.ctx.textBaseline = "middle";
       this.ctx.font = "800 9px 'Segoe UI'";
@@ -1476,12 +1497,15 @@ export class Renderer {
     }
 
     if (action?.icon === "mouse") {
+      if (disabled) {
+        this.ctx.globalAlpha = 0.45;
+      }
       this.#drawMouseActionIcon();
       this.ctx.restore();
       return;
     }
 
-    this.ctx.fillStyle = "#f2ede3";
+    this.ctx.fillStyle = disabled ? "rgba(188, 192, 198, 0.75)" : "#f2ede3";
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
     this.ctx.font = "500 11px 'Segoe UI'";
@@ -1489,11 +1513,19 @@ export class Renderer {
     this.ctx.restore();
   }
 
-  #drawCounterPlate({ x, y, width, height, stroke, valueText }) {
+  #drawCounterPlate({ x, y, width, height, stroke, valueText, disabled = false }) {
     this.ctx.save();
     this.ctx.translate(x, y);
-    this.#drawRoundedPlate(-width * 0.5, -height * 0.5, width, height, 8, "rgba(16, 23, 36, 0.94)", stroke);
-    this.ctx.fillStyle = "#f2ede3";
+    this.#drawRoundedPlate(
+      -width * 0.5,
+      -height * 0.5,
+      width,
+      height,
+      8,
+      disabled ? "rgba(22, 27, 36, 0.92)" : "rgba(16, 23, 36, 0.94)",
+      stroke,
+    );
+    this.ctx.fillStyle = disabled ? "rgba(188, 192, 198, 0.75)" : "#f2ede3";
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
     this.ctx.font = "500 11px 'Segoe UI'";

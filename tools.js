@@ -22,6 +22,7 @@ function createTool({
   slotCount = null,
   stackSize = null,
   durationSeconds = null,
+  platformCapacity = null,
   bombCapacity = null,
   iconSrc = null,
   isRoot = false,
@@ -43,6 +44,7 @@ function createTool({
     slotCount,
     stackSize,
     durationSeconds,
+    platformCapacity,
     bombCapacity,
     iconSrc,
     isRoot,
@@ -54,6 +56,7 @@ export const DEFAULT_TOOL_ID = "bare-hands";
 export const DEFAULT_BAG_ROOT_ID = "trouser-pockets";
 export const DEFAULT_CAPACITY_ROOT_ID = "small-size";
 export const DEFAULT_TIME_ROOT_ID = "time-root";
+export const DEFAULT_PLATFORM_ROOT_ID = "platform-rig";
 export const DEFAULT_SLOT_COUNT = 8;
 export const DEFAULT_STACK_SIZE = 8;
 export const BAG_SLOT_COUNT = 8;
@@ -99,6 +102,20 @@ export const TOOL_DEFINITIONS = Object.freeze({
     description: "The basic shift timer. Time upgrades can branch from here later.",
     tier: 0,
     durationSeconds: 60,
+    isRoot: true,
+  }),
+  [DEFAULT_PLATFORM_ROOT_ID]: createTool({
+    id: DEFAULT_PLATFORM_ROOT_ID,
+    label: "Platform Rig",
+    category: "platform-root",
+    storeCategory: "tools",
+    branchId: "platforms",
+    branchLabel: "Platforms",
+    price: 0,
+    miningPower: 0,
+    description: "Your starter rig carries one deployable platform charge.",
+    tier: 0,
+    platformCapacity: 1,
     isRoot: true,
   }),
   [DEFAULT_TOOL_ID]: createTool({
@@ -326,6 +343,32 @@ export const TOOL_DEFINITIONS = Object.freeze({
     tier: 2,
     durationSeconds: 150,
   }),
+  "platform-1": createTool({
+    id: "platform-1",
+    label: "Brace Kit",
+    category: "platform",
+    storeCategory: "tools",
+    branchId: "platforms",
+    branchLabel: "Platforms",
+    price: 450,
+    miningPower: 0,
+    description: "Expands the rig to hold three platform charges before the spool needs to reload.",
+    tier: 1,
+    platformCapacity: 3,
+  }),
+  "platform-2": createTool({
+    id: "platform-2",
+    label: "Scaffold Crate",
+    category: "platform",
+    storeCategory: "tools",
+    branchId: "platforms",
+    branchLabel: "Platforms",
+    price: 1800,
+    miningPower: 0,
+    description: "Outfits the rig with five ready platforms for longer bridge chains between reloads.",
+    tier: 2,
+    platformCapacity: 5,
+  }),
   "bomb-1": createTool({
     id: "bomb-1",
     label: "Bomb Rack",
@@ -378,6 +421,7 @@ export const GAME_MODE_DEFINITIONS = Object.freeze({
       DEFAULT_BAG_ROOT_ID,
       DEFAULT_CAPACITY_ROOT_ID,
       DEFAULT_TIME_ROOT_ID,
+      DEFAULT_PLATFORM_ROOT_ID,
       DEFAULT_TOOL_ID,
       "wood-pick",
       "copper-pick",
@@ -395,6 +439,8 @@ export const GAME_MODE_DEFINITIONS = Object.freeze({
       "capacity-4",
       "time-1",
       "time-2",
+      "platform-1",
+      "platform-2",
       "bomb-1",
       "bomb-2",
       "bomb-3",
