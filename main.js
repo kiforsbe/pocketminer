@@ -9,6 +9,13 @@ import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { createIntroScreenController } from "./introScreen.js";
 import { Input } from "./input.js";
 import { createMusicManifest, createMusicSystem } from "./musicSystem.js";
+import {
+  decodePassword,
+  encodePassword,
+  formatPassword,
+  getPasswordHelpText,
+  PASSWORD_BONUS_KEYS,
+} from "./passwordSystem.js";
 import { createPauseScreenController } from "./pauseScreen.js";
 import { createParticleSystem } from "./particleSystem.js";
 import { Player } from "./player.js";
@@ -89,6 +96,37 @@ const cardFooter = document.getElementById("card-footer");
 const shiftCountdownOverlay = document.getElementById("shift-countdown-overlay");
 const shiftCountdownValue = document.getElementById("shift-countdown-value");
 const roundTimer = document.getElementById("round-timer");
+const introPasswordDisplay = document.getElementById("intro-password-display");
+const introPasswordEntry = document.getElementById("intro-password-entry");
+const introPasswordInput = document.getElementById("intro-password-input");
+const introPasswordToggle = document.getElementById("intro-password-toggle");
+const introPasswordSubmit = document.getElementById("intro-password-submit");
+const introPasswordStatus = document.getElementById("intro-password-status");
+const pausePasswordDisplay = document.getElementById("pause-password-display");
+const pausePasswordEntry = document.getElementById("pause-password-entry");
+const pausePasswordInput = document.getElementById("pause-password-input");
+const pausePasswordToggle = document.getElementById("pause-password-toggle");
+const pausePasswordSubmit = document.getElementById("pause-password-submit");
+const pausePasswordStatus = document.getElementById("pause-password-status");
+
+const PICKAXE_PASSWORD_TIERS = Object.freeze([
+  DEFAULT_TOOL_ID,
+  "wood-pick",
+  "copper-pick",
+  "tin-pick",
+  "iron-pick",
+  "silver-pick",
+  "gold-pick",
+  "ruby-pick",
+  "sapphire-pick",
+]);
+const BAG_PASSWORD_TIERS = Object.freeze([DEFAULT_BAG_ROOT_ID, "bag-1", "bag-2"]);
+const CAPACITY_PASSWORD_TIERS = Object.freeze([DEFAULT_CAPACITY_ROOT_ID, "capacity-1", "capacity-2", "capacity-3", "capacity-4"]);
+const TIME_PASSWORD_TIERS = Object.freeze([DEFAULT_TIME_ROOT_ID, "time-1", "time-2", "time-3"]);
+const PLATFORM_PASSWORD_TIERS = Object.freeze([DEFAULT_PLATFORM_ROOT_ID, "platform-1", "platform-2"]);
+const BOMB_CAPACITY_PASSWORD_TIERS = Object.freeze([BOMB_CAPACITY_ROOT_ID, "bomb-capacity-2", "bomb-capacity-3", "bomb-capacity-5"]);
+const BOMB_TYPE_PASSWORD_TIERS = Object.freeze([BOMB_TYPE_ROOT_ID, "bomb-type-2", "bomb-type-3", "bomb-type-4"]);
+const PASSWORD_ENTRY_HELP_TEXT = getPasswordHelpText();
 
 function isMusicActivePhase(phase = gameState.phase) {
   return phase === "countdown" || phase === "playing" || phase === "reward" || phase === "summary";
@@ -230,6 +268,27 @@ const pauseScreenController = createPauseScreenController({
   },
 });
 
+const passwordPanels = Object.freeze([
+  {
+    controller: introScreenController,
+    displayEl: introPasswordDisplay,
+    entryEl: introPasswordEntry,
+    inputEl: introPasswordInput,
+    toggleEl: introPasswordToggle,
+    submitEl: introPasswordSubmit,
+    statusEl: introPasswordStatus,
+  },
+  {
+    controller: pauseScreenController,
+    displayEl: pausePasswordDisplay,
+    entryEl: pausePasswordEntry,
+    inputEl: pausePasswordInput,
+    toggleEl: pausePasswordToggle,
+    submitEl: pausePasswordSubmit,
+    statusEl: pausePasswordStatus,
+  },
+]);
+
 const gameoverScreenController = createGameoverScreenController({
   goodEndImageSrc: GOOD_END_IMAGE_SRC,
   badEndImageSrc: BAD_END_IMAGE_SRC,
@@ -352,6 +411,27 @@ roundTimer?.addEventListener("blur", () => {
   roundTimer.dataset.hovered = "false";
 });
 
+for (const panel of passwordPanels) {
+  panel.toggleEl?.addEventListener("click", () => togglePasswordEntry(panel));
+  panel.submitEl?.addEventListener("click", () => submitPasswordEntry(panel));
+  panel.inputEl?.addEventListener("input", () => {
+    panel.inputEl.value = formatPassword(panel.inputEl.value);
+    setPasswordStatus(panel, PASSWORD_ENTRY_HELP_TEXT);
+  });
+  panel.inputEl?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      submitPasswordEntry(panel);
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setPasswordEntryOpen(panel, false);
+    }
+  });
+}
+
 input.addKeyPressListener((event) => {
   if (event.code === "KeyR") {
     gameState.performance.visible = !gameState.performance.visible;
@@ -396,6 +476,9 @@ async function bootstrap() {
   await introScreenController.init();
   await pauseScreenController.init();
   await gameoverScreenController.init();
+  setPasswordEntryOpen(passwordPanels[0], false);
+  setPasswordEntryOpen(passwordPanels[1], false);
+  updatePasswordDisplays();
   attachAudioUnlock();
   endOfRoundSystem.attachControls(startNextRound);
   storeController.attachControls();
@@ -450,6 +533,8 @@ function pauseCurrentShift() {
 
   gameState.pauseExiting = false;
   gameState.phase = "paused";
+  setPasswordEntryOpen(passwordPanels[1], false);
+  updatePasswordDisplays();
   pauseScreenController.show();
   if (gameState.audioReady) {
     musicSystem.startPause();
@@ -549,6 +634,9 @@ function resetGameToIntro() {
   storeController.reset();
   endOfRoundSystem.reset();
   musicSystem.resetForIntro({ immediate: true });
+  setPasswordEntryOpen(passwordPanels[0], false);
+  setPasswordEntryOpen(passwordPanels[1], false);
+  updatePasswordDisplays();
   introScreenController.show();
 }
 
@@ -622,6 +710,177 @@ function beginShiftCountdown() {
   gameState.shiftCountdown.stepIndex = -1;
   gameState.shiftCountdown.remainingMs = 0;
   advanceShiftCountdownStep();
+}
+
+function getTierIndex(tiers, currentId, fallbackIndex = 0) {
+  const tierIndex = tiers.indexOf(currentId);
+  return tierIndex >= 0 ? tierIndex : fallbackIndex;
+}
+
+function getTierId(tiers, tierIndex, fallbackIndex = 0) {
+  return tiers[Math.max(0, Math.min(tiers.length - 1, tierIndex))] ?? tiers[fallbackIndex];
+}
+
+function createPasswordProgressSnapshot() {
+  const bonuses = {};
+  for (const bonusKey of PASSWORD_BONUS_KEYS) {
+    bonuses[bonusKey] = gameState.playerBonuses[bonusKey] ?? 0;
+  }
+
+  return {
+    pickaxeTier: getTierIndex(PICKAXE_PASSWORD_TIERS, gameState.equippedToolId),
+    bagTier: getTierIndex(BAG_PASSWORD_TIERS, gameState.bagUpgradeId, 0),
+    capacityTier: getTierIndex(CAPACITY_PASSWORD_TIERS, gameState.capacityUpgradeId, 0),
+    timeTier: getTierIndex(TIME_PASSWORD_TIERS, gameState.timeUpgradeId, 0),
+    platformTier: getTierIndex(PLATFORM_PASSWORD_TIERS, gameState.platformUpgradeId, 0),
+    bombUnlocked: Boolean(gameState.bombUnlockId),
+    bombCapacityTier: getTierIndex(BOMB_CAPACITY_PASSWORD_TIERS, gameState.bombCapacityUpgradeId ?? BOMB_CAPACITY_ROOT_ID, 0),
+    bombTypeTier: getTierIndex(BOMB_TYPE_PASSWORD_TIERS, gameState.bombTypeUpgradeId ?? BOMB_TYPE_ROOT_ID, 0),
+    round: gameState.round,
+    bank: gameState.bank,
+    bonuses,
+  };
+}
+
+function setPasswordStatus(panel, message, state = "info") {
+  if (!panel.statusEl) {
+    return;
+  }
+
+  panel.statusEl.textContent = message;
+  panel.statusEl.dataset.state = state;
+}
+
+function updatePasswordDisplays() {
+  const formattedPassword = formatPassword(encodePassword(createPasswordProgressSnapshot()));
+  for (const panel of passwordPanels) {
+    if (panel.displayEl) {
+      panel.displayEl.textContent = formattedPassword;
+    }
+
+    setPasswordStatus(panel, PASSWORD_ENTRY_HELP_TEXT);
+  }
+}
+
+function setPasswordEntryOpen(panel, open) {
+  panel.controller?.setAdvanceBlocked(open);
+
+  if (panel.entryEl) {
+    panel.entryEl.hidden = !open;
+    panel.entryEl.dataset.visible = open ? "true" : "false";
+  }
+
+  if (panel.toggleEl) {
+    panel.toggleEl.textContent = open ? "Cancel" : "Enter Password";
+  }
+
+  if (panel.inputEl) {
+    if (open) {
+      panel.inputEl.value = "";
+      window.setTimeout(() => {
+        panel.inputEl?.focus();
+        panel.inputEl?.select();
+      }, 0);
+    } else {
+      panel.inputEl.value = "";
+      panel.inputEl.blur();
+    }
+  }
+
+  setPasswordStatus(panel, PASSWORD_ENTRY_HELP_TEXT);
+}
+
+function togglePasswordEntry(panel) {
+  const nextOpen = panel.entryEl?.hidden ?? true;
+  for (const currentPanel of passwordPanels) {
+    if (currentPanel !== panel) {
+      setPasswordEntryOpen(currentPanel, false);
+    }
+  }
+
+  setPasswordEntryOpen(panel, nextOpen);
+}
+
+function restoreProgressFromPassword(decodedPassword) {
+  const bombUnlocked = Boolean(decodedPassword.bombUnlocked);
+  const restoredBonuses = createPlayerBonuses();
+
+  for (const bonusKey of PASSWORD_BONUS_KEYS) {
+    restoredBonuses[bonusKey] = decodedPassword.bonuses[bonusKey] ?? 0;
+  }
+
+  gameState.gameMode = DEFAULT_GAME_MODE;
+  gameState.primaryTool = "platform";
+  gameState.equippedToolId = getTierId(PICKAXE_PASSWORD_TIERS, decodedPassword.pickaxeTier);
+  gameState.bagUpgradeId = getTierId(BAG_PASSWORD_TIERS, decodedPassword.bagTier);
+  gameState.capacityUpgradeId = getTierId(CAPACITY_PASSWORD_TIERS, decodedPassword.capacityTier);
+  gameState.timeUpgradeId = getTierId(TIME_PASSWORD_TIERS, decodedPassword.timeTier);
+  gameState.platformUpgradeId = getTierId(PLATFORM_PASSWORD_TIERS, decodedPassword.platformTier);
+  gameState.bombUnlockId = bombUnlocked ? BOMB_UNLOCK_ROOT_ID : null;
+  gameState.bombCapacityUpgradeId = bombUnlocked ? getTierId(BOMB_CAPACITY_PASSWORD_TIERS, decodedPassword.bombCapacityTier) : null;
+  gameState.bombTypeUpgradeId = bombUnlocked ? getTierId(BOMB_TYPE_PASSWORD_TIERS, decodedPassword.bombTypeTier) : null;
+  gameState.inventory = createInventoryForLoadout();
+  gameState.miningResult = null;
+  gameState.hoverTarget = null;
+  gameState.lastMiningSoundAt = 0;
+  gameState.particles = [];
+  gameState.bombs = [];
+  gameState.pickups = [];
+  gameState.floatingTexts = [];
+  gameState.platformCooldown = 0;
+  gameState.platformCharges = getPlatformCapacity();
+  gameState.bombCooldown = 0;
+  gameState.bombCharges = bombUnlocked ? bombSystem.getCapacity() : 0;
+  gameState.phase = "countdown";
+  gameState.round = decodedPassword.round;
+  gameState.timeLeft = getRoundDuration();
+  gameState.bank = decodedPassword.bank;
+  gameState.roundStats = createRoundStats();
+  gameState.summary = null;
+  gameState.chestReward = null;
+  gameState.notification = null;
+  gameState.introExiting = false;
+  gameState.pauseExiting = false;
+  gameState.gameOver = null;
+  gameState.playerBonuses = restoredBonuses;
+  gameState.alertFlags = {
+    halfway: false,
+    thirtySeconds: false,
+  };
+  gameState.countdownTickCooldown = 0;
+  gameState.shiftCountdown = {
+    active: false,
+    stepIndex: -1,
+    remainingMs: 0,
+  };
+
+  world = new World({ seed: World.createRandomSeed() });
+  player = createPlayer();
+  renderer.setWorld(world);
+  syncPlayerBonuses();
+  setShiftCountdownVisibility(false);
+  chestRewardController.hideOverlay();
+  cheatCodeController.reset();
+  pauseScreenController.hide();
+  introScreenController.hide();
+  gameoverScreenController.hide();
+  storeController.reset();
+  musicSystem.resetForNextRound({ immediate: true });
+  endOfRoundSystem.reset();
+  updatePasswordDisplays();
+  showRoundNotification("Password restored. Bank and bonuses were rounded to password tiers.");
+  beginShiftCountdown();
+}
+
+function submitPasswordEntry(panel) {
+  try {
+    const decodedPassword = decodePassword(panel.inputEl?.value ?? "");
+    restoreProgressFromPassword(decodedPassword);
+    setPasswordStatus(panel, "Password accepted.", "success");
+    setPasswordEntryOpen(panel, false);
+  } catch (error) {
+    setPasswordStatus(panel, error instanceof Error ? error.message : "Password could not be read.", "error");
+  }
 }
 
 function syncHudActionButtons() {
@@ -893,6 +1152,7 @@ function startNextRound() {
   storeController.reset();
   musicSystem.resetForNextRound({ immediate: true });
   endOfRoundSystem.reset();
+  updatePasswordDisplays();
   beginShiftCountdown();
 }
 

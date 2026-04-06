@@ -100,6 +100,139 @@
       background-size: auto, contain, auto;
     }
 
+    .screen-password-panel {
+      width: min(100%, 460px);
+      margin-top: 10px;
+      padding: 14px 16px 12px;
+      border: 2px solid rgba(235, 244, 255, 0.35);
+      background: linear-gradient(180deg, rgba(11, 18, 28, 0.9), rgba(7, 12, 18, 0.94));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+      display: grid;
+      gap: 10px;
+    }
+
+    .screen-password-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .screen-password-label,
+    .screen-password-entry-label,
+    .screen-password-status {
+      font-family: "Courier New", Courier, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.7rem;
+      color: rgba(226, 235, 249, 0.84);
+    }
+
+    .screen-password-display,
+    .screen-password-input {
+      font-family: "Courier New", Courier, monospace;
+      font-size: clamp(0.95rem, 2.1vw, 1.35rem);
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+    }
+
+    .screen-password-display {
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 233, 168, 0.42);
+      background: rgba(245, 214, 116, 0.08);
+      color: #f7dfa2;
+      text-align: center;
+      text-shadow: 0 0 8px rgba(255, 221, 133, 0.18);
+    }
+
+    .screen-password-toggle,
+    .screen-password-submit {
+      border: 1px solid rgba(240, 245, 255, 0.36);
+      background: rgba(20, 29, 44, 0.9);
+      color: #f2f6ff;
+      padding: 8px 10px;
+      font: inherit;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+    }
+
+    .screen-password-toggle:hover,
+    .screen-password-toggle:focus-visible,
+    .screen-password-submit:hover,
+    .screen-password-submit:focus-visible {
+      outline: none;
+      background: rgba(34, 49, 74, 0.96);
+      border-color: rgba(255, 227, 148, 0.5);
+    }
+
+    .screen-password-entry {
+      display: grid;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 120ms linear;
+    }
+
+    .screen-password-entry[data-visible="true"] {
+      opacity: 1;
+    }
+
+    .screen-password-entry-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .screen-password-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid rgba(225, 235, 255, 0.26);
+      background: rgba(6, 10, 18, 0.94);
+      color: #f4f7ff;
+    }
+
+    .screen-password-input::placeholder {
+      color: rgba(202, 213, 234, 0.4);
+    }
+
+    .screen-password-input:focus-visible {
+      outline: 2px solid rgba(255, 226, 140, 0.5);
+      outline-offset: 1px;
+    }
+
+    .screen-password-status {
+      min-height: 1.2em;
+      margin: 0;
+      letter-spacing: 0.08em;
+      text-transform: none;
+      color: rgba(216, 225, 241, 0.84);
+    }
+
+    .screen-password-status[data-state="error"] {
+      color: #ffb2a1;
+    }
+
+    .screen-password-status[data-state="success"] {
+      color: #cfe9a6;
+    }
+
+    @media (max-width: 640px) {
+      .screen-password-panel {
+        width: 100%;
+        padding-inline: 12px;
+      }
+
+      .screen-password-header-row,
+      .screen-password-entry-row {
+        grid-template-columns: 1fr;
+      }
+
+      .screen-password-display,
+      .screen-password-input {
+        letter-spacing: 0.2em;
+      }
+    }
+
     .gameover-overlay {
       z-index: 22;
     }

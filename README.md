@@ -35,6 +35,7 @@ At the start of a run, Platform is the primary tool and Bombs are secondary once
 ### Other
 
 - `R`: toggle the performance readout
+- Intro and pause screens show a 12-character password you can enter later to restore your progress profile
 
 ## Shift Flow
 
@@ -71,6 +72,17 @@ Treasure caches grant permanent stat bonuses such as:
 - luck
 - mastery
 - tool damage
+
+## Passwords
+
+The intro screen and pause screen both display a 12-character password in an NES-style grouped format.
+
+Entering a valid password restores your progression profile:
+
+- unlocked upgrade tiers are restored exactly
+- round, bank, and permanent bonus values are restored from the password's compressed form
+
+Because the code is limited to 12 human-entered characters, bank and permanent bonuses are rounded to password tiers when restored.
 
 ## Tips
 

@@ -97,6 +97,21 @@
             <img id="intro-title-image" class="intro-title-image" alt="Pocket Miner title" hidden>
             <h1 id="intro-title-text" class="intro-title-text">Pocket Miner</h1>
             <p class="intro-copy">Dig deeper, bank smarter, and survive the shift.</p>
+            <div class="screen-password-panel" data-screen-ignore-advance="true">
+              <div class="screen-password-header-row">
+                <span class="screen-password-label">Password</span>
+                <button id="intro-password-toggle" class="screen-password-toggle" type="button">Enter Password</button>
+              </div>
+              <div id="intro-password-display" class="screen-password-display">AAAA-AAAA-AAAA</div>
+              <div id="intro-password-entry" class="screen-password-entry" data-visible="false" hidden>
+                <label class="screen-password-entry-label" for="intro-password-input">Restore Progress</label>
+                <div class="screen-password-entry-row">
+                  <input id="intro-password-input" class="screen-password-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="14" placeholder="AAAA-AAAA-AAAA">
+                  <button id="intro-password-submit" class="screen-password-submit" type="button">Load</button>
+                </div>
+                <p id="intro-password-status" class="screen-password-status"></p>
+              </div>
+            </div>
           </div>
           <button id="intro-start-button" class="intro-start-button" type="button">Press Any Button To Start</button>
         </section>
@@ -107,6 +122,21 @@
             <img id="pause-title-image" class="intro-title-image" alt="Pause screen art" hidden>
             <h1 id="pause-title-text" class="intro-title-text">Paused</h1>
             <p class="intro-copy">Game Paused</p>
+            <div class="screen-password-panel" data-screen-ignore-advance="true">
+              <div class="screen-password-header-row">
+                <span class="screen-password-label">Password</span>
+                <button id="pause-password-toggle" class="screen-password-toggle" type="button">Enter Password</button>
+              </div>
+              <div id="pause-password-display" class="screen-password-display">AAAA-AAAA-AAAA</div>
+              <div id="pause-password-entry" class="screen-password-entry" data-visible="false" hidden>
+                <label class="screen-password-entry-label" for="pause-password-input">Restore Progress</label>
+                <div class="screen-password-entry-row">
+                  <input id="pause-password-input" class="screen-password-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="14" placeholder="AAAA-AAAA-AAAA">
+                  <button id="pause-password-submit" class="screen-password-submit" type="button">Load</button>
+                </div>
+                <p id="pause-password-status" class="screen-password-status"></p>
+              </div>
+            </div>
           </div>
           <button id="pause-continue-button" class="intro-start-button" type="button">Continue</button>
         </section>

@@ -40,6 +40,7 @@ export class PanelScreenController {
     this.onAdvanceAttempt = onAdvanceAttempt;
     this.exitTimeoutId = null;
     this.suppressInputUntil = 0;
+    this.advanceBlocked = false;
     this.controlsAttached = false;
     this.handleKeydown = (event) => {
       if (this.ignoredAdvanceKeys.has(event.key)) {
@@ -50,6 +51,15 @@ export class PanelScreenController {
     };
     this.handlePointerdown = (event) => this.handleAdvanceAttempt(event);
     this.handleButtonClick = (event) => this.handleAdvanceAttempt(event);
+  }
+
+  shouldIgnoreAdvanceEvent(event) {
+    const target = event?.target;
+    if (!(target instanceof Element)) {
+      return false;
+    }
+
+    return Boolean(target.closest('[data-screen-ignore-advance="true"]'));
   }
 
   isVisible() {
@@ -138,6 +148,10 @@ export class PanelScreenController {
       return;
     }
 
+    if (this.advanceBlocked || this.shouldIgnoreAdvanceEvent(event)) {
+      return;
+    }
+
     if (performance.now() < this.suppressInputUntil) {
       return;
     }
@@ -161,6 +175,11 @@ export class PanelScreenController {
     this.setActionButtonVisible(false);
     this.overlay?.setAttribute("data-visible", "false");
     this.overlay?.setAttribute("hidden", "true");
+    this.advanceBlocked = false;
+  }
+
+  setAdvanceBlocked(blocked) {
+    this.advanceBlocked = Boolean(blocked);
   }
 
   startExit({ durationMs = 0, onComplete } = {}) {
@@ -199,6 +218,7 @@ export class PanelScreenController {
     }
 
     this.suppressInputUntil = performance.now() + Math.max(0, suppressInputDelayMs);
+    this.advanceBlocked = false;
     this.setActionButtonVisible(showActionButton);
     this.overlay?.style.removeProperty("--intro-fade-duration");
     this.overlay?.removeAttribute("hidden");
