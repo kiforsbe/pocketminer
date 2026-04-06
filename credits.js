@@ -71,6 +71,10 @@ export const DEFAULT_GAME_CREDITS = Object.freeze([
     ]),
   }),
   Object.freeze({
+    style: "spacer",
+    lineCount: 5,
+  }),
+  Object.freeze({
     heading: "Songs",
     style: "music",
     tracks: Object.freeze([
