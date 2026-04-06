@@ -54,7 +54,7 @@ class GameoverScreenController extends PanelScreenController {
     }
 
     this.stage = "ready";
-    this.stopCreditsScroll();
+    this.creditsScroller.stop();
     this.setActionButtonVisible(true);
   }
 

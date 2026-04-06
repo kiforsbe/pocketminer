@@ -343,8 +343,9 @@
       background: transparent;
       box-shadow: none;
       backdrop-filter: none;
-      pointer-events: none;
+      pointer-events: auto;
       z-index: 1;
+      cursor: default;
     }
 
     .gameover-credits-window::before,
@@ -413,9 +414,6 @@
     }
 
     .intro-screen.gameover-screen .gameover-credits-track {
-      --gameover-credits-duration: 18000ms;
-      --gameover-credits-start-offset: 100%;
-      --gameover-credits-end-offset: 100%;
       position: relative;
       display: flex;
       flex-direction: column;
@@ -425,21 +423,8 @@
       padding: 20px clamp(12px, 2vw, 22px) 14px;
       text-align: center;
       font-family: var(--font-ui);
-      transform: translateY(var(--gameover-credits-start-offset));
+      transform: translateY(100%);
       will-change: transform;
-    }
-
-    .gameover-credits-track[data-animate="true"] {
-      animation: gameoverCreditsScroll var(--gameover-credits-duration) linear forwards;
-    }
-
-    @keyframes gameoverCreditsScroll {
-      from {
-        transform: translateY(var(--gameover-credits-start-offset));
-      }
-      to {
-        transform: translateY(calc(-1 * var(--gameover-credits-end-offset)));
-      }
     }
 
     .gameover-credits-section {

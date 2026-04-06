@@ -1,4 +1,8 @@
 export class CreditsScroller {
+  static #FAST_SCROLL_MULTIPLIER = 4;
+
+  static #SPEED_EASING_PER_SECOND = 10;
+
   static #normalizeSectionStyle(section) {
     if (section?.style === "simple") {
       return "simple";
@@ -103,19 +107,82 @@ export class CreditsScroller {
     this.onComplete = onComplete;
     this.pendingAnimationFrameId = null;
     this.isScrolling = false;
-    this.handleAnimationEnd = () => {
-      if (!this.isScrolling) {
+    this.currentScrollMultiplier = 1;
+    this.targetScrollMultiplier = 1;
+    this.elapsedScrollMs = 0;
+    this.totalScrollDurationMs = 0;
+    this.scrollDistancePx = 0;
+    this.scrollStartOffsetPx = 0;
+    this.lastAnimationTimestampMs = null;
+    this.activePointerId = null;
+    this.creditsWindow?.setAttribute("data-screen-ignore-advance", "true");
+    this.handlePointerDown = (event) => {
+      if (event.button !== 0 || this.activePointerId !== null) {
         return;
       }
 
-      this.isScrolling = false;
-      this.onComplete?.();
+      this.activePointerId = event.pointerId;
+      this.targetScrollMultiplier = CreditsScroller.#FAST_SCROLL_MULTIPLIER;
+      this.creditsWindow?.setPointerCapture?.(event.pointerId);
+    };
+    this.handlePointerUp = (event) => {
+      if (event.pointerId !== this.activePointerId) {
+        return;
+      }
+
+      this.activePointerId = null;
+      this.targetScrollMultiplier = 1;
+      this.creditsWindow?.releasePointerCapture?.(event.pointerId);
+    };
+    this.handlePointerCancel = (event) => {
+      if (event.pointerId !== this.activePointerId) {
+        return;
+      }
+
+      this.activePointerId = null;
+      this.targetScrollMultiplier = 1;
+    };
+    this.stepScroll = (timestampMs) => {
+      if (!this.isScrolling) {
+        this.pendingAnimationFrameId = null;
+        return;
+      }
+
+      if (this.lastAnimationTimestampMs === null) {
+        this.lastAnimationTimestampMs = timestampMs;
+      }
+
+      const deltaMs = Math.max(0, timestampMs - this.lastAnimationTimestampMs);
+      this.lastAnimationTimestampMs = timestampMs;
+
+      const easingFactor = 1 - Math.exp((-deltaMs / 1000) * CreditsScroller.#SPEED_EASING_PER_SECOND);
+      this.currentScrollMultiplier += (this.targetScrollMultiplier - this.currentScrollMultiplier) * easingFactor;
+      this.elapsedScrollMs += deltaMs * this.currentScrollMultiplier;
+
+      const progress = this.totalScrollDurationMs > 0
+        ? Math.min(1, this.elapsedScrollMs / this.totalScrollDurationMs)
+        : 1;
+      const currentOffsetPx = this.scrollStartOffsetPx - (this.scrollDistancePx * progress);
+      if (this.creditsTrack) {
+        this.creditsTrack.style.transform = `translateY(${currentOffsetPx}px)`;
+      }
+
+      if (progress >= 1) {
+        this.isScrolling = false;
+        this.pendingAnimationFrameId = null;
+        this.onComplete?.();
+        return;
+      }
+
+      this.pendingAnimationFrameId = window.requestAnimationFrame(this.stepScroll);
     };
   }
 
   init() {
     this.render();
-    this.creditsTrack?.addEventListener("animationend", this.handleAnimationEnd);
+    this.creditsWindow?.addEventListener("pointerdown", this.handlePointerDown);
+    this.creditsWindow?.addEventListener("pointerup", this.handlePointerUp);
+    this.creditsWindow?.addEventListener("pointercancel", this.handlePointerCancel);
   }
 
   render() {
@@ -227,6 +294,14 @@ export class CreditsScroller {
 
   stop() {
     this.isScrolling = false;
+    this.activePointerId = null;
+    this.targetScrollMultiplier = 1;
+    this.currentScrollMultiplier = 1;
+    this.elapsedScrollMs = 0;
+    this.totalScrollDurationMs = 0;
+    this.scrollDistancePx = 0;
+    this.scrollStartOffsetPx = 0;
+    this.lastAnimationTimestampMs = null;
     this.cancelPendingAnimationFrame();
     this.creditsTrack?.removeAttribute("data-animate");
   }
@@ -242,34 +317,28 @@ export class CreditsScroller {
     }
 
     this.stop();
-    this.creditsTrack.style.removeProperty("--gameover-credits-duration");
-    this.creditsTrack.style.removeProperty("--gameover-credits-start-offset");
-    this.creditsTrack.style.removeProperty("--gameover-credits-end-offset");
+    const viewportHeight = this.creditsWindow.clientHeight;
+    const trackHeight = this.creditsTrack.scrollHeight;
+    if (viewportHeight <= 0 || trackHeight <= 0) {
+      this.isScrolling = false;
+      this.onComplete?.();
+      return;
+    }
 
-    const beginAnimation = () => {
-      this.pendingAnimationFrameId = null;
-      const viewportHeight = this.creditsWindow.clientHeight;
-      const trackHeight = this.creditsTrack.scrollHeight;
-      if (viewportHeight <= 0 || trackHeight <= 0) {
-        this.isScrolling = false;
-        this.onComplete?.();
-        return;
-      }
-
-      const distancePx = viewportHeight + trackHeight;
-      const durationMs = Math.max(
-        minCreditsScrollDurationMs,
-        Math.round((distancePx / creditsScrollSpeedPxPerSecond) * 1000),
-      );
-      this.creditsTrack.style.setProperty("--gameover-credits-duration", `${durationMs}ms`);
-      this.creditsTrack.style.setProperty("--gameover-credits-start-offset", `${viewportHeight}px`);
-      this.creditsTrack.style.setProperty("--gameover-credits-end-offset", `${trackHeight}px`);
-      this.isScrolling = true;
-      this.creditsTrack.setAttribute("data-animate", "true");
-    };
-
-    this.pendingAnimationFrameId = window.requestAnimationFrame(() => {
-      this.pendingAnimationFrameId = window.requestAnimationFrame(beginAnimation);
-    });
+    this.scrollStartOffsetPx = viewportHeight;
+    this.scrollDistancePx = viewportHeight + trackHeight;
+    this.totalScrollDurationMs = Math.max(
+      minCreditsScrollDurationMs,
+      Math.round((this.scrollDistancePx / creditsScrollSpeedPxPerSecond) * 1000),
+    );
+    this.currentScrollMultiplier = 1;
+    this.targetScrollMultiplier = 1;
+    this.elapsedScrollMs = 0;
+    this.lastAnimationTimestampMs = null;
+    if (this.creditsTrack) {
+      this.creditsTrack.style.transform = `translateY(${this.scrollStartOffsetPx}px)`;
+    }
+    this.isScrolling = true;
+    this.pendingAnimationFrameId = window.requestAnimationFrame(this.stepScroll);
   }
 }

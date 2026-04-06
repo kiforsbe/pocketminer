@@ -7,6 +7,10 @@ export const DEFAULT_GAME_CREDITS = Object.freeze([
     ]),
   }),
   Object.freeze({
+    style: "spacer",
+    lineCount: 5,
+  }),
+  Object.freeze({
     heading: "Credits",
     style: "paired",
     lines: Object.freeze([
@@ -15,6 +19,10 @@ export const DEFAULT_GAME_CREDITS = Object.freeze([
       Object.freeze({ role: "Co-Producer", name: "GitHub Copilot" }),
       Object.freeze({ role: "Executive Producer", name: "Kim Forsberg" }),
     ]),
+  }),
+  Object.freeze({
+    style: "spacer",
+    lineCount: 5,
   }),
   Object.freeze({
     heading: "Design And Development",
@@ -28,6 +36,18 @@ export const DEFAULT_GAME_CREDITS = Object.freeze([
     ]),
   }),
   Object.freeze({
+    heading: "Creative Team",
+    style: "paired",
+    lines: Object.freeze([
+      Object.freeze({ role: "Creative Director", name: "Kim Forsberg" }),
+      Object.freeze({ role: "Prompt Engineer", name: "Kim Forsberg" }),
+    ]),
+  }),
+  Object.freeze({
+    style: "spacer",
+    lineCount: 5,
+  }),
+  Object.freeze({
     heading: "Catering",
     style: "simple",
     lines: Object.freeze([
@@ -35,12 +55,8 @@ export const DEFAULT_GAME_CREDITS = Object.freeze([
     ]),
   }),
   Object.freeze({
-    heading: "Creative Credits",
-    style: "paired",
-    lines: Object.freeze([
-      Object.freeze({ role: "Creative Director", name: "Kim Forsberg" }),
-      Object.freeze({ role: "Prompt Engineer", name: "Kim Forsberg" }),
-    ]),
+    style: "spacer",
+    lineCount: 5,
   }),
   Object.freeze({
     heading: "Supporting Tools",
