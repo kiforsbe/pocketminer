@@ -16,6 +16,9 @@ const MINING_CRIT_CHANCE_PER_MASTERY = 0.35;
 const MINING_CRIT_DAMAGE_MULTIPLIER = 1.75;
 const JUMP_LAND_DELAY = 0.1;
 const DROP_THROUGH_HOLD_TIME = 0.075;
+const HORIZONTAL_IMPULSE_DECAY = 1680;
+const MAX_HORIZONTAL_IMPULSE_SPEED = 520;
+const MAX_VERTICAL_IMPULSE_SPEED = 760;
 const DEFAULT_PLAYER_BONUSES = Object.freeze({
   moveSpeed: 0,
   jumpPower: 0,
@@ -39,6 +42,7 @@ export class Player {
     this.height = PLAYER_HEIGHT;
     this.vx = 0;
     this.vy = 0;
+    this.impulseVx = 0;
     this.facing = 1;
     this.grounded = false;
     this.animation = "idle";
@@ -74,7 +78,7 @@ export class Player {
       this.facing = Math.sign(direction);
     }
 
-    this.vx = direction * this.getMoveSpeed();
+    const controlledVx = direction * this.getMoveSpeed();
 
     this.#updatePlatformDropState(dt, input, world);
 
@@ -83,6 +87,7 @@ export class Player {
     }
 
     this.vy = Math.min(MAX_FALL_SPEED, this.vy + GRAVITY * dt);
+    this.vx = controlledVx + this.impulseVx;
 
     const previousX = this.x;
     this.x += this.vx * dt;
@@ -127,6 +132,7 @@ export class Player {
     }
 
     this.animationTime += dt;
+    this.#decayHorizontalImpulse(dt);
     return hoverTarget;
   }
 
@@ -252,6 +258,13 @@ export class Player {
     };
   }
 
+  applyImpulse({ x = 0, y = 0 } = {}) {
+    this.impulseVx = Math.max(-MAX_HORIZONTAL_IMPULSE_SPEED, Math.min(MAX_HORIZONTAL_IMPULSE_SPEED, this.impulseVx + x));
+    this.vy = Math.max(-MAX_VERTICAL_IMPULSE_SPEED, Math.min(MAX_VERTICAL_IMPULSE_SPEED, this.vy + y));
+    this.grounded = false;
+    this.jumpLockout = Math.max(this.jumpLockout, JUMP_LAND_DELAY);
+  }
+
   touchesTileType(world, tileType, inset = 0.5) {
     const left = this.x + inset;
     const right = this.x + this.width - inset;
@@ -341,6 +354,15 @@ export class Player {
   #clampHorizontal(world) {
     const maxX = Math.max(0, world.pixelWidth - this.width);
     this.x = Math.max(0, Math.min(this.x, maxX));
+  }
+
+  #decayHorizontalImpulse(dt) {
+    if (this.impulseVx === 0) {
+      return;
+    }
+
+    const nextMagnitude = Math.max(0, Math.abs(this.impulseVx) - HORIZONTAL_IMPULSE_DECAY * dt);
+    this.impulseVx = nextMagnitude * Math.sign(this.impulseVx);
   }
 
   #jump() {

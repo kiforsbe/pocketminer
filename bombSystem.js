@@ -36,15 +36,6 @@ export function createBombSystem({
     return true;
   }
 
-  function playerOccupiesCell(column, row) {
-    const player = getPlayer();
-    const left = column * TILE_SIZE;
-    const top = row * TILE_SIZE;
-    const right = left + TILE_SIZE;
-    const bottom = top + TILE_SIZE;
-    return !(player.x + player.width <= left || player.x >= right || player.y + player.height <= top || player.y >= bottom);
-  }
-
   function hasBombAt(column, row) {
     return gameState.bombs.some((bomb) => bomb.column === column && bomb.row === row);
   }
@@ -71,10 +62,6 @@ export function createBombSystem({
     }
 
     if (!hasLineOfSightToCell(playerCenter, { x: targetCenterX, y: targetCenterY }, column, row)) {
-      return null;
-    }
-
-    if (playerOccupiesCell(column, row)) {
       return null;
     }
 
