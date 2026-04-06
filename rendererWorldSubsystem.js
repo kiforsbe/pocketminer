@@ -31,10 +31,13 @@ export class RendererWorldSubsystem extends RendererSubsystem {
     this.tileAtlasLookup = new Map(Object.entries(nextManifest?.entries ?? {}));
   }
 
-  buildTileAtlasKey({ type, surfaceTreatment = null, surfaceVariant = 0, frame = 0 }) {
-    const treatment = surfaceTreatment ?? "none";
+  buildBaseTileAtlasKey({ type, frame = 0 }) {
+    return `base:${type}:${frame}`;
+  }
+
+  buildSurfaceOverlayAtlasKey(surfaceTreatment, surfaceVariant = 0) {
     const variant = surfaceTreatment === "grass" ? surfaceVariant % 3 : 0;
-    return `tile:${type}:${treatment}:${variant}:${frame}`;
+    return `overlay:${surfaceTreatment}:${variant}`;
   }
 
   buildDebrisAtlasKey(type, variant, placement) {
@@ -45,21 +48,25 @@ export class RendererWorldSubsystem extends RendererSubsystem {
     return `crack:${Math.max(1, Math.min(4, crackLevel))}`;
   }
 
-  drawPreRenderedTile(context, tile, x, y, column, row) {
+  drawPreRenderedBaseTile(context, tile, x, y, column, row) {
     this.ensureTileAtlas();
 
     const frame = tile.type === TILE_TYPES.MAGMA ? this.getMagmaFrame(column, row) : 0;
     return this.drawAtlasEntry(
       context,
-      this.buildTileAtlasKey({
-        type: tile.type,
-        surfaceTreatment: tile.surfaceTreatment,
-        surfaceVariant: tile.surfaceVariant ?? 0,
-        frame,
-      }),
+      this.buildBaseTileAtlasKey({ type: tile.type, frame }),
       x,
       y,
     );
+  }
+
+  drawPreRenderedSurfaceOverlay(context, x, y, surfaceTreatment, surfaceVariant = 0) {
+    if (!surfaceTreatment) {
+      return false;
+    }
+
+    this.ensureTileAtlas();
+    return this.drawAtlasEntry(context, this.buildSurfaceOverlayAtlasKey(surfaceTreatment, surfaceVariant), x, y);
   }
 
   drawPreRenderedDebris(context, x, y, debrisType, debrisVariant, placement = "ground") {
@@ -117,42 +124,168 @@ export class RendererWorldSubsystem extends RendererSubsystem {
     }
   }
 
-  paintTilePattern(context, definition, x, y, size, { time = 0, column = 0, row = 0 } = {}) {
-    const unit = size / 32;
-    const hasSolidBackdrop = !["chest", "platform"].includes(definition.pattern);
-    if (hasSolidBackdrop) {
+  drawBaseTileArt(context, definition, x, y, unit, { time = 0, column = 0, row = 0 } = {}) {
+    const drawBackdrop = !["chest", "platform"].includes(definition.type);
+    if (drawBackdrop) {
       context.fillStyle = definition.fill;
-      context.fillRect(x, y, size, size);
+      context.fillRect(x, y, 32 * unit, 32 * unit);
       context.strokeStyle = "rgba(0, 0, 0, 0.18)";
-      context.strokeRect(x, y, size, size);
+      context.strokeRect(x, y, 32 * unit, 32 * unit);
     }
-    context.fillStyle = definition.accent;
 
-    switch (definition.pattern) {
-      case "speck":
-        for (const offset of [4, 11, 18, 24]) {
-          context.fillRect(x + offset * unit, y + (6 + (offset % 4) * 4) * unit, 4 * unit, 4 * unit);
+    switch (definition.type) {
+      case TILE_TYPES.DIRT:
+        context.fillStyle = definition.accent;
+        for (const chunk of [
+          { x: 3, y: 4, w: 5, h: 4 },
+          { x: 10, y: 5, w: 4, h: 3 },
+          { x: 19, y: 4, w: 4, h: 4 },
+          { x: 24, y: 9, w: 3, h: 3 },
+          { x: 6, y: 13, w: 5, h: 4 },
+          { x: 14, y: 19, w: 4, h: 4 },
+          { x: 22, y: 22, w: 4, h: 3 },
+        ]) {
+          context.fillRect(x + chunk.x * unit, y + chunk.y * unit, chunk.w * unit, chunk.h * unit);
         }
+        context.fillStyle = "rgba(58, 37, 16, 0.28)";
+        context.fillRect(x + 8 * unit, y + 9 * unit, 3 * unit, 2 * unit);
+        context.fillRect(x + 20 * unit, y + 15 * unit, 4 * unit, 2 * unit);
         break;
-      case "bands":
+      case TILE_TYPES.STONE:
+        context.fillStyle = "#5c6678";
+        context.fillRect(x + 4 * unit, y + 4 * unit, 24 * unit, 24 * unit);
+        context.fillStyle = definition.accent;
+        context.fillRect(x + 6 * unit, y + 6 * unit, 20 * unit, 2 * unit);
+        context.fillRect(x + 6 * unit, y + 14 * unit, 20 * unit, 2 * unit);
+        context.fillRect(x + 6 * unit, y + 22 * unit, 20 * unit, 2 * unit);
+        context.fillRect(x + 6 * unit, y + 6 * unit, 2 * unit, 18 * unit);
+        context.fillRect(x + 14 * unit, y + 8 * unit, 2 * unit, 18 * unit);
+        context.fillRect(x + 22 * unit, y + 6 * unit, 2 * unit, 18 * unit);
+        break;
+      case TILE_TYPES.SHALE:
+        context.fillStyle = definition.accent;
         context.fillRect(x + 4 * unit, y + 6 * unit, 22 * unit, 2 * unit);
-        context.fillRect(x + 7 * unit, y + 14 * unit, 18 * unit, 2 * unit);
-        context.fillRect(x + 5 * unit, y + 22 * unit, 20 * unit, 2 * unit);
+        context.fillRect(x + 7 * unit, y + 12 * unit, 17 * unit, 2 * unit);
+        context.fillRect(x + 5 * unit, y + 19 * unit, 21 * unit, 2 * unit);
+        context.fillStyle = "rgba(35, 42, 54, 0.33)";
+        context.fillRect(x + 12 * unit, y + 5 * unit, 1 * unit, 7 * unit);
+        context.fillRect(x + 20 * unit, y + 11 * unit, 1 * unit, 10 * unit);
+        context.fillRect(x + 8 * unit, y + 18 * unit, 1 * unit, 8 * unit);
         break;
-      case "slate":
-        context.fillRect(x + 5 * unit, y + 5 * unit, 20 * unit, 3 * unit);
-        context.fillRect(x + 9 * unit, y + 12 * unit, 16 * unit, 2 * unit);
-        context.fillRect(x + 4 * unit, y + 19 * unit, 22 * unit, 3 * unit);
-        break;
-      case "blocks":
+      case TILE_TYPES.BASALT:
+        context.fillStyle = definition.accent;
         context.fillRect(x + 5 * unit, y + 5 * unit, 8 * unit, 8 * unit);
         context.fillRect(x + 17 * unit, y + 8 * unit, 9 * unit, 9 * unit);
         context.fillRect(x + 9 * unit, y + 19 * unit, 12 * unit, 6 * unit);
+        context.fillStyle = "rgba(26, 32, 40, 0.36)";
+        context.fillRect(x + 14 * unit, y + 4 * unit, 2 * unit, 24 * unit);
         break;
-      case "magma":
-        this.drawMagmaPattern(context, definition, x, y, size, time, column, row);
+      case TILE_TYPES.MAGMA:
+        this.drawMagmaPattern(context, definition, x, y, 32 * unit, time, column, row);
         break;
-      case "chest":
+      case TILE_TYPES.COAL:
+        context.fillStyle = "#221d26";
+        context.fillRect(x + 5 * unit, y + 5 * unit, 8 * unit, 8 * unit);
+        context.fillRect(x + 18 * unit, y + 5 * unit, 7 * unit, 7 * unit);
+        context.fillRect(x + 8 * unit, y + 18 * unit, 7 * unit, 7 * unit);
+        context.fillRect(x + 20 * unit, y + 19 * unit, 5 * unit, 5 * unit);
+        context.fillStyle = "rgba(255, 255, 255, 0.08)";
+        context.fillRect(x + 5 * unit, y + 5 * unit, 8 * unit, 1 * unit);
+        context.fillRect(x + 18 * unit, y + 5 * unit, 7 * unit, 1 * unit);
+        context.fillRect(x + 8 * unit, y + 18 * unit, 7 * unit, 1 * unit);
+        break;
+      case TILE_TYPES.COPPER:
+        context.fillStyle = definition.accent;
+        for (const vein of [
+          { x: 6, y: 6, w: 5, h: 4 },
+          { x: 18, y: 7, w: 6, h: 4 },
+          { x: 10, y: 17, w: 4, h: 7 },
+          { x: 19, y: 18, w: 5, h: 5 },
+        ]) {
+          context.fillRect(x + vein.x * unit, y + vein.y * unit, vein.w * unit, vein.h * unit);
+        }
+        context.fillStyle = "rgba(245, 177, 122, 0.36)";
+        context.fillRect(x + 7 * unit, y + 6 * unit, 2 * unit, 4 * unit);
+        context.fillRect(x + 20 * unit, y + 7 * unit, 2 * unit, 4 * unit);
+        break;
+      case TILE_TYPES.TIN:
+        context.fillStyle = definition.accent;
+        for (const node of [
+          { x: 6, y: 6, w: 4, h: 4 },
+          { x: 11, y: 7, w: 4, h: 5 },
+          { x: 20, y: 8, w: 5, h: 5 },
+          { x: 9, y: 19, w: 5, h: 4 },
+          { x: 16, y: 18, w: 4, h: 6 },
+        ]) {
+          context.fillRect(x + node.x * unit, y + node.y * unit, node.w * unit, node.h * unit);
+        }
+        context.fillStyle = "rgba(255, 255, 255, 0.25)";
+        context.fillRect(x + 7 * unit, y + 6 * unit, 1 * unit, 4 * unit);
+        context.fillRect(x + 21 * unit, y + 8 * unit, 1 * unit, 5 * unit);
+        break;
+      case TILE_TYPES.IRON:
+        context.fillStyle = definition.accent;
+        for (const vein of [
+          { x: 6, y: 6, w: 4, h: 8 },
+          { x: 4, y: 8, w: 8, h: 4 },
+          { x: 19, y: 9, w: 4, h: 7 },
+          { x: 17, y: 11, w: 8, h: 3 },
+          { x: 12, y: 19, w: 5, h: 7 },
+          { x: 10, y: 21, w: 9, h: 3 },
+        ]) {
+          context.fillRect(x + vein.x * unit, y + vein.y * unit, vein.w * unit, vein.h * unit);
+        }
+        context.fillStyle = "rgba(255, 214, 184, 0.28)";
+        context.fillRect(x + 7 * unit, y + 6 * unit, 1 * unit, 8 * unit);
+        context.fillRect(x + 20 * unit, y + 9 * unit, 1 * unit, 7 * unit);
+        context.fillRect(x + 13 * unit, y + 19 * unit, 1 * unit, 7 * unit);
+        break;
+      case TILE_TYPES.SILVER:
+        context.fillStyle = definition.accent;
+        for (const vein of [
+          { x: 7, y: 6, w: 3, h: 9 },
+          { x: 11, y: 9, w: 6, h: 3 },
+          { x: 20, y: 7, w: 3, h: 8 },
+          { x: 14, y: 19, w: 3, h: 7 },
+        ]) {
+          context.fillRect(x + vein.x * unit, y + vein.y * unit, vein.w * unit, vein.h * unit);
+        }
+        context.fillStyle = "rgba(255, 255, 255, 0.3)";
+        context.fillRect(x + 8 * unit, y + 6 * unit, 1 * unit, 9 * unit);
+        context.fillRect(x + 21 * unit, y + 7 * unit, 1 * unit, 8 * unit);
+        break;
+      case TILE_TYPES.GOLD:
+        context.fillStyle = definition.accent;
+        for (const nugget of [
+          { x: 6, y: 7, w: 5, h: 5 },
+          { x: 18, y: 8, w: 6, h: 5 },
+          { x: 11, y: 18, w: 7, h: 6 },
+        ]) {
+          context.fillRect(x + nugget.x * unit, y + nugget.y * unit, nugget.w * unit, nugget.h * unit);
+        }
+        context.fillStyle = "rgba(255, 232, 151, 0.33)";
+        context.fillRect(x + 7 * unit, y + 7 * unit, 2 * unit, 2 * unit);
+        context.fillRect(x + 19 * unit, y + 8 * unit, 2 * unit, 2 * unit);
+        break;
+      case TILE_TYPES.RUBY:
+        context.fillStyle = definition.accent;
+        context.fillRect(x + 8 * unit, y + 6 * unit, 4 * unit, 8 * unit);
+        context.fillRect(x + 20 * unit, y + 9 * unit, 5 * unit, 9 * unit);
+        context.fillRect(x + 13 * unit, y + 19 * unit, 6 * unit, 7 * unit);
+        context.fillStyle = "rgba(255, 171, 186, 0.32)";
+        context.fillRect(x + 9 * unit, y + 6 * unit, 1 * unit, 8 * unit);
+        context.fillRect(x + 21 * unit, y + 9 * unit, 1 * unit, 9 * unit);
+        break;
+      case TILE_TYPES.SAPPHIRE:
+        context.fillStyle = definition.accent;
+        context.fillRect(x + 7 * unit, y + 6 * unit, 4 * unit, 8 * unit);
+        context.fillRect(x + 19 * unit, y + 9 * unit, 5 * unit, 9 * unit);
+        context.fillRect(x + 12 * unit, y + 19 * unit, 6 * unit, 7 * unit);
+        context.fillStyle = "rgba(187, 225, 255, 0.32)";
+        context.fillRect(x + 8 * unit, y + 6 * unit, 1 * unit, 8 * unit);
+        context.fillRect(x + 20 * unit, y + 9 * unit, 1 * unit, 9 * unit);
+        break;
+      case TILE_TYPES.CHEST:
         context.fillStyle = definition.fill;
         context.fillRect(x + 5 * unit, y + 10 * unit, 22 * unit, 14 * unit);
         context.fillRect(x + 7 * unit, y + 7 * unit, 18 * unit, 5 * unit);
@@ -162,7 +295,7 @@ export class RendererWorldSubsystem extends RendererSubsystem {
         context.fillRect(x + 14 * unit, y + 13 * unit, 4 * unit, 8 * unit);
         context.fillRect(x + 5 * unit, y + 16 * unit, 22 * unit, 2 * unit);
         break;
-      case "platform":
+      case TILE_TYPES.PLATFORM:
         context.fillStyle = definition.fill;
         context.fillRect(x + 4 * unit, y + 1 * unit, 24 * unit, 5 * unit);
         context.fillRect(x + 6 * unit, y + 6 * unit, 20 * unit, 2 * unit);
@@ -173,25 +306,14 @@ export class RendererWorldSubsystem extends RendererSubsystem {
         context.fillStyle = definition.accent;
         context.fillRect(x + 6 * unit, y + 2 * unit, 20 * unit, 1 * unit);
         break;
-      case "ore-cluster":
-        context.fillRect(x + 6 * unit, y + 5 * unit, 6 * unit, 6 * unit);
-        context.fillRect(x + 18 * unit, y + 8 * unit, 7 * unit, 7 * unit);
-        context.fillRect(x + 11 * unit, y + 19 * unit, 8 * unit, 8 * unit);
-        break;
-      case "ore-gem":
-        context.fillRect(x + 7 * unit, y + 6 * unit, 5 * unit, 5 * unit);
-        context.fillRect(x + 19 * unit, y + 10 * unit, 6 * unit, 6 * unit);
-        context.fillRect(x + 13 * unit, y + 18 * unit, 7 * unit, 7 * unit);
-        context.fillRect(x + 9 * unit, y + 14 * unit, 3 * unit, 3 * unit);
-        break;
-      case "gem-shard":
-        context.fillRect(x + 8 * unit, y + 6 * unit, 4 * unit, 8 * unit);
-        context.fillRect(x + 20 * unit, y + 9 * unit, 5 * unit, 9 * unit);
-        context.fillRect(x + 13 * unit, y + 19 * unit, 6 * unit, 7 * unit);
-        break;
       default:
         break;
     }
+  }
+
+  paintTilePattern(context, definition, x, y, size, { time = 0, column = 0, row = 0 } = {}) {
+    const unit = size / 32;
+    this.drawBaseTileArt(context, definition, x, y, unit, { time, column, row });
   }
 
   drawBackground(player) {
@@ -384,9 +506,60 @@ export class RendererWorldSubsystem extends RendererSubsystem {
     return value - Math.floor(value);
   }
 
+  drawBaseTileLayer(context, tile, x, y, column, row) {
+    if (!tile || tile.type === TILE_TYPES.EMPTY) {
+      return;
+    }
+
+    if (!this.drawPreRenderedBaseTile(context, tile, x, y, column, row)) {
+      this.drawProceduralTile(context, tile, x, y, column, row);
+    }
+  }
+
+  drawSurfaceOverlayLayer(context, tile, x, y) {
+    if (!tile?.surfaceTreatment) {
+      return;
+    }
+
+    if (!this.drawPreRenderedSurfaceOverlay(context, x, y, tile.surfaceTreatment, tile.surfaceVariant ?? 0)) {
+      this.drawSurfaceTreatment(context, x, y, tile.surfaceTreatment, tile.surfaceVariant ?? 0);
+    }
+  }
+
+  drawDebrisLayer(context, tile, x, y) {
+    if (!tile?.debrisType) {
+      return;
+    }
+
+    const placement = tile.type === TILE_TYPES.PLATFORM ? "top" : "ground";
+    if (!this.drawPreRenderedDebris(context, x, y, tile.debrisType, tile.debrisVariant ?? 0, placement)) {
+      this.drawDebris(context, x, this.getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
+    }
+  }
+
+  drawDamageLayer(context, tile, x, y) {
+    if (!tile?.breakRatio || tile.breakRatio <= 0) {
+      return;
+    }
+
+    if (!this.drawPreRenderedDamageCracks(context, x, y, tile.breakRatio)) {
+      this.drawDamageCracks(context, x, y, tile.breakRatio);
+    }
+  }
+
   drawVisibleTerrain(world) {
     const bounds = world.getVisibleTileBounds(this.camera, this.viewport.width, this.viewport.height);
-    const platforms = [];
+    const baseTiles = [];
+    const platformTiles = [];
+    const overlayPasses = {
+      grass: [],
+      moss: [],
+      rock: [],
+      "rock-spires": [],
+    };
+    const debrisTiles = [];
+    const crackedTiles = [];
+
     for (let row = bounds.startRow; row < bounds.endRow; row += 1) {
       for (let column = bounds.startColumn; column < bounds.endColumn; column += 1) {
         const tile = world.getTile(column, row);
@@ -394,54 +567,69 @@ export class RendererWorldSubsystem extends RendererSubsystem {
           continue;
         }
 
-        if (tile.type === TILE_TYPES.PLATFORM) {
-          platforms.push({ tile, column, row });
-          continue;
-        }
-
-        this.drawTileToContext(
-          this.ctx,
+        const entry = {
           tile,
-          column * TILE_SIZE - this.camera.x,
-          row * TILE_SIZE - this.camera.y,
           column,
           row,
-        );
+          x: column * TILE_SIZE - this.camera.x,
+          y: row * TILE_SIZE - this.camera.y,
+        };
+
+        if (tile.type === TILE_TYPES.PLATFORM) {
+          platformTiles.push(entry);
+        } else if (tile.type !== TILE_TYPES.EMPTY) {
+          baseTiles.push(entry);
+        }
+
+        if (tile.surfaceTreatment && overlayPasses[tile.surfaceTreatment]) {
+          overlayPasses[tile.surfaceTreatment].push(entry);
+        }
+
+        if (tile.debrisType) {
+          debrisTiles.push(entry);
+        }
+
+        if (tile.breakRatio > 0) {
+          crackedTiles.push(entry);
+        }
       }
     }
 
-    for (const platform of platforms) {
-      this.drawPlatformTile(platform.tile, platform.column, platform.row);
+    for (const entry of baseTiles) {
+      this.drawBaseTileLayer(this.ctx, entry.tile, entry.x, entry.y, entry.column, entry.row);
+    }
+
+    for (const treatment of ["grass", "moss", "rock", "rock-spires"]) {
+      for (const entry of overlayPasses[treatment]) {
+        this.drawSurfaceOverlayLayer(this.ctx, entry.tile, entry.x, entry.y);
+      }
+    }
+
+    for (const entry of platformTiles) {
+      this.drawBaseTileLayer(this.ctx, entry.tile, entry.x, entry.y, entry.column, entry.row);
+    }
+
+    for (const entry of debrisTiles) {
+      this.drawDebrisLayer(this.ctx, entry.tile, entry.x, entry.y);
+    }
+
+    for (const entry of crackedTiles) {
+      this.drawDamageLayer(this.ctx, entry.tile, entry.x, entry.y);
     }
   }
 
   drawTileToContext(context, tile, x, y, column, row) {
     if (tile.type === TILE_TYPES.EMPTY) {
       if (tile.debrisType) {
-        if (!this.drawPreRenderedDebris(context, x, y, tile.debrisType, tile.debrisVariant ?? 0, "ground")) {
-          this.drawDebris(context, x, y + TILE_SIZE - 8, tile.debrisType, tile.debrisVariant ?? 0);
-        }
+        this.drawDebrisLayer(context, tile, x, y);
       }
       return;
     }
 
-    if (!this.drawPreRenderedTile(context, tile, x, y, column, row)) {
-      this.drawProceduralTile(context, tile, x, y, column, row);
-      this.drawSurfaceTreatment(context, x, y, tile.surfaceTreatment, tile.surfaceVariant ?? 0);
-    }
-
-    if (tile.debrisType) {
-      const placement = tile.type === TILE_TYPES.PLATFORM ? "top" : "ground";
-      if (!this.drawPreRenderedDebris(context, x, y, tile.debrisType, tile.debrisVariant ?? 0, placement)) {
-        this.drawDebris(context, x, this.getDebrisDrawY(tile, y), tile.debrisType, tile.debrisVariant ?? 0);
-      }
-    }
-
-    if (tile.breakRatio > 0) {
-      if (!this.drawPreRenderedDamageCracks(context, x, y, tile.breakRatio)) {
-        this.drawDamageCracks(context, x, y, tile.breakRatio);
-      }
-    }
+    this.drawBaseTileLayer(context, tile, x, y, column, row);
+    this.drawSurfaceOverlayLayer(context, tile, x, y);
+    this.drawDebrisLayer(context, tile, x, y);
+    this.drawDamageLayer(context, tile, x, y);
   }
 
   drawProceduralTile(context, tile, x, y, column = 0, row = 0) {
@@ -647,7 +835,7 @@ export class RendererWorldSubsystem extends RendererSubsystem {
   drawPlatformTile(tile, column, row) {
     const x = column * TILE_SIZE - this.camera.x;
     const y = row * TILE_SIZE - this.camera.y;
-    this.drawTileToContext(this.ctx, tile, x, y, column, row);
+    this.drawBaseTileLayer(this.ctx, tile, x, y, column, row);
   }
 
   getDebrisDrawY(tile, y) {

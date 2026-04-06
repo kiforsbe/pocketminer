@@ -110,23 +110,23 @@ function Draw-LinePath {
   }
 }
 
-function Supports-SurfaceTreatment {
-  param([string]$Type)
-
-  return $Type -notin @('empty', 'chest', 'platform', 'magma')
-}
-
-function Build-TileKey {
+function Build-BaseTileKey {
   param(
     [string]$Type,
-    [AllowNull()][string]$SurfaceTreatment,
-    [int]$SurfaceVariant,
     [int]$Frame
   )
 
-  $treatment = if ([string]::IsNullOrEmpty($SurfaceTreatment)) { 'none' } else { $SurfaceTreatment }
-  $variant = if ($SurfaceTreatment -eq 'grass') { $SurfaceVariant % 3 } else { 0 }
-  return "tile:${Type}:${treatment}:${variant}:${Frame}"
+  return "base:${Type}:${Frame}"
+}
+
+function Build-SurfaceOverlayKey {
+  param(
+    [string]$SurfaceTreatment,
+    [int]$Variant
+  )
+
+  $normalizedVariant = if ($SurfaceTreatment -eq 'grass') { $Variant % 3 } else { 0 }
+  return "overlay:${SurfaceTreatment}:${normalizedVariant}"
 }
 
 function Build-DebrisKey {
@@ -146,7 +146,7 @@ function Build-CrackKey {
   return "crack:${normalized}"
 }
 
-function Draw-LegacyTilePattern {
+function Draw-BaseTileArt {
   param(
     [System.Drawing.Graphics]$Graphics,
     $Definition,
@@ -155,31 +155,61 @@ function Draw-LegacyTilePattern {
     [double]$Unit
   )
 
+  $fill = New-HexColor $Definition.fill
+  $accent = New-HexColor $Definition.accent
+  $outline = New-RgbaColor 0 0 0 46
+  $unitSize = 32 * $Unit
+
+  if ($Definition.type -notin @('chest', 'platform')) {
+    Fill-Rect $Graphics $fill $X $Y $unitSize $unitSize
+    Draw-Rect $Graphics $outline $X $Y ($unitSize - 1) ($unitSize - 1) 1
+  }
+
   switch ($Definition.type) {
     'dirt' {
-      $accent = New-HexColor $Definition.accent
       foreach ($chunk in @(
-        @{ x = 4; y = 4; w = 4; h = 4 },
-        @{ x = 10; y = 4; w = 4; h = 4 },
-        @{ x = 18; y = 4; w = 4; h = 4 },
-        @{ x = 24; y = 8; w = 4; h = 4 },
-        @{ x = 7; y = 14; w = 4; h = 4 },
-        @{ x = 14; y = 18; w = 4; h = 4 },
-        @{ x = 22; y = 21; w = 4; h = 4 }
+        @{ x = 3; y = 4; w = 5; h = 4 },
+        @{ x = 10; y = 5; w = 4; h = 3 },
+        @{ x = 19; y = 4; w = 4; h = 4 },
+        @{ x = 24; y = 9; w = 3; h = 3 },
+        @{ x = 6; y = 13; w = 5; h = 4 },
+        @{ x = 14; y = 19; w = 4; h = 4 },
+        @{ x = 22; y = 22; w = 4; h = 3 }
       )) {
         Fill-Rect $Graphics $accent ($X + $chunk.x * $Unit) ($Y + $chunk.y * $Unit) ($chunk.w * $Unit) ($chunk.h * $Unit)
       }
+      Fill-Rect $Graphics (New-RgbaColor 58 37 16 71) ($X + 8 * $Unit) ($Y + 9 * $Unit) (3 * $Unit) (2 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 58 37 16 71) ($X + 20 * $Unit) ($Y + 15 * $Unit) (4 * $Unit) (2 * $Unit)
       return $true
     }
     'stone' {
       Fill-Rect $Graphics (New-HexColor '#5c6678') ($X + 4 * $Unit) ($Y + 4 * $Unit) (24 * $Unit) (24 * $Unit)
-      $accent = New-HexColor $Definition.accent
       Fill-Rect $Graphics $accent ($X + 6 * $Unit) ($Y + 6 * $Unit) (20 * $Unit) (2 * $Unit)
       Fill-Rect $Graphics $accent ($X + 6 * $Unit) ($Y + 14 * $Unit) (20 * $Unit) (2 * $Unit)
       Fill-Rect $Graphics $accent ($X + 6 * $Unit) ($Y + 22 * $Unit) (20 * $Unit) (2 * $Unit)
       Fill-Rect $Graphics $accent ($X + 6 * $Unit) ($Y + 6 * $Unit) (2 * $Unit) (18 * $Unit)
       Fill-Rect $Graphics $accent ($X + 14 * $Unit) ($Y + 8 * $Unit) (2 * $Unit) (18 * $Unit)
       Fill-Rect $Graphics $accent ($X + 22 * $Unit) ($Y + 6 * $Unit) (2 * $Unit) (18 * $Unit)
+      return $true
+    }
+    'shale' {
+      Fill-Rect $Graphics $accent ($X + 4 * $Unit) ($Y + 6 * $Unit) (22 * $Unit) (2 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 7 * $Unit) ($Y + 12 * $Unit) (17 * $Unit) (2 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 5 * $Unit) ($Y + 19 * $Unit) (21 * $Unit) (2 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 35 42 54 84) ($X + 12 * $Unit) ($Y + 5 * $Unit) (1 * $Unit) (7 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 35 42 54 84) ($X + 20 * $Unit) ($Y + 11 * $Unit) (1 * $Unit) (10 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 35 42 54 84) ($X + 8 * $Unit) ($Y + 18 * $Unit) (1 * $Unit) (8 * $Unit)
+      return $true
+    }
+    'basalt' {
+      Fill-Rect $Graphics $accent ($X + 5 * $Unit) ($Y + 5 * $Unit) (8 * $Unit) (8 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 17 * $Unit) ($Y + 8 * $Unit) (9 * $Unit) (9 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 9 * $Unit) ($Y + 19 * $Unit) (12 * $Unit) (6 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 26 32 40 92) ($X + 14 * $Unit) ($Y + 4 * $Unit) (2 * $Unit) (24 * $Unit)
+      return $true
+    }
+    'magma' {
+      Draw-MagmaPattern $Graphics $Definition $X $Y $unitSize 0 0 0
       return $true
     }
     'coal' {
@@ -194,8 +224,34 @@ function Draw-LegacyTilePattern {
       Fill-Rect $Graphics $shine ($X + 8 * $Unit) ($Y + 18 * $Unit) (7 * $Unit) (1 * $Unit)
       return $true
     }
+    'copper' {
+      foreach ($vein in @(
+        @{ x = 6; y = 6; w = 5; h = 4 },
+        @{ x = 18; y = 7; w = 6; h = 4 },
+        @{ x = 10; y = 17; w = 4; h = 7 },
+        @{ x = 19; y = 18; w = 5; h = 5 }
+      )) {
+        Fill-Rect $Graphics $accent ($X + $vein.x * $Unit) ($Y + $vein.y * $Unit) ($vein.w * $Unit) ($vein.h * $Unit)
+      }
+      Fill-Rect $Graphics (New-RgbaColor 245 177 122 92) ($X + 7 * $Unit) ($Y + 6 * $Unit) (2 * $Unit) (4 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 245 177 122 92) ($X + 20 * $Unit) ($Y + 7 * $Unit) (2 * $Unit) (4 * $Unit)
+      return $true
+    }
+    'tin' {
+      foreach ($node in @(
+        @{ x = 6; y = 6; w = 4; h = 4 },
+        @{ x = 11; y = 7; w = 4; h = 5 },
+        @{ x = 20; y = 8; w = 5; h = 5 },
+        @{ x = 9; y = 19; w = 5; h = 4 },
+        @{ x = 16; y = 18; w = 4; h = 6 }
+      )) {
+        Fill-Rect $Graphics $accent ($X + $node.x * $Unit) ($Y + $node.y * $Unit) ($node.w * $Unit) ($node.h * $Unit)
+      }
+      Fill-Rect $Graphics (New-RgbaColor 255 255 255 64) ($X + 7 * $Unit) ($Y + 6 * $Unit) (1 * $Unit) (4 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 255 255 255 64) ($X + 21 * $Unit) ($Y + 8 * $Unit) (1 * $Unit) (5 * $Unit)
+      return $true
+    }
     'iron' {
-      $accent = New-HexColor $Definition.accent
       foreach ($vein in @(
         @{ x = 6; y = 6; w = 4; h = 8 },
         @{ x = 4; y = 8; w = 8; h = 4 },
@@ -210,6 +266,73 @@ function Draw-LegacyTilePattern {
       Fill-Rect $Graphics $shine ($X + 7 * $Unit) ($Y + 6 * $Unit) (1 * $Unit) (8 * $Unit)
       Fill-Rect $Graphics $shine ($X + 20 * $Unit) ($Y + 9 * $Unit) (1 * $Unit) (7 * $Unit)
       Fill-Rect $Graphics $shine ($X + 13 * $Unit) ($Y + 19 * $Unit) (1 * $Unit) (7 * $Unit)
+      return $true
+    }
+    'silver' {
+      foreach ($vein in @(
+        @{ x = 7; y = 6; w = 3; h = 9 },
+        @{ x = 11; y = 9; w = 6; h = 3 },
+        @{ x = 20; y = 7; w = 3; h = 8 },
+        @{ x = 14; y = 19; w = 3; h = 7 }
+      )) {
+        Fill-Rect $Graphics $accent ($X + $vein.x * $Unit) ($Y + $vein.y * $Unit) ($vein.w * $Unit) ($vein.h * $Unit)
+      }
+      Fill-Rect $Graphics (New-RgbaColor 255 255 255 76) ($X + 8 * $Unit) ($Y + 6 * $Unit) (1 * $Unit) (9 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 255 255 255 76) ($X + 21 * $Unit) ($Y + 7 * $Unit) (1 * $Unit) (8 * $Unit)
+      return $true
+    }
+    'gold' {
+      foreach ($nugget in @(
+        @{ x = 6; y = 7; w = 5; h = 5 },
+        @{ x = 18; y = 8; w = 6; h = 5 },
+        @{ x = 11; y = 18; w = 7; h = 6 }
+      )) {
+        Fill-Rect $Graphics $accent ($X + $nugget.x * $Unit) ($Y + $nugget.y * $Unit) ($nugget.w * $Unit) ($nugget.h * $Unit)
+      }
+      Fill-Rect $Graphics (New-RgbaColor 255 232 151 84) ($X + 7 * $Unit) ($Y + 7 * $Unit) (2 * $Unit) (2 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 255 232 151 84) ($X + 19 * $Unit) ($Y + 8 * $Unit) (2 * $Unit) (2 * $Unit)
+      return $true
+    }
+    'ruby' {
+      foreach ($shard in @(
+        @{ x = 8; y = 6; w = 4; h = 8 },
+        @{ x = 20; y = 9; w = 5; h = 9 },
+        @{ x = 13; y = 19; w = 6; h = 7 }
+      )) {
+        Fill-Rect $Graphics $accent ($X + $shard.x * $Unit) ($Y + $shard.y * $Unit) ($shard.w * $Unit) ($shard.h * $Unit)
+      }
+      Fill-Rect $Graphics (New-RgbaColor 255 171 186 82) ($X + 9 * $Unit) ($Y + 6 * $Unit) (1 * $Unit) (8 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 255 171 186 82) ($X + 21 * $Unit) ($Y + 9 * $Unit) (1 * $Unit) (9 * $Unit)
+      return $true
+    }
+    'sapphire' {
+      foreach ($shard in @(
+        @{ x = 7; y = 6; w = 4; h = 8 },
+        @{ x = 19; y = 9; w = 5; h = 9 },
+        @{ x = 12; y = 19; w = 6; h = 7 }
+      )) {
+        Fill-Rect $Graphics $accent ($X + $shard.x * $Unit) ($Y + $shard.y * $Unit) ($shard.w * $Unit) ($shard.h * $Unit)
+      }
+      Fill-Rect $Graphics (New-RgbaColor 187 225 255 82) ($X + 8 * $Unit) ($Y + 6 * $Unit) (1 * $Unit) (8 * $Unit)
+      Fill-Rect $Graphics (New-RgbaColor 187 225 255 82) ($X + 20 * $Unit) ($Y + 9 * $Unit) (1 * $Unit) (9 * $Unit)
+      return $true
+    }
+    'chest' {
+      Fill-Rect $Graphics $fill ($X + 5 * $Unit) ($Y + 10 * $Unit) (22 * $Unit) (14 * $Unit)
+      Fill-Rect $Graphics $fill ($X + 7 * $Unit) ($Y + 7 * $Unit) (18 * $Unit) (5 * $Unit)
+      Fill-Rect $Graphics (New-HexColor '#34210c') ($X + 5 * $Unit) ($Y + 12 * $Unit) (22 * $Unit) (2 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 14 * $Unit) ($Y + 13 * $Unit) (4 * $Unit) (8 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 5 * $Unit) ($Y + 16 * $Unit) (22 * $Unit) (2 * $Unit)
+      return $true
+    }
+    'platform' {
+      Fill-Rect $Graphics $fill ($X + 4 * $Unit) ($Y + 1 * $Unit) (24 * $Unit) (5 * $Unit)
+      Fill-Rect $Graphics $fill ($X + 6 * $Unit) ($Y + 6 * $Unit) (20 * $Unit) (2 * $Unit)
+      $support = New-HexColor '#4f3720'
+      Fill-Rect $Graphics $support ($X + 8 * $Unit) ($Y + 8 * $Unit) (3 * $Unit) (6 * $Unit)
+      Fill-Rect $Graphics $support ($X + 15 * $Unit) ($Y + 8 * $Unit) (3 * $Unit) (6 * $Unit)
+      Fill-Rect $Graphics $support ($X + 22 * $Unit) ($Y + 8 * $Unit) (3 * $Unit) (6 * $Unit)
+      Fill-Rect $Graphics $accent ($X + 6 * $Unit) ($Y + 2 * $Unit) (20 * $Unit) (1 * $Unit)
       return $true
     }
     default {
@@ -260,7 +383,7 @@ function Draw-MagmaPattern {
   Fill-Rect $Graphics $glow ($X + 10 * $unit) ($Y + 23 * $unit) (8 * $unit) (1 * $unit)
 }
 
-function Draw-TilePattern {
+function Draw-BaseTileFrame {
   param(
     [System.Drawing.Graphics]$Graphics,
     $Definition,
@@ -272,76 +395,12 @@ function Draw-TilePattern {
     [int]$Row
   )
 
-  $unit = $Size / 32.0
-  $hasSolidBackdrop = $Definition.pattern -notin @('chest', 'platform')
-  if ($hasSolidBackdrop) {
-    Fill-Rect $Graphics (New-HexColor $Definition.fill) $X $Y $Size $Size
-    Draw-Rect $Graphics (New-RgbaColor 0 0 0 46) $X $Y ($Size - 1) ($Size - 1) 1
-  }
-  if (Draw-LegacyTilePattern $Graphics $Definition $X $Y $unit) {
+  if ($Definition.type -eq 'magma') {
+    Draw-MagmaPattern $Graphics $Definition $X $Y $Size $Time $Column $Row
     return
   }
-  $accent = New-HexColor $Definition.accent
 
-  switch ($Definition.pattern) {
-    'speck' {
-      foreach ($offset in @(4, 11, 18, 24)) {
-        Fill-Rect $Graphics $accent ($X + $offset * $unit) ($Y + (6 + ($offset % 4) * 4) * $unit) (4 * $unit) (4 * $unit)
-      }
-    }
-    'bands' {
-      Fill-Rect $Graphics $accent ($X + 4 * $unit) ($Y + 6 * $unit) (22 * $unit) (2 * $unit)
-      Fill-Rect $Graphics $accent ($X + 7 * $unit) ($Y + 14 * $unit) (18 * $unit) (2 * $unit)
-      Fill-Rect $Graphics $accent ($X + 5 * $unit) ($Y + 22 * $unit) (20 * $unit) (2 * $unit)
-    }
-    'slate' {
-      Fill-Rect $Graphics $accent ($X + 5 * $unit) ($Y + 5 * $unit) (20 * $unit) (3 * $unit)
-      Fill-Rect $Graphics $accent ($X + 9 * $unit) ($Y + 12 * $unit) (16 * $unit) (2 * $unit)
-      Fill-Rect $Graphics $accent ($X + 4 * $unit) ($Y + 19 * $unit) (22 * $unit) (3 * $unit)
-    }
-    'blocks' {
-      Fill-Rect $Graphics $accent ($X + 5 * $unit) ($Y + 5 * $unit) (8 * $unit) (8 * $unit)
-      Fill-Rect $Graphics $accent ($X + 17 * $unit) ($Y + 8 * $unit) (9 * $unit) (9 * $unit)
-      Fill-Rect $Graphics $accent ($X + 9 * $unit) ($Y + 19 * $unit) (12 * $unit) (6 * $unit)
-    }
-    'magma' {
-      Draw-MagmaPattern $Graphics $Definition $X $Y $Size $Time $Column $Row
-    }
-    'chest' {
-      $base = New-HexColor $Definition.fill
-      Fill-Rect $Graphics $base ($X + 5 * $unit) ($Y + 10 * $unit) (22 * $unit) (14 * $unit)
-      Fill-Rect $Graphics $base ($X + 7 * $unit) ($Y + 7 * $unit) (18 * $unit) (5 * $unit)
-      Fill-Rect $Graphics (New-HexColor '#34210c') ($X + 5 * $unit) ($Y + 12 * $unit) (22 * $unit) (2 * $unit)
-      Fill-Rect $Graphics (New-HexColor $Definition.accent) ($X + 14 * $unit) ($Y + 13 * $unit) (4 * $unit) (8 * $unit)
-      Fill-Rect $Graphics (New-HexColor $Definition.accent) ($X + 5 * $unit) ($Y + 16 * $unit) (22 * $unit) (2 * $unit)
-    }
-    'platform' {
-      $base = New-HexColor $Definition.fill
-      Fill-Rect $Graphics $base ($X + 4 * $unit) ($Y + 1 * $unit) (24 * $unit) (5 * $unit)
-      Fill-Rect $Graphics $base ($X + 6 * $unit) ($Y + 6 * $unit) (20 * $unit) (2 * $unit)
-      $support = New-HexColor '#4f3720'
-      Fill-Rect $Graphics $support ($X + 8 * $unit) ($Y + 8 * $unit) (3 * $unit) (6 * $unit)
-      Fill-Rect $Graphics $support ($X + 15 * $unit) ($Y + 8 * $unit) (3 * $unit) (6 * $unit)
-      Fill-Rect $Graphics $support ($X + 22 * $unit) ($Y + 8 * $unit) (3 * $unit) (6 * $unit)
-      Fill-Rect $Graphics (New-HexColor $Definition.accent) ($X + 6 * $unit) ($Y + 2 * $unit) (20 * $unit) (1 * $unit)
-    }
-    'ore-cluster' {
-      Fill-Rect $Graphics $accent ($X + 6 * $unit) ($Y + 5 * $unit) (6 * $unit) (6 * $unit)
-      Fill-Rect $Graphics $accent ($X + 18 * $unit) ($Y + 8 * $unit) (7 * $unit) (7 * $unit)
-      Fill-Rect $Graphics $accent ($X + 11 * $unit) ($Y + 19 * $unit) (8 * $unit) (8 * $unit)
-    }
-    'ore-gem' {
-      Fill-Rect $Graphics $accent ($X + 7 * $unit) ($Y + 6 * $unit) (5 * $unit) (5 * $unit)
-      Fill-Rect $Graphics $accent ($X + 19 * $unit) ($Y + 10 * $unit) (6 * $unit) (6 * $unit)
-      Fill-Rect $Graphics $accent ($X + 13 * $unit) ($Y + 18 * $unit) (7 * $unit) (7 * $unit)
-      Fill-Rect $Graphics $accent ($X + 9 * $unit) ($Y + 14 * $unit) (3 * $unit) (3 * $unit)
-    }
-    'gem-shard' {
-      Fill-Rect $Graphics $accent ($X + 8 * $unit) ($Y + 6 * $unit) (4 * $unit) (8 * $unit)
-      Fill-Rect $Graphics $accent ($X + 20 * $unit) ($Y + 9 * $unit) (5 * $unit) (9 * $unit)
-      Fill-Rect $Graphics $accent ($X + 13 * $unit) ($Y + 19 * $unit) (6 * $unit) (7 * $unit)
-    }
-  }
+  [void](Draw-BaseTileArt $Graphics $Definition $X $Y ($Size / 32.0))
 }
 
 function Draw-GrassCap {
@@ -585,14 +644,13 @@ $atlasPixelSize = 576
 $atlasColumns = [int]($atlasPixelSize / $tileSize)
 $atlasRows = [int]($atlasPixelSize / $tileHeight)
 
-$surfaceVariants = @(
-  @{ surfaceTreatment = $null; surfaceVariant = 0 },
-  @{ surfaceTreatment = 'grass'; surfaceVariant = 0 },
-  @{ surfaceTreatment = 'grass'; surfaceVariant = 1 },
-  @{ surfaceTreatment = 'grass'; surfaceVariant = 2 },
-  @{ surfaceTreatment = 'moss'; surfaceVariant = 0 },
-  @{ surfaceTreatment = 'rock'; surfaceVariant = 0 },
-  @{ surfaceTreatment = 'rock-spires'; surfaceVariant = 0 }
+$surfaceOverlayDefinitions = @(
+  [ordered]@{ surfaceTreatment = 'grass'; surfaceVariant = 0 },
+  [ordered]@{ surfaceTreatment = 'grass'; surfaceVariant = 1 },
+  [ordered]@{ surfaceTreatment = 'grass'; surfaceVariant = 2 },
+  [ordered]@{ surfaceTreatment = 'moss'; surfaceVariant = 0 },
+  [ordered]@{ surfaceTreatment = 'rock'; surfaceVariant = 0 },
+  [ordered]@{ surfaceTreatment = 'rock-spires'; surfaceVariant = 0 }
 )
 
 $tileDefinitions = @(
@@ -634,82 +692,92 @@ function Add-EntriesToLayout {
   }
 }
 
-$tileEntriesByType = @{}
+$baseEntriesByType = @{}
+$overlayEntriesByTreatment = @{}
 $debrisEntriesByType = @{}
-  foreach ($definition in $tileDefinitions) {
-    $definitionEntries = New-EntryList
-    $variants = if (Supports-SurfaceTreatment $definition.type) { $surfaceVariants } else { @(@{ surfaceTreatment = $null; surfaceVariant = 0 }) }
-    $frameCount = if ($definition.type -eq 'magma') { $magmaFrameCount } else { 1 }
-    for ($frame = 0; $frame -lt $frameCount; $frame += 1) {
-      foreach ($variant in $variants) {
-        $definitionEntries.Add([ordered]@{
-          key = Build-TileKey $definition.type $variant.surfaceTreatment $variant.surfaceVariant $frame
-          kind = 'tile'
-          definition = $definition
-          surfaceTreatment = $variant.surfaceTreatment
-          surfaceVariant = $variant.surfaceVariant
-          frame = $frame
-        })
-      }
-
-    }
-
-    $tileEntriesByType[$definition.type] = $definitionEntries
+foreach ($definition in $tileDefinitions) {
+  $definitionEntries = New-EntryList
+  $frameCount = if ($definition.type -eq 'magma') { $magmaFrameCount } else { 1 }
+  for ($frame = 0; $frame -lt $frameCount; $frame += 1) {
+    $definitionEntries.Add([ordered]@{
+      key = Build-BaseTileKey $definition.type $frame
+      kind = 'base-tile'
+      definition = $definition
+      frame = $frame
+    })
   }
 
-  foreach ($definition in $tileDefinitions) {
-    $definitionEntries = New-EntryList
-    for ($variant = 0; $variant -lt 3; $variant += 1) {
-      $definitionEntries.Add([ordered]@{ key = Build-DebrisKey $definition.type $variant 'ground'; kind = 'debris'; definition = $definition; variant = $variant; placement = 'ground' })
-      $definitionEntries.Add([ordered]@{ key = Build-DebrisKey $definition.type $variant 'top'; kind = 'debris'; definition = $definition; variant = $variant; placement = 'top' })
-    }
+  $baseEntriesByType[$definition.type] = $definitionEntries
+}
 
-    $debrisEntriesByType[$definition.type] = $definitionEntries
+foreach ($overlayDefinition in $surfaceOverlayDefinitions) {
+  if (-not $overlayEntriesByTreatment.ContainsKey($overlayDefinition.surfaceTreatment)) {
+    $overlayEntriesByTreatment[$overlayDefinition.surfaceTreatment] = New-EntryList
   }
 
-  $crackEntries = New-EntryList
-  for ($crackLevel = 1; $crackLevel -le 4; $crackLevel += 1) {
-    $crackEntries.Add([ordered]@{ key = Build-CrackKey $crackLevel; kind = 'crack'; crackLevel = $crackLevel })
+  $overlayEntriesByTreatment[$overlayDefinition.surfaceTreatment].Add([ordered]@{
+    key = Build-SurfaceOverlayKey $overlayDefinition.surfaceTreatment $overlayDefinition.surfaceVariant
+    kind = 'overlay'
+    surfaceTreatment = $overlayDefinition.surfaceTreatment
+    surfaceVariant = $overlayDefinition.surfaceVariant
+  })
+}
+
+foreach ($definition in $tileDefinitions) {
+  $definitionEntries = New-EntryList
+  for ($variant = 0; $variant -lt 3; $variant += 1) {
+    $definitionEntries.Add([ordered]@{ key = Build-DebrisKey $definition.type $variant 'ground'; kind = 'debris'; definition = $definition; variant = $variant; placement = 'ground' })
+    $definitionEntries.Add([ordered]@{ key = Build-DebrisKey $definition.type $variant 'top'; kind = 'debris'; definition = $definition; variant = $variant; placement = 'top' })
   }
 
-  $layoutEntries = New-EntryList
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.chest 0 0 2
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.platform 2 0 1
-  Add-EntriesToLayout $layoutEntries $crackEntries 4 0 4
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.magma 12 0 6
+  $debrisEntriesByType[$definition.type] = $definitionEntries
+}
 
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.dirt 0 1 4
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.stone 4 1 4
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.shale 8 1 4
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.basalt 12 1 4
+$crackEntries = New-EntryList
+for ($crackLevel = 1; $crackLevel -le 4; $crackLevel += 1) {
+  $crackEntries.Add([ordered]@{ key = Build-CrackKey $crackLevel; kind = 'crack'; crackLevel = $crackLevel })
+}
 
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.coal 0 3 4
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.copper 4 3 4
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.tin 8 3 4
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.iron 12 3 4
+$layoutEntries = New-EntryList
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.chest 0 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.platform 1 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.dirt 2 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.stone 3 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.shale 4 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.basalt 5 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.magma 6 0 6
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.coal 12 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.copper 13 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.tin 14 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.iron 15 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.silver 16 0 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.gold 17 0 1
 
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.silver 0 5 4
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.gold 4 5 4
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.ruby 8 5 4
-  Add-EntriesToLayout $layoutEntries $tileEntriesByType.sapphire 12 5 4
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.ruby 0 1 1
+Add-EntriesToLayout $layoutEntries $baseEntriesByType.sapphire 1 1 1
+Add-EntriesToLayout $layoutEntries $overlayEntriesByTreatment.grass 3 1 3
+Add-EntriesToLayout $layoutEntries $overlayEntriesByTreatment.moss 6 1 1
+Add-EntriesToLayout $layoutEntries $overlayEntriesByTreatment.rock 7 1 1
+Add-EntriesToLayout $layoutEntries $overlayEntriesByTreatment.'rock-spires' 8 1 1
+Add-EntriesToLayout $layoutEntries $crackEntries 10 1 4
 
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.chest 0 8 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.platform 3 8 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.dirt 6 8 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.stone 9 8 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.shale 12 8 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.basalt 15 8 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.chest 0 3 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.platform 3 3 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.dirt 6 3 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.stone 9 3 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.shale 12 3 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.basalt 15 3 3
 
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.magma 0 10 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.coal 3 10 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.copper 6 10 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.tin 9 10 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.iron 12 10 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.silver 15 10 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.magma 0 5 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.coal 3 5 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.copper 6 5 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.tin 9 5 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.iron 12 5 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.silver 15 5 3
 
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.gold 0 12 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.ruby 3 12 3
-  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.sapphire 6 12 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.gold 0 7 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.ruby 3 7 3
+Add-EntriesToLayout $layoutEntries $debrisEntriesByType.sapphire 6 7 3
 
   foreach ($entry in $layoutEntries) {
     if ($entry.atlasColumn -ge $atlasColumns -or $entry.atlasRow -ge $atlasRows) {
@@ -735,14 +803,15 @@ $debrisEntriesByType = @{}
       $manifestEntries[$entry.key] = [ordered]@{ x = $x; y = $y }
 
       switch ($entry.kind) {
-        'tile' {
+        'base-tile' {
           if ($entry.definition.type -eq 'magma') {
-            Draw-TilePattern $graphics $entry.definition $x $drawY $tileSize ($entry.frame / $magmaAnimationFps) 0 0
+            Draw-BaseTileFrame $graphics $entry.definition $x $drawY $tileSize ($entry.frame / $magmaAnimationFps) 0 0
           }
           else {
-            Draw-TilePattern $graphics $entry.definition $x $drawY $tileSize 0 0 0
+            Draw-BaseTileFrame $graphics $entry.definition $x $drawY $tileSize 0 0 0
           }
-
+        }
+        'overlay' {
           Draw-SurfaceTreatment $graphics $x $drawY $tileSize $entry.surfaceTreatment $entry.surfaceVariant
         }
         'debris' {
