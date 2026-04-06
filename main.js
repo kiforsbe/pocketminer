@@ -820,7 +820,8 @@ function togglePasswordEntry(panel) {
   setPasswordEntryOpen(panel, nextOpen);
 }
 
-function restoreProgressFromPassword(decodedPassword) {
+function applyRestoredProgressFromPassword(decodedPassword) {
+  const previousPhase = gameState.phase;
   const bombUnlocked = Boolean(decodedPassword.bombUnlocked);
   const restoredBonuses = createPlayerBonuses();
 
@@ -850,7 +851,7 @@ function restoreProgressFromPassword(decodedPassword) {
   gameState.platformCharges = getPlatformCapacity();
   gameState.bombCooldown = 0;
   gameState.bombCharges = bombUnlocked ? bombSystem.getCapacity() : 0;
-  gameState.phase = "countdown";
+  gameState.phase = previousPhase;
   gameState.round = decodedPassword.round;
   gameState.timeLeft = getRoundDuration();
   gameState.bank = decodedPassword.bank;
@@ -880,23 +881,73 @@ function restoreProgressFromPassword(decodedPassword) {
   setShiftCountdownVisibility(false);
   chestRewardController.hideOverlay();
   cheatCodeController.reset();
-  pauseScreenController.hide();
-  introScreenController.hide();
   gameoverScreenController.hide();
   storeController.reset();
-  musicSystem.resetForNextRound({ immediate: true });
   endOfRoundSystem.reset();
   updatePasswordDisplays();
   showRoundNotification("Password restored. Bank and bonuses were rounded to password tiers.");
-  beginShiftCountdown();
+}
+
+function startRestoredGameFromIntro(decodedPassword) {
+  if (gameState.phase !== "intro" || gameState.introExiting) {
+    return;
+  }
+
+  applyRestoredProgressFromPassword(decodedPassword);
+  audio.playSound("introStart", { volume: 0.24 });
+  const fadeDurationMs = gameState.audioReady ? musicSystem.transitionFromIntroToGameplay() : 0;
+  const introScreenFadeDurationMs = clampScreenFadeDuration(
+    fadeDurationMs - getShiftCountdownTotalDurationMs(),
+    MAX_INTRO_OVERLAY_FADE_MS,
+  );
+  gameState.introExiting = true;
+  introScreenController.startExit({
+    durationMs: introScreenFadeDurationMs,
+    onComplete: () => {
+      gameState.introExiting = false;
+      beginShiftCountdown();
+    },
+  });
+}
+
+function startRestoredGameFromPause(decodedPassword) {
+  if (gameState.phase !== "paused" || gameState.pauseExiting) {
+    return;
+  }
+
+  applyRestoredProgressFromPassword(decodedPassword);
+  if (gameState.audioReady) {
+    audio.playSound("introStart", { volume: 0.24 });
+  }
+
+  gameState.pauseExiting = true;
+  const fadeDurationMs = gameState.audioReady ? musicSystem.transitionFromPauseToGameplay() : 0;
+  const pauseScreenFadeDurationMs = clampScreenFadeDuration(
+    fadeDurationMs - getShiftCountdownTotalDurationMs(),
+    MAX_PAUSE_OVERLAY_FADE_MS,
+  );
+  pauseScreenController.startExit({
+    durationMs: pauseScreenFadeDurationMs,
+    onComplete: () => {
+      beginShiftCountdown();
+    },
+  });
 }
 
 function submitPasswordEntry(panel) {
   try {
     const decodedPassword = decodePassword(panel.inputEl?.value ?? "");
-    restoreProgressFromPassword(decodedPassword);
-    setPasswordStatus(panel, "Password accepted.", "success");
     setPasswordEntryOpen(panel, false);
+    setPasswordStatus(panel, "Password accepted.", "success");
+    if (panel.controller === introScreenController) {
+      startRestoredGameFromIntro(decodedPassword);
+      return;
+    }
+
+    if (panel.controller === pauseScreenController) {
+      startRestoredGameFromPause(decodedPassword);
+      return;
+    }
   } catch (error) {
     setPasswordStatus(panel, error instanceof Error ? error.message : "Password could not be read.", "error");
   }

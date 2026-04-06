@@ -315,13 +315,13 @@ Five bits allow values from `0` to `31`, which are stored as rounds `1` through 
 The encoder stores:
 
 $$
-	ext{storedRound} = \text{clamp}(\text{round}, 1, 32) - 1
+  ext{storedRound} = \text{clamp}(\text{round}, 1, 32) - 1
 $$
 
 The decoder restores:
 
 $$
-	ext{round} = \text{storedRound} + 1
+  ext{round} = \text{storedRound} + 1
 $$
 
 That means the password system cannot represent rounds above `32`. Higher rounds are clamped to `32` when encoded.
@@ -333,13 +333,13 @@ Seven bits allow values from `0` to `127`.
 The live bank is not stored exactly. It is quantized in `500€` steps:
 
 $$
-	ext{bankBucket} = \text{clamp}(\text{round}(\text{bank} / 500), 0, 127)
+  ext{bankBucket} = \text{clamp}(\text{round}(\text{bank} / 500), 0, 127)
 $$
 
 On restore, the bank becomes:
 
 $$
-	ext{restoredBank} = \text{bankBucket} \times 500
+  ext{restoredBank} = \text{bankBucket} \times 500
 $$
 
 So the maximum encoded bank is:
@@ -390,7 +390,7 @@ The last character is a checksum over the first `11` characters, not over the ra
 For each data character, the encoder looks up its alphabet index and computes:
 
 $$
-	ext{checksum} = \left(\sum_{i=0}^{10} \text{value}_i \times (i + 3)\right) \bmod 32
+  ext{checksum} = \left(\sum_{i=0}^{10} \text{value}_i \times (i + 3)\right) \bmod 32
 $$
 
 The resulting number selects the final character from the same Base32 alphabet.
