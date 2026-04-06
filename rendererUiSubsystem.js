@@ -151,6 +151,7 @@ class RendererUiHudSection extends RendererUiSection {
       { label: "Platform", value: bonuses.platformCooldown ?? 0 },
       { label: "Bomb Dmg", value: bonuses.bombDamage ?? 0 },
       { label: "Bomb Load", value: bonuses.bombRestock ?? 0 },
+      { label: "Magnet", value: bonuses.pickupMagnetism ?? 0 },
       { label: "Luck", value: bonuses.luck ?? 0 },
       { label: "Mastery", value: bonuses.mastery ?? 0 },
       { label: "Damage", value: bonuses.toolDamage ?? 0 },

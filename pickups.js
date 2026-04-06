@@ -1,10 +1,57 @@
 import { ITEM_DEFINITIONS } from "./inventory.js";
+import { TILE_SIZE } from "./tile.js";
 
 const PICKUP_GRAVITY = 980;
 const PICKUP_BOB_SPEED = 6;
 const PICKUP_RADIUS = 10;
 const PICKUP_MAGNET_RANGE = 86;
 const PICKUP_COLLECT_RANGE = 20;
+const PICKUP_TREASURE_ATTRACTION_BASE = 340;
+const PICKUP_RESOURCE_ATTRACTION_BASE = 280;
+const PICKUP_MAGNET_FORCE_PER_BONUS = 520;
+const PICKUP_MAGNET_DISTANCE_FALLOFF = 1.1;
+const PICKUP_STRONG_MAGNET_THRESHOLD = 2;
+const PICKUP_STRONG_MAGNET_RANGE = TILE_SIZE * 6;
+const PICKUP_MASS_DRAG_PER_VALUE = 1 / 220;
+
+function getPickupMagnetBonus(player) {
+  return Math.max(0, player?.bonuses?.pickupMagnetism ?? 0);
+}
+
+function getPickupMassValue(pickup) {
+  if (typeof pickup?.massValue === "number") {
+    return Math.max(1, pickup.massValue);
+  }
+
+  if (pickup?.itemId) {
+    return Math.max(1, ITEM_DEFINITIONS[pickup.itemId]?.value ?? 1);
+  }
+
+  return 1;
+}
+
+function getPickupMassDrag(pickup) {
+  return 1 + (getPickupMassValue(pickup) - 1) * PICKUP_MASS_DRAG_PER_VALUE;
+}
+
+function getPickupMagnetRange(magnetBonus) {
+  const scaledRange = PICKUP_MAGNET_RANGE * (1 + magnetBonus);
+  if (magnetBonus >= PICKUP_STRONG_MAGNET_THRESHOLD) {
+    return Math.max(scaledRange, PICKUP_STRONG_MAGNET_RANGE);
+  }
+
+  return scaledRange;
+}
+
+function getPickupAttractionStrength({ pickup, isTreasure, magnetBonus, distance }) {
+  const baseAttraction = isTreasure ? PICKUP_TREASURE_ATTRACTION_BASE : PICKUP_RESOURCE_ATTRACTION_BASE;
+  const minimumAttraction = isTreasure ? 140 : 90;
+  const rawAttraction = Math.max(
+    minimumAttraction,
+    baseAttraction + PICKUP_MAGNET_FORCE_PER_BONUS * magnetBonus - distance * PICKUP_MAGNET_DISTANCE_FALLOFF,
+  );
+  return rawAttraction / getPickupMassDrag(pickup);
+}
 
 export function createPickupSystem({
   getPickups,
@@ -66,6 +113,7 @@ export function createPickupSystem({
       for (let index = 0; index < quantity; index += 1) {
         spawnPickup({
           itemId: miningResult.resource,
+          massValue: definition.value,
           x: originX + (Math.random() - 0.5) * 8,
           y: originY + (Math.random() - 0.5) * 6,
           vx: direction * (70 + Math.random() * 90) + (Math.random() - 0.5) * 45,
@@ -90,6 +138,7 @@ export function createPickupSystem({
       spawnPickup({
         kind: "treasure",
         chest,
+        massValue: Math.max(10, Math.round((chest?.powerScale ?? 0.1) * 100)),
         x: originX,
         y: originY,
         vx: direction * (84 + Math.random() * 40),
@@ -118,11 +167,16 @@ export function createPickupSystem({
         const distance = Math.hypot(dx, dy);
         const isTreasure = nextPickup.kind === "treasure";
         const canCollect = isTreasure || inventory.hasSpaceFor(nextPickup.itemId, 1);
+        const magnetBonus = getPickupMagnetBonus(player);
+        const magnetRange = getPickupMagnetRange(magnetBonus);
 
-        if (canCollect && distance < PICKUP_MAGNET_RANGE) {
-          const attraction = isTreasure
-            ? Math.max(140, 340 - distance * 1.4)
-            : Math.max(90, 280 - distance * 1.7);
+        if (canCollect && distance < magnetRange) {
+          const attraction = getPickupAttractionStrength({
+            pickup: nextPickup,
+            isTreasure,
+            magnetBonus,
+            distance,
+          });
           nextPickup.vx += (dx / Math.max(distance, 1)) * attraction * dt;
           nextPickup.vy += (dy / Math.max(distance, 1)) * attraction * dt;
         }

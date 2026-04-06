@@ -23,6 +23,7 @@ const DEFAULT_PLAYER_BONUSES = Object.freeze({
   moveSpeed: 0,
   jumpPower: 0,
   swingRate: 0,
+  pickupMagnetism: 0,
   luck: 0,
   mastery: 0,
   toolDamage: 0,

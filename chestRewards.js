@@ -38,6 +38,12 @@ const CHEST_REWARD_DEFINITIONS = Object.freeze([
     description: "Speed up how fast the bomb rack reloads charges.",
   }),
   Object.freeze({
+    id: "pickupMagnetism",
+    title: "Lodestone Loop",
+    statLabel: "Pickup magnetism",
+    description: "Pull nearby ore and treasure into your pockets from farther away.",
+  }),
+  Object.freeze({
     id: "luck",
     title: "Prospector's Charm",
     statLabel: "Luck",
@@ -65,6 +71,7 @@ export function createPlayerBonuses() {
     platformCooldown: 0,
     bombDamage: 0,
     bombRestock: 0,
+    pickupMagnetism: 0,
     luck: 0,
     mastery: 0,
     toolDamage: 0,
