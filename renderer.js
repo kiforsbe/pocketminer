@@ -1116,8 +1116,7 @@ export class Renderer {
 
     this.#drawBonusStats(this.dom.bonusStats, roundInfo.bonuses);
 
-    this.#drawPlatformCooldown(roundInfo.platformCooldown ?? 0);
-    this.#drawBombCooldown(roundInfo.bombCooldown ?? 0, roundInfo.bombCharges ?? 0, roundInfo.bombCapacity ?? 0);
+    this.#drawToolCooldownIndicators(roundInfo);
   }
 
   #drawBonusStats(container, bonuses = {}) {
@@ -1362,44 +1361,60 @@ export class Renderer {
     };
   }
 
-  #drawPlatformCooldown(cooldownProgress) {
-    const { startX, startY, slotSize } = this.#getHotbarLayout({ getSlots: () => Array(8).fill(null) });
-    const centerX = startX - 42;
+  #drawToolCooldownIndicators(roundInfo) {
+    const { startX, startY, totalWidth, slotSize } = this.#getHotbarLayout({ getSlots: () => Array(8).fill(null) });
     const centerY = startY + slotSize * 0.5;
-    const radius = 26;
-    const ready = cooldownProgress <= 0;
-    const remainingArc = Math.max(0, Math.min(1, cooldownProgress));
+    this.#drawCooldownDial({
+      centerX: startX - 42,
+      centerY,
+      progress: roundInfo.platformCooldown ?? 0,
+      charges: roundInfo.platformCharges ?? 0,
+      capacity: roundInfo.platformCapacity ?? 1,
+      accent: "rgba(241, 208, 77, 0.8)",
+      mutedAccent: "rgba(136, 185, 216, 0.5)",
+      plateStroke: "rgba(215, 176, 123, 0.52)",
+      label: "Platform",
+      actions: [
+        { label: "Q" },
+        { icon: "mouse" },
+      ],
+      drawIcon: () => this.#drawPlatformClockIcon(),
+    });
+    this.#drawCooldownDial({
+      centerX: startX + totalWidth + 42,
+      centerY,
+      progress: roundInfo.bombCooldown ?? 0,
+      charges: roundInfo.bombCharges ?? 0,
+      capacity: roundInfo.bombCapacity ?? 0,
+      accent: "rgba(255, 146, 96, 0.88)",
+      mutedAccent: "rgba(226, 182, 120, 0.48)",
+      plateStroke: "rgba(255, 146, 96, 0.52)",
+      label: "Bombs",
+      actions: [
+        { label: "B" },
+      ],
+      drawIcon: () => this.#drawBombRackIcon(),
+    });
+  }
 
+  #drawActionPlate(x, y, width, height, label, tint, stroke) {
     this.ctx.save();
-    this.ctx.translate(centerX, centerY);
-    this.ctx.fillStyle = "rgba(10, 16, 28, 0.9)";
-    this.ctx.beginPath();
-    this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    this.#drawRoundedPlate(x, y, width, height, 11, "rgba(9, 16, 28, 0.88)", stroke);
+    this.ctx.fillStyle = tint;
+    this.#drawRoundedRectPath(x + 2, y + 2, width - 4, height - 4, 9);
     this.ctx.fill();
-    this.ctx.strokeStyle = ready ? "rgba(241, 208, 77, 0.8)" : "rgba(136, 185, 216, 0.5)";
-    this.ctx.lineWidth = 2.5;
-    this.ctx.stroke();
-
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, 0);
-    this.ctx.fillStyle = "rgba(120, 132, 148, 0.4)";
-    this.ctx.arc(-0.0001, -0.0001, radius - 2, -Math.PI * 0.5, -Math.PI * 0.5 - Math.PI * 2 * remainingArc, true);
-    this.ctx.closePath();
-    this.ctx.fill();
-
-    this.#drawPlatformClockIcon();
+    this.ctx.fillStyle = "#f2ede3";
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "middle";
+    this.ctx.font = "800 15px 'Segoe UI'";
+    this.ctx.fillText(label, x + width * 0.5, y + height * 0.56);
     this.ctx.restore();
   }
 
-  #drawBombCooldown(cooldownProgress, charges, capacity) {
-    const { startX, startY, totalWidth, slotSize } = this.#getHotbarLayout({ getSlots: () => Array(8).fill(null) });
-    const centerX = startX + totalWidth + 42;
-    const centerY = startY + slotSize * 0.5;
+  #drawCooldownDial({ centerX, centerY, progress, charges, capacity, accent, mutedAccent, plateStroke, label, actions = [], drawIcon }) {
     const radius = 26;
-    const unlocked = capacity > 0;
-    const ready = unlocked && charges > 0;
-    const isRecharging = unlocked && charges < capacity && cooldownProgress > 0;
-    const remainingArc = Math.max(0, Math.min(1, cooldownProgress));
+    const remainingArc = Math.max(0, Math.min(1, progress));
+    const ready = capacity > 0 ? charges > 0 : progress <= 0;
 
     this.ctx.save();
     this.ctx.translate(centerX, centerY);
@@ -1407,32 +1422,118 @@ export class Renderer {
     this.ctx.beginPath();
     this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
     this.ctx.fill();
-    this.ctx.strokeStyle = ready
-      ? "rgba(255, 146, 96, 0.88)"
-      : unlocked
-        ? "rgba(226, 182, 120, 0.48)"
-        : "rgba(96, 109, 126, 0.38)";
+    this.ctx.strokeStyle = ready ? accent : mutedAccent;
     this.ctx.lineWidth = 2.5;
     this.ctx.stroke();
 
-    if (!ready || isRecharging) {
+    if (remainingArc > 0) {
       this.ctx.beginPath();
       this.ctx.moveTo(0, 0);
-      this.ctx.fillStyle = unlocked ? "rgba(120, 132, 148, 0.42)" : "rgba(58, 66, 80, 0.42)";
+      this.ctx.fillStyle = "rgba(120, 132, 148, 0.4)";
       this.ctx.arc(-0.0001, -0.0001, radius - 2, -Math.PI * 0.5, -Math.PI * 0.5 - Math.PI * 2 * remainingArc, true);
       this.ctx.closePath();
       this.ctx.fill();
     }
 
-    this.#drawBombRackIcon();
-    this.ctx.fillStyle = unlocked ? "#ffcf9b" : "rgba(177, 187, 197, 0.72)";
-    this.ctx.font = "800 10px 'Segoe UI'";
+    drawIcon();
+
+    this.ctx.fillStyle = "rgba(136, 185, 216, 0.88)";
     this.ctx.textAlign = "center";
-    this.ctx.fillText("B", 0, -18);
-    this.ctx.fillStyle = unlocked ? "#fff1d0" : "rgba(177, 187, 197, 0.72)";
-    this.ctx.font = "800 12px 'Segoe UI'";
-    this.ctx.fillText(`${charges}/${capacity || 0}`, 0, 28);
+    this.ctx.textBaseline = "alphabetic";
+    this.ctx.font = "700 9px 'Segoe UI'";
+    this.ctx.fillText(label, 0, -32);
+
+    actions.forEach((action, index) => {
+      const angle = index === 0 ? -Math.PI * 0.75 : -Math.PI * 0.25;
+      const badgeX = Math.cos(angle) * radius;
+      const badgeY = Math.sin(angle) * radius;
+      this.#drawDialBadge({ x: badgeX, y: badgeY, radius: 10, stroke: plateStroke, action });
+    });
+
+    this.#drawCounterPlate({ x: 0, y: radius + 1, width: 32, height: 18, stroke: plateStroke, valueText: `${charges}/${capacity}` });
     this.ctx.restore();
+  }
+
+  #drawDialBadge({ x, y, radius, stroke, action = null, valueText = null }) {
+    this.ctx.save();
+    this.ctx.translate(x, y);
+    this.ctx.fillStyle = "rgba(16, 23, 36, 0.94)";
+    this.ctx.beginPath();
+    this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.strokeStyle = stroke;
+    this.ctx.lineWidth = 1.4;
+    this.ctx.stroke();
+
+    if (valueText !== null) {
+      this.ctx.fillStyle = "#f2ede3";
+      this.ctx.textAlign = "center";
+      this.ctx.textBaseline = "middle";
+      this.ctx.font = "800 9px 'Segoe UI'";
+      this.ctx.fillText(valueText, 0, 0);
+      this.ctx.restore();
+      return;
+    }
+
+    if (action?.icon === "mouse") {
+      this.#drawMouseActionIcon();
+      this.ctx.restore();
+      return;
+    }
+
+    this.ctx.fillStyle = "#f2ede3";
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "middle";
+    this.ctx.font = "500 11px 'Segoe UI'";
+    this.ctx.fillText(action?.label ?? "", 0, 0);
+    this.ctx.restore();
+  }
+
+  #drawCounterPlate({ x, y, width, height, stroke, valueText }) {
+    this.ctx.save();
+    this.ctx.translate(x, y);
+    this.#drawRoundedPlate(-width * 0.5, -height * 0.5, width, height, 8, "rgba(16, 23, 36, 0.94)", stroke);
+    this.ctx.fillStyle = "#f2ede3";
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "middle";
+    this.ctx.font = "500 11px 'Segoe UI'";
+    this.ctx.fillText(valueText, 0, 0);
+    this.ctx.restore();
+  }
+
+  #drawMouseActionIcon() {
+    this.ctx.save();
+    this.ctx.translate(-4.5, -6.5);
+    this.ctx.strokeStyle = "rgba(242, 237, 227, 0.94)";
+    this.ctx.lineWidth = 1.25;
+    this.ctx.beginPath();
+    this.ctx.roundRect(0, 0, 9, 13, 4);
+    this.ctx.stroke();
+    this.ctx.fillStyle = "rgba(242, 237, 227, 0.9)";
+    this.ctx.fillRect(4.75, 1.1, 2.4, 4.2);
+    this.ctx.fillStyle = "rgba(16, 23, 36, 0.94)";
+    this.ctx.fillRect(4.1, 1.1, 0.8, 4.2);
+    this.ctx.restore();
+  }
+
+  #drawRoundedPlate(x, y, width, height, radius, fill, stroke) {
+    this.ctx.fillStyle = fill;
+    this.#drawRoundedRectPath(x, y, width, height, radius);
+    this.ctx.fill();
+    this.ctx.strokeStyle = stroke;
+    this.ctx.lineWidth = 1.4;
+    this.ctx.stroke();
+  }
+
+  #drawRoundedRectPath(x, y, width, height, radius) {
+    const r = Math.min(radius, width * 0.5, height * 0.5);
+    this.ctx.beginPath();
+    this.ctx.moveTo(x + r, y);
+    this.ctx.arcTo(x + width, y, x + width, y + height, r);
+    this.ctx.arcTo(x + width, y + height, x, y + height, r);
+    this.ctx.arcTo(x, y + height, x, y, r);
+    this.ctx.arcTo(x, y, x + width, y, r);
+    this.ctx.closePath();
   }
 
   #drawPlatformClockIcon() {

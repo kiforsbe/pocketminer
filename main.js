@@ -695,6 +695,8 @@ function render() {
       showPerformance: gameState.performance.visible,
       tickRate: gameState.performance.displayedTickRate,
       platformCooldown: gameState.platformCooldown / getPlatformCooldownDuration(),
+      platformCharges: gameState.platformCooldown <= 0 ? 1 : 0,
+      platformCapacity: 1,
       bombCooldown: gameState.bombCharges < getBombCapacity() ? gameState.bombCooldown / getBombCooldownDuration() : 0,
       bombCharges: gameState.bombCharges,
       bombCapacity: getBombCapacity(),
