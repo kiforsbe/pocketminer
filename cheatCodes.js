@@ -1,7 +1,7 @@
 import { createPlayerBonuses } from "./chestRewards.js";
 
 export const CHEAT_CODES_ENABLED = true;
-const CHEAT_CODE_KEY_TIMEOUT_MS = 500;
+const CHEAT_CODE_KEY_TIMEOUT_MS = 750;
 
 const SPECIAL_CHEAT_KEYS = Object.freeze({
   ArrowUp: "UP",
@@ -36,7 +36,9 @@ const CHEAT_CODE_DEFINITIONS = Object.freeze([
       gameState.bagUpgradeId = "bag-1";
       gameState.capacityUpgradeId = "capacity-2";
       gameState.timeUpgradeId = "time-1";
-      gameState.bombUpgradeId = "bomb-3";
+      gameState.bombUnlockId = "bomb-root";
+      gameState.bombCapacityUpgradeId = "bomb-capacity-3";
+      gameState.bombTypeUpgradeId = "bomb-type-3";
       gameState.bombCharges = 3;
       gameState.bombCooldown = 0;
       gameState.inventory = createInventoryForLoadout(gameState.inventory);

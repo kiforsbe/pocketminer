@@ -55,6 +55,7 @@ Your long-term goal is to dig deeper, carry more loot, and improve your permanen
 Store upgrades are split into a few main branches:
 
 - `Tools`: stronger pickaxes for faster mining and one-swing breakpoints
+- `Bombs`: dynamite sticks, dynamite bundles, and heavier mining bombs with stronger payloads
 - `Storage`: more inventory slots and larger stack sizes
 - `Misc`: longer shift duration
 
@@ -135,10 +136,18 @@ http://localhost:8000/
 
 The runtime terrain atlas used by the renderer is checked in under `assets/tiles/terrain-atlas.png`.
 
+The bomb spritesheet and sound effects are also generated procedurally and checked in under `assets/sprites/bomb-spritesheet.png` and `assets/sfx/`.
+
 Regenerate it after changing tile visuals with:
 
 ```powershell
 .\generate_tile_assets.ps1
+```
+
+Regenerate bomb visuals and bomb audio with:
+
+```powershell
+.\generate_bomb_assets.ps1
 ```
 
 That script writes:
@@ -146,5 +155,11 @@ That script writes:
 - `assets/tiles/terrain-atlas.png`
 - `assets/tiles/terrain-atlas-manifest.json`
 - `assets/tiles/terrain-atlas-manifest.js`
+
+The bomb generator writes:
+
+- `assets/sprites/bomb-spritesheet.png`
+- `assets/sfx/bomb-fuse.wav`
+- `assets/sfx/bomb-explode.wav`
 
 The generator is self-contained and recreates all terrain visuals procedurally, so no separate source tilesheet file is required.

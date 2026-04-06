@@ -368,7 +368,7 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
       plateStroke: "rgba(255, 146, 96, 0.52)",
       label: "Bombs",
       actions: [{ label: "B" }],
-      drawIcon: () => this.drawBombRackIcon(),
+      drawIcon: () => this.drawBombRackIcon(roundInfo.bombSpriteRow ?? 0),
     });
   }
 
@@ -541,9 +541,25 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
     this.ctx.fillRect(-10, 0, 20, 1);
   }
 
-  drawBombRackIcon() {
-    if (this.assets?.bombIcon) {
-      this.ctx.drawImage(this.assets.bombIcon, -12, -14, 24, 24);
+  drawBombRackIcon(spriteRow = 0) {
+    if (this.assets?.bombSpritesheet) {
+      this.ctx.drawImage(this.assets.bombSpritesheet, 0, spriteRow * 32, 32, 32, -12, -14, 24, 24);
+      return;
+    }
+
+    if (spriteRow === 0) {
+      this.ctx.fillStyle = "#b53d34";
+      this.ctx.fillRect(-8, -5, 16, 6);
+      this.ctx.fillStyle = "#d3a46f";
+      this.ctx.fillRect(5, -10, 3, 6);
+      return;
+    }
+
+    if (spriteRow === 1) {
+      this.ctx.fillStyle = "#b53d34";
+      this.ctx.fillRect(-10, -6, 20, 8);
+      this.ctx.fillStyle = "#e7c188";
+      this.ctx.fillRect(6, -11, 3, 6);
       return;
     }
 

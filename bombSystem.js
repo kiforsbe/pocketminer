@@ -1,11 +1,11 @@
 import { TILE_SIZE } from "./tile.js";
-import { getToolDefinition } from "./tools.js";
+import { BOMB_CAPACITY_ROOT_ID, BOMB_TYPE_ROOT_ID, getToolDefinition } from "./tools.js";
 
 const BOMB_PLACE_RANGE_TILES = 6;
 const BOMB_FALL_GRAVITY = 1400;
 const BOMB_COOLDOWN_SECONDS = 3;
 const BOMB_BLAST_RADIUS = 1;
-const BOMB_DAMAGE = 20;
+const DEFAULT_BOMB_DAMAGE = 10;
 const BOMB_PLAYER_IMPULSE_RADIUS = TILE_SIZE * 2.25;
 const BOMB_PLAYER_MAX_IMPULSE = 540;
 
@@ -22,16 +22,32 @@ export function createBombSystem({
   particleSystem,
   onBrokenTileResult,
 }) {
+  function isBombsUnlocked() {
+    return Boolean(gameState.bombUnlockId);
+  }
+
+  function getCurrentBombTypeDefinition() {
+    if (!isBombsUnlocked()) {
+      return null;
+    }
+
+    return getToolDefinition(gameState.bombTypeUpgradeId ?? BOMB_TYPE_ROOT_ID);
+  }
+
+  function getCurrentBombCapacityDefinition() {
+    if (!isBombsUnlocked()) {
+      return null;
+    }
+
+    return getToolDefinition(gameState.bombCapacityUpgradeId ?? BOMB_CAPACITY_ROOT_ID);
+  }
+
   function getCurrentCooldownDuration() {
     return BOMB_COOLDOWN_SECONDS / (1 + (gameState.playerBonuses.bombRestock ?? 0));
   }
 
   function getCurrentCapacity() {
-    return getToolDefinition(gameState.bombUpgradeId)?.bombCapacity ?? 0;
-  }
-
-  function getCurrentDamageAmount() {
-    return BOMB_DAMAGE * (1 + (gameState.playerBonuses.bombDamage ?? 0));
+    return getCurrentBombCapacityDefinition()?.bombCapacity ?? 0;
   }
 
   function hasLineOfSightToCell(origin, target, targetColumn, targetRow) {
@@ -150,6 +166,7 @@ export function createBombSystem({
     }
 
     const target = getPlacementTarget();
+    const currentBomb = getCurrentBombTypeDefinition();
     if (!target) {
       return;
     }
@@ -162,6 +179,8 @@ export function createBombSystem({
       vy: 0,
       fuseRemaining: BOMB_FUSE_SECONDS,
       animationElapsed: 0,
+      damage: currentBomb?.bombDamage ?? DEFAULT_BOMB_DAMAGE,
+      spriteRow: currentBomb?.bombSpriteRow ?? 0,
     });
     gameState.bombCharges = Math.max(0, gameState.bombCharges - 1);
     if (gameState.bombCharges < getCurrentCapacity() && gameState.bombCooldown <= 0) {
@@ -238,7 +257,8 @@ export function createBombSystem({
           clearedAnyDebris = true;
         }
 
-        const miningResult = world.damageTile(column, row, getCurrentDamageAmount(), { luck: gameState.playerBonuses.luck });
+        const bombDamage = (bomb.damage ?? DEFAULT_BOMB_DAMAGE) * (1 + (gameState.playerBonuses.bombDamage ?? 0));
+        const miningResult = world.damageTile(column, row, bombDamage, { luck: gameState.playerBonuses.luck });
         if (miningResult.hit) {
           floatingTextSystem.spawnCombatText({
             ...miningResult,

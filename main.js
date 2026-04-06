@@ -18,6 +18,9 @@ import { Renderer } from "./renderer.js";
 import { createStoreController } from "./storeSystem.js";
 import { TILE_TYPES } from "./tile.js";
 import {
+  BOMB_CAPACITY_ROOT_ID,
+  BOMB_TYPE_ROOT_ID,
+  BOMB_UNLOCK_ROOT_ID,
   DEFAULT_BAG_ROOT_ID,
   DEFAULT_CAPACITY_ROOT_ID,
   DEFAULT_GAME_MODE,
@@ -85,6 +88,7 @@ const cardChoiceGrid = document.getElementById("card-choice-grid");
 const cardFooter = document.getElementById("card-footer");
 const shiftCountdownOverlay = document.getElementById("shift-countdown-overlay");
 const shiftCountdownValue = document.getElementById("shift-countdown-value");
+const endShiftButton = document.getElementById("end-shift-button");
 
 function isMusicActivePhase(phase = gameState.phase) {
   return phase === "countdown" || phase === "playing" || phase === "reward" || phase === "summary";
@@ -127,7 +131,9 @@ const gameState = {
   capacityUpgradeId: DEFAULT_CAPACITY_ROOT_ID,
   timeUpgradeId: DEFAULT_TIME_ROOT_ID,
   platformUpgradeId: DEFAULT_PLATFORM_ROOT_ID,
-  bombUpgradeId: null,
+  bombUnlockId: null,
+  bombCapacityUpgradeId: null,
+  bombTypeUpgradeId: null,
   inventory: new Inventory({ slotCount: DEFAULT_SLOT_COUNT, stackSize: DEFAULT_STACK_SIZE }),
   miningResult: null,
   hoverTarget: null,
@@ -317,6 +323,14 @@ const endOfRoundSystem = createEndOfRoundSystem({
   },
 });
 
+endShiftButton?.addEventListener("click", () => {
+  if (gameState.phase !== "playing") {
+    return;
+  }
+
+  endOfRoundSystem.endRound();
+});
+
 input.addKeyPressListener((event) => {
   if (event.code === "KeyR") {
     gameState.performance.visible = !gameState.performance.visible;
@@ -444,7 +458,9 @@ function resetGameToIntro() {
   gameState.capacityUpgradeId = DEFAULT_CAPACITY_ROOT_ID;
   gameState.timeUpgradeId = DEFAULT_TIME_ROOT_ID;
   gameState.platformUpgradeId = DEFAULT_PLATFORM_ROOT_ID;
-  gameState.bombUpgradeId = null;
+  gameState.bombUnlockId = null;
+  gameState.bombCapacityUpgradeId = null;
+  gameState.bombTypeUpgradeId = null;
   gameState.inventory = new Inventory({ slotCount: DEFAULT_SLOT_COUNT, stackSize: DEFAULT_STACK_SIZE });
   gameState.miningResult = null;
   gameState.hoverTarget = null;
@@ -566,6 +582,16 @@ function beginShiftCountdown() {
   advanceShiftCountdownStep();
 }
 
+function syncHudActionButtons() {
+  if (!endShiftButton) {
+    return;
+  }
+
+  const canEndShift = gameState.phase === "playing";
+  endShiftButton.toggleAttribute("hidden", !canEndShift);
+  endShiftButton.toggleAttribute("disabled", !canEndShift);
+}
+
 function updateShiftCountdown(dt) {
   if (!gameState.shiftCountdown.active) {
     return;
@@ -673,6 +699,7 @@ function update(dt, timeSeconds) {
 }
 
 function render() {
+  syncHudActionButtons();
   renderer.render({
     player,
     world,
@@ -700,6 +727,7 @@ function render() {
         : 0,
       bombCharges: gameState.bombCharges,
       bombCapacity: bombSystem.getCapacity(),
+      bombSpriteRow: getToolDefinition(gameState.bombTypeUpgradeId ?? BOMB_TYPE_ROOT_ID)?.bombSpriteRow ?? 0,
       urgent: gameState.phase === "playing" && gameState.timeLeft <= 30,
       notification: gameState.notification,
     },

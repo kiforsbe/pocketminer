@@ -165,6 +165,7 @@ export class RendererEntitySubsystem extends RendererSubsystem {
     const frameHeight = 32;
     const sheet = this.assets?.bombSpritesheet;
     const frameCount = sheet ? Math.max(1, Math.floor(sheet.width / frameWidth)) : 1;
+    const rowCount = sheet ? Math.max(1, Math.floor(sheet.height / frameHeight)) : 1;
 
     for (const bomb of bombs) {
       const x = bomb.x - this.camera.x;
@@ -175,10 +176,11 @@ export class RendererEntitySubsystem extends RendererSubsystem {
 
       if (sheet) {
         const frame = Math.floor((bomb.animationElapsed * 8) % frameCount);
+        const spriteRow = Math.max(0, Math.min(rowCount - 1, bomb.spriteRow ?? 0));
         this.ctx.drawImage(
           sheet,
           frame * frameWidth,
-          0,
+          spriteRow * frameHeight,
           frameWidth,
           frameHeight,
           x,

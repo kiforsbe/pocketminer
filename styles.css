@@ -622,6 +622,64 @@
       pointer-events: none;
     }
 
+    .top-right-controls {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      display: flex;
+      justify-content: flex-end;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .hud-action-button {
+      pointer-events: auto;
+      min-height: 38px;
+      padding: 9px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+      background: rgba(9, 16, 28, 0.92);
+      color: rgba(242, 237, 227, 0.94);
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+    }
+
+    .hud-action-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.3);
+    }
+
+    .hud-action-button:active {
+      transform: translateY(0);
+    }
+
+    .hud-action-button:focus-visible {
+      outline: 2px solid rgba(255, 241, 199, 0.9);
+      outline-offset: 2px;
+    }
+
+    .hud-action-button-danger {
+      border-color: rgba(216, 100, 92, 0.38);
+      background: linear-gradient(180deg, rgba(79, 21, 21, 0.94), rgba(34, 10, 10, 0.96));
+      color: #ffd9d3;
+    }
+
+    .hud-action-button-danger:hover {
+      border-color: rgba(255, 154, 145, 0.5);
+      background: linear-gradient(180deg, rgba(98, 25, 25, 0.96), rgba(42, 12, 12, 0.98));
+    }
+
+    .hud-action-button[hidden] {
+      display: none !important;
+    }
+
     .bonus-stats {
       position: absolute;
       top: 44px;
@@ -1625,6 +1683,17 @@
     @media (max-width: 720px) {
       .top-stack-row {
         width: 100%;
+      }
+
+      .top-right-controls {
+        top: 12px;
+        right: 12px;
+      }
+
+      .hud-action-button {
+        min-height: 34px;
+        padding: 8px 12px;
+        font-size: 0.72rem;
       }
 
       .bank-readout {

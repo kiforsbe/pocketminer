@@ -1,5 +1,8 @@
 import { ITEM_DEFINITIONS } from "./inventory.js";
 import {
+  BOMB_CAPACITY_ROOT_ID,
+  BOMB_TYPE_ROOT_ID,
+  BOMB_UNLOCK_ROOT_ID,
   DEFAULT_BAG_ROOT_ID,
   DEFAULT_CAPACITY_ROOT_ID,
   DEFAULT_GAME_MODE,
@@ -14,7 +17,7 @@ import {
 } from "./tools.js";
 
 const STORE_CATEGORY_ORDER = Object.freeze([
-  { id: "tools", label: "Tools", branchIds: ["pickaxe", "bombs"] },
+  { id: "tools", label: "Tools", branchIds: ["pickaxe", "bomb-unlock", "bomb-capacity", "bomb-type"] },
   { id: "storage", label: "Storage", branchIds: ["bags", "capacity"] },
   { id: "misc", label: "Misc", branchIds: ["time", "platforms"] },
 ]);
@@ -276,7 +279,7 @@ export function createStoreController({
 
     const visual = getToolVisual(tool);
     const iconStyle = visual.image
-      ? `background:${visual.background}; box-shadow:${visual.glow}; background-image:url('${visual.image}'); background-size:72% 72%; background-position:center; background-repeat:no-repeat;`
+      ? `background:${visual.background}; box-shadow:${visual.glow}; background-image:url('${visual.image}'); background-size:${visual.imageSize ?? "72% 72%"}; background-position:${visual.imagePosition ?? "center"}; background-repeat:no-repeat;`
       : `background:${visual.background}; box-shadow:${visual.glow};`;
     button.innerHTML = `
       <span class="store-node-icon" style="${iconStyle}">${visual.text}</span>
@@ -337,8 +340,12 @@ export function createStoreController({
       return "current";
     }
 
+    if ((branchId === "bomb-capacity" || branchId === "bomb-type") && gameState.bombUnlockId !== BOMB_UNLOCK_ROOT_ID) {
+      return "locked";
+    }
+
     if (tool.isRoot) {
-      return "owned";
+      return currentIndex >= targetIndex && currentIndex >= 0 ? "owned" : "locked";
     }
 
     if (targetIndex < currentIndex) {
@@ -418,13 +425,24 @@ export function createStoreController({
       };
     }
 
+    if (tool.branchId === "bomb-capacity") {
+      return {
+        text: `${tool.bombCapacity ?? 1}x`,
+        background: "linear-gradient(180deg, #78423d, #2c1518)",
+        glow: "0 0 18px rgba(255, 145, 108, 0.26)",
+        material: "Explosive Rack",
+      };
+    }
+
     if (tool.category === "bomb") {
       return {
         text: "",
         background: "linear-gradient(180deg, #78423d, #2c1518)",
         glow: "0 0 18px rgba(255, 145, 108, 0.26)",
         material: "Explosive",
-        image: tool.iconSrc,
+        image: "./assets/sprites/bomb-spritesheet.png",
+        imageSize: "400% 300%",
+        imagePosition: `0% ${Math.max(0, Math.min(100, (tool.bombSpriteRow ?? 0) * 50))}%`,
       };
     }
 
@@ -532,7 +550,8 @@ export function createStoreController({
       storeTooltipStats.innerHTML = `
         <div>Branch: ${tool.branchLabel}</div>
         <div>Cost: ${tool.price}€</div>
-        <div>Armed Bombs: ${tool.bombCapacity ?? 1}</div>
+        ${tool.bombDamage != null ? `<div>Payload: ${tool.bombDamage}</div>` : ""}
+        ${tool.bombCapacity != null ? `<div>Armed Bombs: ${tool.bombCapacity}</div>` : ""}
         <div>Cooldown: 3s after emptying the rack</div>
       `;
     } else {
@@ -620,9 +639,18 @@ export function createStoreController({
       gameState.platformUpgradeId = tool.id;
       gameState.platformCharges = tool.platformCapacity ?? gameState.platformCharges;
       gameState.platformCooldown = 0;
-    } else if (tool.branchId === "bombs") {
-      gameState.bombUpgradeId = tool.id;
+    } else if (tool.branchId === "bomb-unlock") {
+      gameState.bombUnlockId = tool.id;
+      gameState.bombCapacityUpgradeId = null;
+      gameState.bombTypeUpgradeId = null;
+      gameState.bombCharges = getToolDefinition(BOMB_CAPACITY_ROOT_ID).bombCapacity ?? gameState.bombCharges;
+      gameState.bombCooldown = 0;
+    } else if (tool.branchId === "bomb-capacity") {
+      gameState.bombCapacityUpgradeId = tool.id === BOMB_CAPACITY_ROOT_ID ? null : tool.id;
       gameState.bombCharges = tool.bombCapacity ?? gameState.bombCharges;
+      gameState.bombCooldown = 0;
+    } else if (tool.branchId === "bomb-type") {
+      gameState.bombTypeUpgradeId = tool.id === BOMB_TYPE_ROOT_ID ? null : tool.id;
       gameState.bombCooldown = 0;
     }
 
@@ -653,8 +681,16 @@ export function createStoreController({
       return gameState.platformUpgradeId ?? DEFAULT_PLATFORM_ROOT_ID;
     }
 
-    if (branchId === "bombs") {
-      return gameState.bombUpgradeId ?? null;
+    if (branchId === "bomb-unlock") {
+      return gameState.bombUnlockId ?? null;
+    }
+
+    if (branchId === "bomb-capacity") {
+      return gameState.bombUnlockId ? (gameState.bombCapacityUpgradeId ?? BOMB_CAPACITY_ROOT_ID) : null;
+    }
+
+    if (branchId === "bomb-type") {
+      return gameState.bombUnlockId ? (gameState.bombTypeUpgradeId ?? BOMB_TYPE_ROOT_ID) : null;
     }
 
     return branchId === "hands" ? DEFAULT_TOOL_ID : null;

@@ -74,50 +74,97 @@ for ($i = 0; $i -lt $boomCount; $i += 1) {
 }
 Save-Wav -Path (Join-Path $sfxDir 'bomb-explode.wav') -Samples $boomSamples -SampleRate $sampleRate
 
-$sheet = [System.Drawing.Bitmap]::new(128, 32, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+$sheet = [System.Drawing.Bitmap]::new(128, 96, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
 $graphics = [System.Drawing.Graphics]::FromImage($sheet)
 $graphics.Clear([System.Drawing.Color]::Transparent)
 $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
 $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+$dynamiteBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 176, 58, 49))
+$dynamiteHighlightBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 222, 111, 78))
+$paperBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 233, 214, 173))
+$bandBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 122, 73, 44))
 $bodyBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 30, 27, 34))
 $highlightBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 80, 74, 92))
 $metalBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 194, 137, 84))
 $sparkBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 255, 205, 102))
 $emberBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 255, 129, 68))
+
+function Draw-StickDynamiteFrame {
+  param(
+    [System.Drawing.Graphics]$Graphics,
+    [int]$OffsetX,
+    [int]$OffsetY,
+    [int]$Frame
+  )
+
+  $Graphics.FillRectangle($dynamiteBrush, $OffsetX + 6, $OffsetY + 14, 18, 6)
+  $Graphics.FillRectangle($dynamiteHighlightBrush, $OffsetX + 8, $OffsetY + 15, 12, 1)
+  $Graphics.FillRectangle($paperBrush, $OffsetX + 5, $OffsetY + 14, 2, 6)
+  $Graphics.FillRectangle($paperBrush, $OffsetX + 23, $OffsetY + 14, 2, 6)
+  $Graphics.FillRectangle($bandBrush, $OffsetX + 12, $OffsetY + 14, 2, 6)
+  $Graphics.FillRectangle($metalBrush, $OffsetX + 21, $OffsetY + 9, 2, 6)
+  $Graphics.FillRectangle($metalBrush, $OffsetX + 22, $OffsetY + 7, 2, 3)
+
+  $sparkX = $OffsetX + 23 + [Math]::Min(3, $Frame)
+  $sparkY = $OffsetY + 5 + ($Frame % 2)
+  $Graphics.FillRectangle($sparkBrush, $sparkX, $sparkY, 2, 2)
+  $Graphics.FillRectangle($emberBrush, $sparkX - 2, $sparkY + 2, 2, 2)
+}
+
+function Draw-BundleDynamiteFrame {
+  param(
+    [System.Drawing.Graphics]$Graphics,
+    [int]$OffsetX,
+    [int]$OffsetY,
+    [int]$Frame
+  )
+
+  $Graphics.FillRectangle($dynamiteBrush, $OffsetX + 6, $OffsetY + 11, 18, 5)
+  $Graphics.FillRectangle($dynamiteBrush, $OffsetX + 6, $OffsetY + 16, 18, 5)
+  $Graphics.FillRectangle($dynamiteBrush, $OffsetX + 8, $OffsetY + 6, 14, 5)
+  $Graphics.FillRectangle($dynamiteHighlightBrush, $OffsetX + 8, $OffsetY + 12, 12, 1)
+  $Graphics.FillRectangle($dynamiteHighlightBrush, $OffsetX + 8, $OffsetY + 17, 12, 1)
+  $Graphics.FillRectangle($dynamiteHighlightBrush, $OffsetX + 10, $OffsetY + 7, 9, 1)
+  $Graphics.FillRectangle($paperBrush, $OffsetX + 5, $OffsetY + 11, 2, 10)
+  $Graphics.FillRectangle($paperBrush, $OffsetX + 23, $OffsetY + 11, 2, 10)
+  $Graphics.FillRectangle($bandBrush, $OffsetX + 11, $OffsetY + 9, 3, 14)
+  $Graphics.FillRectangle($bandBrush, $OffsetX + 17, $OffsetY + 9, 3, 14)
+  $Graphics.FillRectangle($metalBrush, $OffsetX + 20, $OffsetY + 4, 2, 5)
+  $Graphics.FillRectangle($metalBrush, $OffsetX + 21, $OffsetY + 2, 2, 3)
+
+  $sparkX = $OffsetX + 22 + [Math]::Min(4, $Frame)
+  $sparkY = $OffsetY + 1 + (($Frame + 1) % 2)
+  $Graphics.FillRectangle($sparkBrush, $sparkX, $sparkY, 2, 2)
+  $Graphics.FillRectangle($emberBrush, $sparkX - 1, $sparkY + 2, 2, 2)
+}
+
+function Draw-BombFrame {
+  param(
+    [System.Drawing.Graphics]$Graphics,
+    [int]$OffsetX,
+    [int]$OffsetY,
+    [int]$Frame
+  )
+
+  $Graphics.FillEllipse($bodyBrush, $OffsetX + 7, $OffsetY + 10, 18, 18)
+  $Graphics.FillEllipse($highlightBrush, $OffsetX + 10, $OffsetY + 13, 7, 6)
+  $Graphics.FillRectangle($metalBrush, $OffsetX + 18, $OffsetY + 5, 3, 8)
+  $Graphics.FillRectangle($metalBrush, $OffsetX + 20, $OffsetY + 4, 3, 4)
+  $Graphics.FillRectangle($metalBrush, $OffsetX + 22, $OffsetY + 3, 3, 3)
+  $Graphics.FillRectangle($metalBrush, $OffsetX + 24, $OffsetY + 2, 2, 3)
+  $sparkY = $OffsetY + 1 + ($Frame % 2)
+  $sparkX = $OffsetX + 24 + $Frame
+  $Graphics.FillRectangle($sparkBrush, $sparkX, $sparkY, 2, 2)
+  $Graphics.FillRectangle($emberBrush, $sparkX - 2, $sparkY + 2, 2, 2)
+  $Graphics.FillRectangle($emberBrush, $OffsetX + 11, $OffsetY + 25, 10, 2)
+}
+
 for ($frame = 0; $frame -lt 4; $frame += 1) {
   $offsetX = $frame * 32
-  $graphics.FillEllipse($bodyBrush, $offsetX + 7, 10, 18, 18)
-  $graphics.FillEllipse($highlightBrush, $offsetX + 10, 13, 7, 6)
-  $graphics.FillRectangle($metalBrush, $offsetX + 18, 5, 3, 8)
-  $graphics.FillRectangle($metalBrush, $offsetX + 20, 4, 3, 4)
-  $graphics.FillRectangle($metalBrush, $offsetX + 22, 3, 3, 3)
-  $graphics.FillRectangle($metalBrush, $offsetX + 24, 2, 2, 3)
-  $sparkY = 1 + ($frame % 2)
-  $sparkX = $offsetX + 24 + $frame
-  $graphics.FillRectangle($sparkBrush, $sparkX, $sparkY, 2, 2)
-  $graphics.FillRectangle($emberBrush, $sparkX - 2, $sparkY + 2, 2, 2)
-  $graphics.FillRectangle($emberBrush, $offsetX + 11, 25, 10, 2)
+  Draw-StickDynamiteFrame -Graphics $graphics -OffsetX $offsetX -OffsetY 0 -Frame $frame
+  Draw-BundleDynamiteFrame -Graphics $graphics -OffsetX $offsetX -OffsetY 32 -Frame $frame
+  Draw-BombFrame -Graphics $graphics -OffsetX $offsetX -OffsetY 64 -Frame $frame
 }
 $sheet.Save((Join-Path $spriteDir 'bomb-spritesheet.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 $graphics.Dispose()
 $sheet.Dispose()
-
-$icon = [System.Drawing.Bitmap]::new(32, 32, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-$iconGraphics = [System.Drawing.Graphics]::FromImage($icon)
-$iconGraphics.Clear([System.Drawing.Color]::Transparent)
-$iconGraphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-$shadow = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(120, 0, 0, 0))
-$body = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 31, 28, 34))
-$highlight = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 88, 80, 97))
-$fuse = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 194, 137, 84))
-$spark = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 255, 205, 102))
-$iconGraphics.FillEllipse($shadow, 7, 19, 18, 6)
-$iconGraphics.FillEllipse($body, 6, 8, 20, 20)
-$iconGraphics.FillEllipse($highlight, 10, 12, 8, 7)
-$iconGraphics.FillRectangle($fuse, 18, 3, 3, 8)
-$iconGraphics.FillRectangle($fuse, 20, 2, 3, 4)
-$iconGraphics.FillRectangle($fuse, 22, 1, 2, 3)
-$iconGraphics.FillEllipse($spark, 23, 0, 5, 5)
-$icon.Save((Join-Path $spriteDir 'bomb-icon.png'), [System.Drawing.Imaging.ImageFormat]::Png)
-$iconGraphics.Dispose()
-$icon.Dispose()
