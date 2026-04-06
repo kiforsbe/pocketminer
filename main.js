@@ -97,6 +97,7 @@ const shiftCountdownOverlay = document.getElementById("shift-countdown-overlay")
 const shiftCountdownValue = document.getElementById("shift-countdown-value");
 const roundTimer = document.getElementById("round-timer");
 const introPasswordDisplay = document.getElementById("intro-password-display");
+const introPasswordPanel = document.getElementById("intro-password-panel");
 const introPasswordEntry = document.getElementById("intro-password-entry");
 const introPasswordInput = document.getElementById("intro-password-input");
 const introPasswordToggle = document.getElementById("intro-password-toggle");
@@ -271,12 +272,16 @@ const pauseScreenController = createPauseScreenController({
 const passwordPanels = Object.freeze([
   {
     controller: introScreenController,
+    panelEl: introPasswordPanel,
     displayEl: introPasswordDisplay,
     entryEl: introPasswordEntry,
     inputEl: introPasswordInput,
     toggleEl: introPasswordToggle,
     submitEl: introPasswordSubmit,
     statusEl: introPasswordStatus,
+    hidePanelWhenClosed: true,
+    closedLabel: "Password",
+    openLabel: "Close",
   },
   {
     controller: pauseScreenController,
@@ -286,6 +291,9 @@ const passwordPanels = Object.freeze([
     toggleEl: pausePasswordToggle,
     submitEl: pausePasswordSubmit,
     statusEl: pausePasswordStatus,
+    hidePanelWhenClosed: false,
+    closedLabel: "Enter Password",
+    openLabel: "Cancel",
   },
 ]);
 
@@ -765,13 +773,24 @@ function updatePasswordDisplays() {
 function setPasswordEntryOpen(panel, open) {
   panel.controller?.setAdvanceBlocked(open);
 
+  if (panel.panelEl) {
+    panel.panelEl.hidden = panel.hidePanelWhenClosed ? !open : false;
+  }
+
   if (panel.entryEl) {
     panel.entryEl.hidden = !open;
     panel.entryEl.dataset.visible = open ? "true" : "false";
   }
 
   if (panel.toggleEl) {
-    panel.toggleEl.textContent = open ? "Cancel" : "Enter Password";
+    const label = open ? panel.openLabel : panel.closedLabel;
+    const labelEl = panel.toggleEl.querySelector(".intro-password-action-label");
+    if (labelEl) {
+      labelEl.textContent = label;
+    } else {
+      panel.toggleEl.setAttribute("aria-label", label);
+      panel.toggleEl.setAttribute("title", label);
+    }
   }
 
   if (panel.inputEl) {

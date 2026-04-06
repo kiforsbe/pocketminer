@@ -97,12 +97,11 @@
             <img id="intro-title-image" class="intro-title-image" alt="Pocket Miner title" hidden>
             <h1 id="intro-title-text" class="intro-title-text">Pocket Miner</h1>
             <p class="intro-copy">Dig deeper, bank smarter, and survive the shift.</p>
-            <div class="screen-password-panel" data-screen-ignore-advance="true">
+            <div id="intro-password-panel" class="screen-password-panel" data-screen-ignore-advance="true" hidden>
               <div class="screen-password-header-row">
                 <span class="screen-password-label">Password</span>
-                <button id="intro-password-toggle" class="screen-password-toggle" type="button">Enter Password</button>
               </div>
-              <div id="intro-password-display" class="screen-password-display">AAAA-AAAA-AAAA</div>
+              <div id="intro-password-display" class="screen-password-display" hidden>AAAA-AAAA-AAAA</div>
               <div id="intro-password-entry" class="screen-password-entry" data-visible="false" hidden>
                 <label class="screen-password-entry-label" for="intro-password-input">Restore Progress</label>
                 <div class="screen-password-entry-row">
@@ -113,7 +112,24 @@
               </div>
             </div>
           </div>
-          <button id="intro-start-button" class="intro-start-button" type="button">Press Any Button To Start</button>
+          <div class="intro-action-row">
+            <button id="intro-start-button" class="intro-start-button" type="button">Press Any Button To Start</button>
+            <button
+              id="intro-password-toggle"
+              class="intro-password-action"
+              type="button"
+              data-screen-ignore-advance="true"
+              aria-label="Enter password"
+              title="Enter password"
+            >
+              <svg class="intro-password-action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="8.5" cy="12" r="4.25"></circle>
+                <path d="M12.75 12h7.5"></path>
+                <path d="M17.5 12v3"></path>
+                <path d="M20.25 12v2"></path>
+              </svg>
+            </button>
+          </div>
         </section>
       </div>
       <div id="pause-overlay" class="intro-overlay pause-overlay" data-visible="false" hidden>

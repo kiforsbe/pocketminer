@@ -100,6 +100,14 @@
       background-size: auto, contain, auto;
     }
 
+    .intro-action-row {
+      position: relative;
+      width: min(100%, 360px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .screen-password-panel {
       width: min(100%, 460px);
       margin-top: 10px;
@@ -109,6 +117,10 @@
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
       display: grid;
       gap: 10px;
+    }
+
+    .screen-password-panel[hidden] {
+      display: none !important;
     }
 
     .screen-password-header-row {
@@ -166,6 +178,47 @@
       border-color: rgba(255, 227, 148, 0.5);
     }
 
+    .intro-password-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: 50%;
+      left: calc(100% + 12px);
+      transform: translateY(-50%);
+      width: 54px;
+      height: 54px;
+      padding: 0;
+      border: 1px solid rgba(240, 245, 255, 0.36);
+      border-radius: 999px;
+      background: rgba(16, 25, 40, 0.9);
+      color: #f2f6ff;
+      font: inherit;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+    }
+
+    .intro-password-action:hover,
+    .intro-password-action:focus-visible {
+      outline: none;
+      background: rgba(34, 49, 74, 0.96);
+      border-color: rgba(255, 227, 148, 0.5);
+    }
+
+    .intro-password-action-icon {
+      width: 36px;
+      height: 36px;
+      display: block;
+      opacity: 0.95;
+      overflow: visible;
+      stroke: currentColor;
+      stroke-width: 2.1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
     .screen-password-entry {
       display: grid;
       gap: 8px;
@@ -220,6 +273,15 @@
       .screen-password-panel {
         width: 100%;
         padding-inline: 12px;
+      }
+
+      .intro-action-row {
+        width: min(100%, 360px);
+      }
+
+      .intro-password-action {
+        left: auto;
+        right: 0;
       }
 
       .screen-password-header-row,
