@@ -1253,6 +1253,12 @@
       display: none;
     }
 
+    .round-view {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+
     .store-header {
       display: flex;
       justify-content: space-between;
@@ -1308,6 +1314,9 @@
 
     .store-grid {
       display: block;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
       margin-top: 14px;
       height: min(460px, calc(100vh - 320px));
       overflow: auto;
