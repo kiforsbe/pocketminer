@@ -1470,8 +1470,12 @@
 
     .store-bomb-children-shell {
       position: relative;
-      padding-top: 22px;
-      margin-top: 2px;
+      padding-top: 24px;
+      margin-top: 0;
+    }
+
+    .store-bomb-children-shell > .store-tree-grid {
+      padding-top: 0;
     }
 
     .store-bomb-children-shell::before {
