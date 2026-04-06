@@ -1,6 +1,7 @@
 import { RendererEntitySubsystem } from "./rendererEntitySubsystem.js";
 import { RendererUiSubsystem } from "./rendererUiSubsystem.js";
 import { RendererWorldSubsystem } from "./rendererWorldSubsystem.js";
+import { TERRAIN_ATLAS_MANIFEST } from "./assets/tiles/terrain-atlas-manifest.js";
 
 const VIEWPORT = { width: 1280, height: 720 };
 
@@ -33,14 +34,20 @@ export class Renderer {
   }
 
   static async loadAssets() {
-    const [tilesheet, spritesheet, bombSpritesheet, bombIcon] = await Promise.all([
-      loadImage("./assets/tiles/tilesheet.png"),
+    const [terrainAtlas, spritesheet, bombSpritesheet, bombIcon] = await Promise.all([
+      loadImage("./assets/tiles/terrain-atlas.png"),
       loadImage("./assets/sprites/player-spritesheet.png"),
       loadImage("./assets/sprites/bomb-spritesheet.png"),
       loadImage("./assets/sprites/bomb-icon.png"),
     ]);
 
-    return { tilesheet, spritesheet, bombSpritesheet, bombIcon };
+    return {
+      terrainAtlas,
+      terrainAtlasManifest: TERRAIN_ATLAS_MANIFEST,
+      spritesheet,
+      bombSpritesheet,
+      bombIcon,
+    };
   }
 
   resize() {

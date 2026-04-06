@@ -10,97 +10,25 @@ const ATLAS_TILE_OVERFLOW_TOP = 4;
 const ATLAS_TILE_HEIGHT = TILE_SIZE + ATLAS_TILE_OVERFLOW_TOP;
 const MAGMA_FRAME_COUNT = 6;
 const MAGMA_ANIMATION_FPS = 6;
-const TILE_ATLAS_COLUMNS = 8;
-const SURFACE_VARIANTS = Object.freeze([
-  Object.freeze({ surfaceTreatment: null, surfaceVariant: 0 }),
-  Object.freeze({ surfaceTreatment: "grass", surfaceVariant: 0 }),
-  Object.freeze({ surfaceTreatment: "grass", surfaceVariant: 1 }),
-  Object.freeze({ surfaceTreatment: "grass", surfaceVariant: 2 }),
-  Object.freeze({ surfaceTreatment: "moss", surfaceVariant: 0 }),
-  Object.freeze({ surfaceTreatment: "rock", surfaceVariant: 0 }),
-  Object.freeze({ surfaceTreatment: "rock-spires", surfaceVariant: 0 }),
-]);
 
 export class RendererWorldSubsystem extends RendererSubsystem {
   constructor(renderer) {
     super(renderer);
     this.tileAtlas = null;
     this.tileAtlasLookup = new Map();
+    this.tileAtlasMeta = null;
   }
 
   ensureTileAtlas() {
-    const nextAtlas = this.assets?.tilesheet ?? null;
-    if (this.tileAtlas === nextAtlas) {
+    const nextAtlas = this.assets?.terrainAtlas ?? null;
+    const nextManifest = this.assets?.terrainAtlasManifest ?? null;
+    if (this.tileAtlas === nextAtlas && this.tileAtlasMeta === nextManifest?.meta) {
       return;
     }
 
     this.tileAtlas = nextAtlas;
-    this.tileAtlasLookup = this.buildTileAtlasLookup();
-  }
-
-  buildTileAtlasLookup() {
-    const lookup = new Map();
-    let index = 0;
-
-    for (const [type] of Object.entries(TILE_DEFINITIONS)) {
-      if (type === TILE_TYPES.EMPTY) {
-        continue;
-      }
-
-      const variants = this.supportsSurfaceTreatment(type)
-        ? SURFACE_VARIANTS
-        : [{ surfaceTreatment: null, surfaceVariant: 0 }];
-      const frameCount = type === TILE_TYPES.MAGMA ? MAGMA_FRAME_COUNT : 1;
-      for (let frame = 0; frame < frameCount; frame += 1) {
-        for (const variant of variants) {
-          lookup.set(this.buildTileAtlasKey({
-            type,
-            surfaceTreatment: variant.surfaceTreatment,
-            surfaceVariant: variant.surfaceVariant,
-            frame,
-          }), {
-            x: (index % TILE_ATLAS_COLUMNS) * TILE_SIZE,
-            y: Math.floor(index / TILE_ATLAS_COLUMNS) * ATLAS_TILE_HEIGHT,
-          });
-          index += 1;
-        }
-      }
-    }
-
-    for (const [type] of Object.entries(TILE_DEFINITIONS)) {
-      if (type === TILE_TYPES.EMPTY) {
-        continue;
-      }
-
-      for (let variant = 0; variant < 3; variant += 1) {
-        for (const placement of ["ground", "top"]) {
-          lookup.set(this.buildDebrisAtlasKey(type, variant, placement), {
-            x: (index % TILE_ATLAS_COLUMNS) * TILE_SIZE,
-            y: Math.floor(index / TILE_ATLAS_COLUMNS) * ATLAS_TILE_HEIGHT,
-          });
-          index += 1;
-        }
-      }
-    }
-
-    for (let crackLevel = 1; crackLevel <= 4; crackLevel += 1) {
-      lookup.set(this.buildCrackAtlasKey(crackLevel), {
-        x: (index % TILE_ATLAS_COLUMNS) * TILE_SIZE,
-        y: Math.floor(index / TILE_ATLAS_COLUMNS) * ATLAS_TILE_HEIGHT,
-      });
-      index += 1;
-    }
-
-    return lookup;
-  }
-
-  supportsSurfaceTreatment(type) {
-    return ![
-      TILE_TYPES.EMPTY,
-      TILE_TYPES.CHEST,
-      TILE_TYPES.PLATFORM,
-      TILE_TYPES.MAGMA,
-    ].includes(type);
+    this.tileAtlasMeta = nextManifest?.meta ?? null;
+    this.tileAtlasLookup = new Map(Object.entries(nextManifest?.entries ?? {}));
   }
 
   buildTileAtlasKey({ type, surfaceTreatment = null, surfaceVariant = 0, frame = 0 }) {
@@ -160,19 +88,21 @@ export class RendererWorldSubsystem extends RendererSubsystem {
       atlasSprite.x,
       atlasSprite.y,
       TILE_SIZE,
-      ATLAS_TILE_HEIGHT,
+      this.tileAtlasMeta?.tileHeight ?? ATLAS_TILE_HEIGHT,
       x,
-      y - ATLAS_TILE_OVERFLOW_TOP,
+      y - (this.tileAtlasMeta?.overflowTop ?? ATLAS_TILE_OVERFLOW_TOP),
       TILE_SIZE,
-      ATLAS_TILE_HEIGHT,
+      this.tileAtlasMeta?.tileHeight ?? ATLAS_TILE_HEIGHT,
     );
     return true;
   }
 
   getMagmaFrame(column, row) {
-    const elapsedFrames = Math.floor(performance.now() * 0.001 * MAGMA_ANIMATION_FPS);
-    const offset = Math.abs((column * 17 + row * 31) % MAGMA_FRAME_COUNT);
-    return (elapsedFrames + offset) % MAGMA_FRAME_COUNT;
+    const frameCount = this.tileAtlasMeta?.magmaFrames ?? MAGMA_FRAME_COUNT;
+    const animationFps = this.tileAtlasMeta?.magmaAnimationFps ?? MAGMA_ANIMATION_FPS;
+    const elapsedFrames = Math.floor(performance.now() * 0.001 * animationFps);
+    const offset = Math.abs((column * 17 + row * 31) % frameCount);
+    return (elapsedFrames + offset) % frameCount;
   }
 
   drawSurfaceTreatment(context, x, y, surfaceTreatment, surfaceVariant = 0) {

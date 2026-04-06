@@ -133,7 +133,7 @@ http://localhost:8000/
 
 ## Asset Generation
 
-The runtime terrain atlas used by the renderer is checked in under `assets/tiles/tilesheet.png`.
+The runtime terrain atlas used by the renderer is checked in under `assets/tiles/terrain-atlas.png`.
 
 Regenerate it after changing tile visuals with:
 
@@ -143,7 +143,7 @@ Regenerate it after changing tile visuals with:
 
 That script writes:
 
-- `assets/tiles/tilesheet.png`
-- `assets/tiles/source-tilesheet.png` on first run, to preserve the source tile art it composites from
+- `assets/tiles/terrain-atlas.png`
+- `assets/tiles/source-tilesheet.png` on first run, to preserve the original source tile art it composites from
 - `assets/tiles/terrain-atlas-manifest.json`
 - `assets/tiles/terrain-atlas-manifest.js`

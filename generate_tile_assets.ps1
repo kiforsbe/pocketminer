@@ -511,8 +511,9 @@ function Draw-SurfaceTreatment {
 
 $root = Split-Path -Parent $PSCommandPath
 $tilesDir = Join-Path $root 'assets/tiles'
-$runtimeTilesheetPath = Join-Path $tilesDir 'tilesheet.png'
+$terrainAtlasPath = Join-Path $tilesDir 'terrain-atlas.png'
 $sourceTilesheetPath = Join-Path $tilesDir 'source-tilesheet.png'
+$legacyTilesheetPath = Join-Path $tilesDir 'tilesheet.png'
 $terrainManifestPath = Join-Path $tilesDir 'terrain-atlas-manifest.json'
 $terrainManifestModulePath = Join-Path $tilesDir 'terrain-atlas-manifest.js'
 
@@ -521,7 +522,9 @@ $overflowTop = 4
 $tileHeight = $tileSize + $overflowTop
 $magmaFrameCount = 6
 $magmaAnimationFps = 6
-$atlasColumns = 8
+$atlasPixelSize = 576
+$atlasColumns = [int]($atlasPixelSize / $tileSize)
+$atlasRows = [int]($atlasPixelSize / $tileHeight)
 
 $surfaceVariants = @(
   @{ surfaceTreatment = $null; surfaceVariant = 0 },
@@ -551,21 +554,48 @@ $tileDefinitions = @(
   [ordered]@{ type = 'sapphire'; sprite = @{ x = 11; y = 0 }; fill = '#435067'; accent = '#58a8ea'; pattern = 'gem-shard' }
 )
 
+function New-EntryList {
+  return New-Object System.Collections.Generic.List[object]
+}
+
+function Add-EntriesToLayout {
+  param(
+    [System.Collections.Generic.List[object]]$LayoutEntries,
+    [System.Collections.Generic.List[object]]$Entries,
+    [int]$OriginColumn,
+    [int]$OriginRow,
+    [int]$Columns
+  )
+
+  for ($index = 0; $index -lt $Entries.Count; $index += 1) {
+    $entry = $Entries[$index]
+    $entry.atlasColumn = $OriginColumn + ($index % $Columns)
+    $entry.atlasRow = $OriginRow + [Math]::Floor($index / $Columns)
+    $LayoutEntries.Add($entry)
+  }
+}
+
 if (-not (Test-Path $sourceTilesheetPath)) {
-  Copy-Item -Path $runtimeTilesheetPath -Destination $sourceTilesheetPath
+  if (-not (Test-Path $legacyTilesheetPath)) {
+    throw "Missing source tilesheet. Expected $sourceTilesheetPath or legacy tilesheet $legacyTilesheetPath"
+  }
+
+  Copy-Item -Path $legacyTilesheetPath -Destination $sourceTilesheetPath
 }
 
 $sourceTilesheet = [System.Drawing.Bitmap]::FromFile($sourceTilesheetPath)
 
 try {
-  $entries = New-Object System.Collections.Generic.List[object]
+  $tileEntriesByType = @{}
+  $debrisEntriesByType = @{}
 
   foreach ($definition in $tileDefinitions) {
+    $definitionEntries = New-EntryList
     $variants = if (Supports-SurfaceTreatment $definition.type) { $surfaceVariants } else { @(@{ surfaceTreatment = $null; surfaceVariant = 0 }) }
     $frameCount = if ($definition.type -eq 'magma') { $magmaFrameCount } else { 1 }
     for ($frame = 0; $frame -lt $frameCount; $frame += 1) {
       foreach ($variant in $variants) {
-        $entries.Add([ordered]@{
+        $definitionEntries.Add([ordered]@{
           key = Build-TileKey $definition.type $variant.surfaceTreatment $variant.surfaceVariant $frame
           kind = 'tile'
           definition = $definition
@@ -575,21 +605,71 @@ try {
         })
       }
     }
+
+    $tileEntriesByType[$definition.type] = $definitionEntries
   }
 
   foreach ($definition in $tileDefinitions) {
+    $definitionEntries = New-EntryList
     for ($variant = 0; $variant -lt 3; $variant += 1) {
-      $entries.Add([ordered]@{ key = Build-DebrisKey $definition.type $variant 'ground'; kind = 'debris'; definition = $definition; variant = $variant; placement = 'ground' })
-      $entries.Add([ordered]@{ key = Build-DebrisKey $definition.type $variant 'top'; kind = 'debris'; definition = $definition; variant = $variant; placement = 'top' })
+      $definitionEntries.Add([ordered]@{ key = Build-DebrisKey $definition.type $variant 'ground'; kind = 'debris'; definition = $definition; variant = $variant; placement = 'ground' })
+      $definitionEntries.Add([ordered]@{ key = Build-DebrisKey $definition.type $variant 'top'; kind = 'debris'; definition = $definition; variant = $variant; placement = 'top' })
+    }
+
+    $debrisEntriesByType[$definition.type] = $definitionEntries
+  }
+
+  $crackEntries = New-EntryList
+  for ($crackLevel = 1; $crackLevel -le 4; $crackLevel += 1) {
+    $crackEntries.Add([ordered]@{ key = Build-CrackKey $crackLevel; kind = 'crack'; crackLevel = $crackLevel })
+  }
+
+  $layoutEntries = New-EntryList
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.chest 0 0 2
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.platform 2 0 1
+  Add-EntriesToLayout $layoutEntries $crackEntries 4 0 4
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.magma 12 0 6
+
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.dirt 0 1 4
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.stone 4 1 4
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.shale 8 1 4
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.basalt 12 1 4
+
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.coal 0 3 4
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.copper 4 3 4
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.tin 8 3 4
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.iron 12 3 4
+
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.silver 0 5 4
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.gold 4 5 4
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.ruby 8 5 4
+  Add-EntriesToLayout $layoutEntries $tileEntriesByType.sapphire 12 5 4
+
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.chest 0 8 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.platform 3 8 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.dirt 6 8 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.stone 9 8 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.shale 12 8 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.basalt 15 8 3
+
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.magma 0 10 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.coal 3 10 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.copper 6 10 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.tin 9 10 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.iron 12 10 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.silver 15 10 3
+
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.gold 0 12 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.ruby 3 12 3
+  Add-EntriesToLayout $layoutEntries $debrisEntriesByType.sapphire 6 12 3
+
+  foreach ($entry in $layoutEntries) {
+    if ($entry.atlasColumn -ge $atlasColumns -or $entry.atlasRow -ge $atlasRows) {
+      throw "Atlas layout overflowed the configured square canvas."
     }
   }
 
-  for ($crackLevel = 1; $crackLevel -le 4; $crackLevel += 1) {
-    $entries.Add([ordered]@{ key = Build-CrackKey $crackLevel; kind = 'crack'; crackLevel = $crackLevel })
-  }
-
-  $atlasRows = [int][Math]::Ceiling($entries.Count / $atlasColumns)
-  $atlasBitmap = [System.Drawing.Bitmap]::new($atlasColumns * $tileSize, $atlasRows * $tileHeight, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+  $atlasBitmap = [System.Drawing.Bitmap]::new($atlasPixelSize, $atlasPixelSize, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
   $graphics = [System.Drawing.Graphics]::FromImage($atlasBitmap)
   $graphics.Clear([System.Drawing.Color]::Transparent)
   $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
@@ -599,10 +679,10 @@ try {
   try {
     $manifestEntries = [ordered]@{}
 
-    for ($index = 0; $index -lt $entries.Count; $index += 1) {
-      $entry = $entries[$index]
-      $x = ($index % $atlasColumns) * $tileSize
-      $y = [Math]::Floor($index / $atlasColumns) * $tileHeight
+    for ($index = 0; $index -lt $layoutEntries.Count; $index += 1) {
+      $entry = $layoutEntries[$index]
+      $x = $entry.atlasColumn * $tileSize
+      $y = $entry.atlasRow * $tileHeight
       $drawY = $y + $overflowTop
       $manifestEntries[$entry.key] = [ordered]@{ x = $x; y = $y }
 
@@ -632,7 +712,7 @@ try {
       }
     }
 
-    $atlasBitmap.Save($runtimeTilesheetPath, [System.Drawing.Imaging.ImageFormat]::Png)
+    $atlasBitmap.Save($terrainAtlasPath, [System.Drawing.Imaging.ImageFormat]::Png)
     $manifest = [ordered]@{
       meta = [ordered]@{
         tileSize = $tileSize
@@ -640,6 +720,7 @@ try {
         tileHeight = $tileHeight
         magmaFrames = $magmaFrameCount
         magmaAnimationFps = $magmaAnimationFps
+        atlasPixelSize = $atlasPixelSize
       }
       entries = $manifestEntries
     }
@@ -660,7 +741,7 @@ finally {
   $sourceTilesheet.Dispose()
 }
 
-Write-Host "Generated runtime tilesheet: $runtimeTilesheetPath"
+Write-Host "Generated terrain atlas: $terrainAtlasPath"
 Write-Host "Using source tilesheet: $sourceTilesheetPath"
 Write-Host "Generated terrain manifest: $terrainManifestPath"
 Write-Host "Generated terrain manifest module: $terrainManifestModulePath"
