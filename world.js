@@ -558,16 +558,29 @@ export class World {
 
   canPlacePlatform(column, row) {
     const tile = this.getTile(column, row);
-    return Boolean(tile && tile.type === TILE_TYPES.EMPTY && !tile.debrisType);
+    return Boolean(tile && tile.type === TILE_TYPES.EMPTY);
   }
 
   placePlatform(column, row) {
     const tile = this.getTile(column, row);
-    if (!tile || tile.type !== TILE_TYPES.EMPTY || tile.debrisType) {
+    if (!tile || tile.type !== TILE_TYPES.EMPTY) {
       return false;
     }
 
+    tile.debrisType = null;
+    tile.debrisVariant = 0;
     tile.setType(TILE_TYPES.PLATFORM);
+    return true;
+  }
+
+  clearDebris(column, row) {
+    const tile = this.getTile(column, row);
+    if (!tile?.debrisType) {
+      return false;
+    }
+
+    tile.debrisType = null;
+    tile.debrisVariant = 0;
     return true;
   }
 
@@ -637,13 +650,7 @@ export class World {
   }
 
   #clearDebrisAt(column, row) {
-    const tile = this.getTile(column, row);
-    if (!tile?.debrisType) {
-      return;
-    }
-
-    tile.debrisType = null;
-    tile.debrisVariant = 0;
+    this.clearDebris(column, row);
   }
 
   #clearDebrisAbove(column, row) {
@@ -678,13 +685,12 @@ export class World {
   }
 
   #dropDebris(column, row, brokenType) {
-    const supportTile = this.#findFirstSupportBelow(column, row + 1);
-    if (!supportTile) {
+    const target = this.#getDebrisLandingTarget(column, row + 1);
+    if (!target) {
       return;
     }
 
-    const targetIsPlatform = supportTile.tile.type === TILE_TYPES.PLATFORM;
-    const restingRow = targetIsPlatform ? supportTile.row : supportTile.row - 1;
+    const { supportRow, targetIsPlatform, restingRow, targetY } = target;
     const restingTile = this.getTile(column, restingRow);
     if (!restingTile) {
       return;
@@ -694,9 +700,7 @@ export class World {
       return;
     }
 
-    const debrisVariant = ((this.seed ^ (column * 73856093) ^ (supportTile.row * 19349663)) >>> 0) % 3;
-    restingTile.debrisType = null;
-    restingTile.debrisVariant = 0;
+    const debrisVariant = ((this.seed ^ (column * 73856093) ^ (supportRow * 19349663)) >>> 0) % 3;
     this.fallingDebris.push({
       column,
       type: brokenType,
@@ -706,10 +710,26 @@ export class World {
       vy: 0,
       targetRow: restingRow,
       targetIsPlatform,
+      targetY,
+    });
+  }
+
+  #getDebrisLandingTarget(column, startRow) {
+    const supportTile = this.#findFirstSupportBelow(column, startRow);
+    if (!supportTile) {
+      return null;
+    }
+
+    const targetIsPlatform = supportTile.tile.type === TILE_TYPES.PLATFORM;
+    const restingRow = targetIsPlatform ? supportTile.row : supportTile.row - 1;
+    return {
+      supportRow: supportTile.row,
+      targetIsPlatform,
+      restingRow,
       targetY: targetIsPlatform
         ? this.getPlatformSurfaceY(supportTile.row)
         : restingRow * TILE_SIZE + TILE_SIZE - DEBRIS_REST_HEIGHT,
-    });
+    };
   }
 
   #findFirstSupportBelow(column, startRow) {
@@ -730,6 +750,14 @@ export class World {
 
     const settledDebris = [];
     for (const debris of this.fallingDebris) {
+      const currentRow = Math.floor(debris.y / TILE_SIZE);
+      const target = this.#getDebrisLandingTarget(debris.column, currentRow + 1);
+      if (target) {
+        debris.targetRow = target.restingRow;
+        debris.targetIsPlatform = target.targetIsPlatform;
+        debris.targetY = target.targetY;
+      }
+
       debris.vy += DEBRIS_FALL_GRAVITY * dt;
       debris.y = Math.min(debris.targetY, debris.y + debris.vy * dt);
       if (debris.y >= debris.targetY) {

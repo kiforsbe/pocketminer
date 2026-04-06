@@ -20,6 +20,7 @@ Your long-term goal is to dig deeper, carry more loot, and improve your permanen
 - `S` or `Down Arrow`: drop down through a platform
 - `E`, `Space`, or `Left Mouse Button`: mine the block under your cursor
 - `Q` or `Right Mouse Button`: place a temporary platform at the cursor
+- `B` places a bomb at the cursor using the same placement rules as platforms.
 
 ### Reward Screen
 

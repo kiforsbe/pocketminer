@@ -633,10 +633,12 @@
       top: 44px;
       left: 18px;
       transform: translateY(-50%);
-      display: flex;
-      gap: 2px;
-      align-items: center;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(44px, max-content));
+      grid-template-rows: repeat(2, auto);
+      column-gap: 2px;
+      row-gap: 10px;
+      align-items: start;
       max-width: min(44vw, 560px);
       pointer-events: none;
       opacity: 1;

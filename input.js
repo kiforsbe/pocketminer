@@ -26,6 +26,7 @@ export class Input {
       dropPlatform: ["KeyS", "ArrowDown"],
       mine: ["KeyE", "Space"],
       placePlatform: ["KeyQ"],
+      placeBomb: ["KeyB"],
       rewardPrev: ["KeyA", "ArrowLeft", "KeyW", "ArrowUp"],
       rewardNext: ["KeyD", "ArrowRight", "KeyS", "ArrowDown"],
       rewardConfirm: ["Enter", "Space", "KeyE"],

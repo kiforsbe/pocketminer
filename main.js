@@ -1,4 +1,5 @@
 import { AudioManager } from "./audio.js";
+import { createBombSystem } from "./bombSystem.js";
 import { createChestRewardController, createPlayerBonuses } from "./chestRewards.js";
 import { createCheatCodeController } from "./cheatCodes.js";
 import { createEndOfRoundSystem } from "./endOfRoundSystem.js";
@@ -68,9 +69,14 @@ const AUDIO_MANIFEST = [
   { id: "shiftCountdown", src: "./assets/sfx/shift-countdown.wav" },
   { id: "tick", src: "./assets/sfx/tick.wav" },
   { id: "treasureChest", src: "./assets/sfx/treasure-chest.wav" },
+  { id: "bombFuse", src: "./assets/sfx/bomb-fuse.wav" },
+  { id: "bombExplode", src: "./assets/sfx/bomb-explode.wav" },
   ...createMusicManifest(WORLD_STRATA),
 ];
 const PLATFORM_COOLDOWN_SECONDS = 3;
+const BOMB_COOLDOWN_SECONDS = 3;
+const BOMB_BLAST_RADIUS = 1;
+const BOMB_DAMAGE = 90;
 const NOTIFICATION_DURATION = 3.2;
 
 const canvas = document.getElementById("game");
@@ -88,6 +94,18 @@ function isMusicActivePhase(phase = gameState.phase) {
 
 function getPlatformCooldownDuration() {
   return PLATFORM_COOLDOWN_SECONDS / (1 + (gameState.playerBonuses.platformCooldown ?? 0));
+}
+
+function getBombCooldownDuration() {
+  return BOMB_COOLDOWN_SECONDS / (1 + (gameState.playerBonuses.bombRestock ?? 0));
+}
+
+function getBombCapacity() {
+  return getToolDefinition(gameState.bombUpgradeId)?.bombCapacity ?? 0;
+}
+
+function getBombDamageAmount() {
+  return BOMB_DAMAGE * (1 + (gameState.playerBonuses.bombDamage ?? 0));
 }
 
 function getMiningHitSoundId(miningResult) {
@@ -118,15 +136,19 @@ const gameState = {
   bagUpgradeId: DEFAULT_BAG_ROOT_ID,
   capacityUpgradeId: DEFAULT_CAPACITY_ROOT_ID,
   timeUpgradeId: DEFAULT_TIME_ROOT_ID,
+  bombUpgradeId: null,
   inventory: new Inventory({ slotCount: DEFAULT_SLOT_COUNT, stackSize: DEFAULT_STACK_SIZE }),
   miningResult: null,
   hoverTarget: null,
   audioReady: false,
   lastMiningSoundAt: 0,
   particles: [],
+  bombs: [],
   pickups: [],
   floatingTexts: [],
   platformCooldown: 0,
+  bombCooldown: 0,
+  bombCharges: 0,
   phase: "intro",
   round: 1,
   timeLeft: getToolDefinition(DEFAULT_TIME_ROOT_ID).durationSeconds ?? 60,
@@ -227,6 +249,18 @@ const platformPlacementSystem = createPlatformPlacementSystem({
   getPlatformCooldownDuration,
 });
 
+const bombSystem = createBombSystem({
+  gameState,
+  input,
+  renderer,
+  audio,
+  getPlayer: () => player,
+  getWorld: () => world,
+  getBombCapacity,
+  getBombCooldownDuration,
+  onDetonate: detonateBomb,
+});
+
 const pickupSystem = createPickupSystem({
   getPickups: () => gameState.pickups,
   setPickups: (pickups) => {
@@ -257,6 +291,7 @@ const chestRewardController = createChestRewardController({
   syncPlayerBonuses,
   showRoundNotification,
   getPlatformCooldownDuration,
+  getBombCooldownDuration,
 });
 
 const cheatCodeController = createCheatCodeController({
@@ -415,14 +450,18 @@ function resetGameToIntro() {
   gameState.bagUpgradeId = DEFAULT_BAG_ROOT_ID;
   gameState.capacityUpgradeId = DEFAULT_CAPACITY_ROOT_ID;
   gameState.timeUpgradeId = DEFAULT_TIME_ROOT_ID;
+  gameState.bombUpgradeId = null;
   gameState.inventory = new Inventory({ slotCount: DEFAULT_SLOT_COUNT, stackSize: DEFAULT_STACK_SIZE });
   gameState.miningResult = null;
   gameState.hoverTarget = null;
   gameState.lastMiningSoundAt = 0;
   gameState.particles = [];
+  gameState.bombs = [];
   gameState.pickups = [];
   gameState.floatingTexts = [];
   gameState.platformCooldown = 0;
+  gameState.bombCooldown = 0;
+  gameState.bombCharges = 0;
   gameState.phase = "intro";
   gameState.round = 1;
   gameState.timeLeft = getToolDefinition(DEFAULT_TIME_ROOT_ID).durationSeconds ?? 60;
@@ -602,6 +641,7 @@ function update(dt, timeSeconds) {
   pickupSystem.update(dt);
   floatingTextSystem.update(dt);
   platformPlacementSystem.update();
+  bombSystem.update(dt);
 
   if (player.touchesTileType(world, TILE_TYPES.MAGMA, 0)) {
     audio.playPlayerDeath();
@@ -622,24 +662,7 @@ function update(dt, timeSeconds) {
       }
 
       if (miningResult.broken) {
-        gameState.roundStats.blocksMined += 1;
-        if (miningResult.chest) {
-          pickupSystem.spawnTreasure(miningResult.chest, miningResult.column, miningResult.row);
-          renderer.markTerrainDirty();
-          audio.playSound("blockBreak", { playbackRate: 0.92, volume: 0.24 });
-          showRoundNotification("Treasure dropped. Pick it up.");
-        } else {
-          if (miningResult.resource) {
-            const quantity = miningResult.dropCount || 1;
-            pickupSystem.spawnResources(miningResult, quantity);
-            floatingTextSystem.spawnOreYieldText(miningResult);
-            floatingTextSystem.spawnLuckBonusText(miningResult);
-            particleSystem.spawnOreChunks(miningResult);
-            audio.playSound("orePop", { playbackRate: 0.94 + Math.random() * 0.14, volume: 0.3 });
-          }
-          renderer.markTerrainDirty();
-          audio.playSound("blockBreak", { playbackRate: 0.98 + Math.random() * 0.08 });
-        }
+        handleBrokenTileResult(miningResult, { playOreSound: true, playBreakSound: true });
       }
     }
   }
@@ -661,6 +684,7 @@ function render() {
     miningResult: gameState.miningResult,
     hoverTarget: gameState.hoverTarget,
     particles: gameState.particles,
+    bombs: gameState.bombs,
     pickups: gameState.pickups,
     floatingTexts: gameState.floatingTexts,
     roundInfo: {
@@ -671,6 +695,9 @@ function render() {
       showPerformance: gameState.performance.visible,
       tickRate: gameState.performance.displayedTickRate,
       platformCooldown: gameState.platformCooldown / getPlatformCooldownDuration(),
+      bombCooldown: gameState.bombCharges < getBombCapacity() ? gameState.bombCooldown / getBombCooldownDuration() : 0,
+      bombCharges: gameState.bombCharges,
+      bombCapacity: getBombCapacity(),
       urgent: gameState.phase === "playing" && gameState.timeLeft <= 30,
       notification: gameState.notification,
     },
@@ -736,8 +763,12 @@ function startNextRound() {
   gameState.miningResult = null;
   gameState.hoverTarget = null;
   gameState.particles = [];
+  gameState.bombs = [];
   gameState.pickups = [];
   gameState.floatingTexts = [];
+  gameState.platformCooldown = 0;
+  gameState.bombCooldown = 0;
+  gameState.bombCharges = getBombCapacity();
   gameState.roundStats = createRoundStats();
   gameState.summary = null;
   gameState.chestReward = null;
@@ -777,6 +808,90 @@ function createPlayer() {
 function syncPlayerBonuses() {
   player.setMiningPower(getEquippedTool().miningPower);
   player.setPermanentBonuses(gameState.playerBonuses);
+}
+
+function handleBrokenTileResult(miningResult, { playOreSound = false, playBreakSound = false } = {}) {
+  gameState.roundStats.blocksMined += 1;
+  if (miningResult.chest) {
+    pickupSystem.spawnTreasure(miningResult.chest, miningResult.column, miningResult.row);
+    renderer.markTerrainDirty();
+    if (playBreakSound) {
+      audio.playSound("blockBreak", { playbackRate: 0.92, volume: 0.24 });
+    }
+    showRoundNotification("Treasure dropped. Pick it up.");
+    return;
+  }
+
+  if (miningResult.resource) {
+    const quantity = miningResult.dropCount || 1;
+    pickupSystem.spawnResources(miningResult, quantity);
+    floatingTextSystem.spawnOreYieldText(miningResult);
+    floatingTextSystem.spawnLuckBonusText(miningResult);
+    particleSystem.spawnOreChunks(miningResult);
+    if (playOreSound) {
+      audio.playSound("orePop", { playbackRate: 0.94 + Math.random() * 0.14, volume: 0.3 });
+    }
+  }
+
+  renderer.markTerrainDirty();
+  if (playBreakSound) {
+    audio.playSound("blockBreak", { playbackRate: 0.98 + Math.random() * 0.08 });
+  }
+}
+
+function detonateBomb(bomb) {
+  let brokeAnyTile = false;
+  let clearedAnyDebris = false;
+  const blastTargets = [];
+  audio.playSound("bombExplode", { volume: 0.34 });
+  particleSystem.spawnExplosionBurst({
+    x: bomb.column * 32 + 16,
+    y: bomb.row * 32 + 16,
+  });
+
+  for (let rowOffset = -BOMB_BLAST_RADIUS; rowOffset <= BOMB_BLAST_RADIUS; rowOffset += 1) {
+    for (let columnOffset = -BOMB_BLAST_RADIUS; columnOffset <= BOMB_BLAST_RADIUS; columnOffset += 1) {
+      const targetColumn = bomb.column + columnOffset;
+      blastTargets.push({
+        column: targetColumn,
+        row: bomb.row + rowOffset,
+      });
+    }
+  }
+
+  blastTargets
+    .sort((left, right) => {
+      if (left.row !== right.row) {
+        return right.row - left.row;
+      }
+
+      return left.column - right.column;
+    })
+    .forEach(({ column: targetColumn, row: targetRow }) => {
+      if (world.clearDebris(targetColumn, targetRow)) {
+        clearedAnyDebris = true;
+      }
+      const miningResult = world.damageTile(targetColumn, targetRow, getBombDamageAmount(), { luck: gameState.playerBonuses.luck });
+      if (miningResult.hit) {
+        floatingTextSystem.spawnCombatText({
+          ...miningResult,
+          target: {
+            column: targetColumn,
+            row: targetRow,
+          },
+        });
+      }
+      if (!miningResult.broken) {
+        return;
+      }
+
+      brokeAnyTile = true;
+      handleBrokenTileResult(miningResult);
+    });
+
+  if (brokeAnyTile || clearedAnyDebris) {
+    renderer.markTerrainDirty();
+  }
 }
 
 function getEquippedTool() {

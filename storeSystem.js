@@ -13,7 +13,7 @@ import {
 } from "./tools.js";
 
 const STORE_CATEGORY_ORDER = Object.freeze([
-  { id: "tools", label: "Tools", branchIds: ["pickaxe"] },
+  { id: "tools", label: "Tools", branchIds: ["pickaxe", "bombs"] },
   { id: "storage", label: "Storage", branchIds: ["bags", "capacity"] },
   { id: "misc", label: "Misc", branchIds: ["time"] },
 ]);
@@ -274,8 +274,11 @@ export function createStoreController({
     button.setAttribute("aria-disabled", interactive ? "false" : "true");
 
     const visual = getToolVisual(tool);
+    const iconStyle = visual.image
+      ? `background:${visual.background}; box-shadow:${visual.glow}; background-image:url('${visual.image}'); background-size:72% 72%; background-position:center; background-repeat:no-repeat;`
+      : `background:${visual.background}; box-shadow:${visual.glow};`;
     button.innerHTML = `
-      <span class="store-node-icon" style="background:${visual.background}; box-shadow:${visual.glow};">${visual.text}</span>
+      <span class="store-node-icon" style="${iconStyle}">${visual.text}</span>
       <span class="store-node-cost">${tool.price}€</span>
       <span class="store-node-tier">${tool.tier}</span>
     `;
@@ -405,6 +408,16 @@ export function createStoreController({
       };
     }
 
+    if (tool.category === "bomb") {
+      return {
+        text: "",
+        background: "linear-gradient(180deg, #78423d, #2c1518)",
+        glow: "0 0 18px rgba(255, 145, 108, 0.26)",
+        material: "Explosive",
+        image: tool.iconSrc,
+      };
+    }
+
     if (tool.category === "hands") {
       return {
         text: "H",
@@ -498,6 +511,13 @@ export function createStoreController({
         <div>Shift Length: ${tool.durationSeconds}s</div>
         <div>Effect: Longer mining shift</div>
       `;
+    } else if (tool.category === "bomb") {
+      storeTooltipStats.innerHTML = `
+        <div>Branch: ${tool.branchLabel}</div>
+        <div>Cost: ${tool.price}€</div>
+        <div>Armed Bombs: ${tool.bombCapacity ?? 1}</div>
+        <div>Cooldown: 3s after emptying the rack</div>
+      `;
     } else {
       storeTooltipStats.innerHTML = `
         <div>Branch: ${tool.branchLabel}</div>
@@ -579,6 +599,10 @@ export function createStoreController({
       gameState.inventory = createInventoryForLoadout(gameState.inventory);
     } else if (tool.branchId === "time") {
       gameState.timeUpgradeId = tool.id;
+    } else if (tool.branchId === "bombs") {
+      gameState.bombUpgradeId = tool.id;
+      gameState.bombCharges = tool.bombCapacity ?? gameState.bombCharges;
+      gameState.bombCooldown = 0;
     }
 
     if (summaryBankEl) {
@@ -602,6 +626,10 @@ export function createStoreController({
 
     if (branchId === "time") {
       return gameState.timeUpgradeId ?? DEFAULT_TIME_ROOT_ID;
+    }
+
+    if (branchId === "bombs") {
+      return gameState.bombUpgradeId ?? null;
     }
 
     return branchId === "hands" ? DEFAULT_TOOL_ID : null;

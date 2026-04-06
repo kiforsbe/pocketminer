@@ -26,6 +26,18 @@ const CHEST_REWARD_DEFINITIONS = Object.freeze([
     description: "Cut the wait before placing the next platform.",
   }),
   Object.freeze({
+    id: "bombDamage",
+    title: "Blasting Gel",
+    statLabel: "Bomb damage",
+    description: "Pack more punch into every bomb explosion.",
+  }),
+  Object.freeze({
+    id: "bombRestock",
+    title: "Fuse Spindle",
+    statLabel: "Bomb restock",
+    description: "Speed up how fast the bomb rack reloads charges.",
+  }),
+  Object.freeze({
     id: "luck",
     title: "Prospector's Charm",
     statLabel: "Luck",
@@ -51,6 +63,8 @@ export function createPlayerBonuses() {
     jumpPower: 0,
     swingRate: 0,
     platformCooldown: 0,
+    bombDamage: 0,
+    bombRestock: 0,
     luck: 0,
     mastery: 0,
     toolDamage: 0,
@@ -77,6 +91,7 @@ export function createChestRewardController({
   syncPlayerBonuses,
   showRoundNotification,
   getPlatformCooldownDuration,
+  getBombCooldownDuration,
 }) {
   function createChestRewardChoices(chest) {
     return [...CHEST_REWARD_DEFINITIONS]
@@ -147,11 +162,16 @@ export function createChestRewardController({
     }
 
     const previousPlatformCooldownDuration = getPlatformCooldownDuration();
+    const previousBombCooldownDuration = getBombCooldownDuration();
     gameState.playerBonuses[choice.id] += choice.amount;
     syncPlayerBonuses();
     if (choice.id === "platformCooldown" && gameState.platformCooldown > 0) {
       const nextPlatformCooldownDuration = getPlatformCooldownDuration();
       gameState.platformCooldown *= nextPlatformCooldownDuration / previousPlatformCooldownDuration;
+    }
+    if (choice.id === "bombRestock" && gameState.bombCooldown > 0) {
+      const nextBombCooldownDuration = getBombCooldownDuration();
+      gameState.bombCooldown *= nextBombCooldownDuration / previousBombCooldownDuration;
     }
     showRoundNotification(`${choice.title}: +${formatBonusPercent(choice.amount)} ${choice.statLabel.toLowerCase()}.`);
     gameState.chestReward = null;

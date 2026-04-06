@@ -76,12 +76,14 @@ export class Renderer {
   }
 
   static async loadAssets() {
-    const [tilesheet, spritesheet] = await Promise.all([
+    const [tilesheet, spritesheet, bombSpritesheet, bombIcon] = await Promise.all([
       loadImage("./assets/tiles/tilesheet.png"),
       loadImage("./assets/sprites/player-spritesheet.png"),
+      loadImage("./assets/sprites/bomb-spritesheet.png"),
+      loadImage("./assets/sprites/bomb-icon.png"),
     ]);
 
-    return { tilesheet, spritesheet };
+    return { tilesheet, spritesheet, bombSpritesheet, bombIcon };
   }
 
   resize() {
@@ -117,13 +119,14 @@ export class Renderer {
     this.camera.y = Math.max(0, Math.min(targetY, this.world.pixelHeight - this.viewport.height));
   }
 
-  render({ player, world, inventory, miningResult, hoverTarget, particles, pickups, floatingTexts, roundInfo }) {
+  render({ player, world, inventory, miningResult, hoverTarget, particles, bombs, pickups, floatingTexts, roundInfo }) {
     this.#updateFrameRateCounter();
     this.updateCamera(player);
     this.ctx.clearRect(0, 0, this.viewport.width, this.viewport.height);
     this.#drawBackground(player);
     this.#drawVisibleTerrain(world);
     this.#drawFallingDebris(world.getFallingDebris?.() ?? []);
+    this.#drawBombs(bombs ?? []);
 
     this.#drawMiningHighlight(hoverTarget, miningResult);
     this.#drawPickups(pickups);
@@ -1114,6 +1117,7 @@ export class Renderer {
     this.#drawBonusStats(this.dom.bonusStats, roundInfo.bonuses);
 
     this.#drawPlatformCooldown(roundInfo.platformCooldown ?? 0);
+    this.#drawBombCooldown(roundInfo.bombCooldown ?? 0, roundInfo.bombCharges ?? 0, roundInfo.bombCapacity ?? 0);
   }
 
   #drawBonusStats(container, bonuses = {}) {
@@ -1155,6 +1159,8 @@ export class Renderer {
       { key: "jumpPower", label: "Jump", value: bonuses.jumpPower ?? 0 },
       { key: "swingRate", label: "Swing", value: bonuses.swingRate ?? 0 },
       { key: "platformCooldown", label: "Platform", value: bonuses.platformCooldown ?? 0 },
+      { key: "bombDamage", label: "Bomb Dmg", value: bonuses.bombDamage ?? 0 },
+      { key: "bombRestock", label: "Bomb Load", value: bonuses.bombRestock ?? 0 },
       { key: "luck", label: "Luck", value: bonuses.luck ?? 0 },
       { key: "mastery", label: "Mastery", value: bonuses.mastery ?? 0 },
       { key: "toolDamage", label: "Damage", value: bonuses.toolDamage ?? 0 },
@@ -1337,13 +1343,27 @@ export class Renderer {
     }
   }
 
-  #drawPlatformCooldown(cooldownProgress) {
-    const slots = 8;
+  #getHotbarLayout(inventory) {
+    const slots = inventory.getSlots();
+    const slotsPerRow = 8;
     const slotSize = 52;
     const gap = 8;
-    const totalWidth = slots * slotSize + (slots - 1) * gap;
+    const rowCount = Math.max(1, Math.ceil(slots.length / slotsPerRow));
+    const columns = Math.min(slots.length, slotsPerRow);
+    const totalWidth = columns * slotSize + Math.max(0, columns - 1) * gap;
     const startX = (this.viewport.width - totalWidth) * 0.5;
-    const startY = this.viewport.height - slotSize - 24;
+    const startY = this.viewport.height - rowCount * slotSize - Math.max(0, rowCount - 1) * gap - 24;
+    return {
+      slotSize,
+      gap,
+      totalWidth,
+      startX,
+      startY,
+    };
+  }
+
+  #drawPlatformCooldown(cooldownProgress) {
+    const { startX, startY, slotSize } = this.#getHotbarLayout({ getSlots: () => Array(8).fill(null) });
     const centerX = startX - 42;
     const centerY = startY + slotSize * 0.5;
     const radius = 26;
@@ -1371,6 +1391,50 @@ export class Renderer {
     this.ctx.restore();
   }
 
+  #drawBombCooldown(cooldownProgress, charges, capacity) {
+    const { startX, startY, totalWidth, slotSize } = this.#getHotbarLayout({ getSlots: () => Array(8).fill(null) });
+    const centerX = startX + totalWidth + 42;
+    const centerY = startY + slotSize * 0.5;
+    const radius = 26;
+    const unlocked = capacity > 0;
+    const ready = unlocked && charges > 0;
+    const isRecharging = unlocked && charges < capacity && cooldownProgress > 0;
+    const remainingArc = Math.max(0, Math.min(1, cooldownProgress));
+
+    this.ctx.save();
+    this.ctx.translate(centerX, centerY);
+    this.ctx.fillStyle = "rgba(10, 16, 28, 0.9)";
+    this.ctx.beginPath();
+    this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.strokeStyle = ready
+      ? "rgba(255, 146, 96, 0.88)"
+      : unlocked
+        ? "rgba(226, 182, 120, 0.48)"
+        : "rgba(96, 109, 126, 0.38)";
+    this.ctx.lineWidth = 2.5;
+    this.ctx.stroke();
+
+    if (!ready || isRecharging) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, 0);
+      this.ctx.fillStyle = unlocked ? "rgba(120, 132, 148, 0.42)" : "rgba(58, 66, 80, 0.42)";
+      this.ctx.arc(-0.0001, -0.0001, radius - 2, -Math.PI * 0.5, -Math.PI * 0.5 - Math.PI * 2 * remainingArc, true);
+      this.ctx.closePath();
+      this.ctx.fill();
+    }
+
+    this.#drawBombRackIcon();
+    this.ctx.fillStyle = unlocked ? "#ffcf9b" : "rgba(177, 187, 197, 0.72)";
+    this.ctx.font = "800 10px 'Segoe UI'";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText("B", 0, -18);
+    this.ctx.fillStyle = unlocked ? "#fff1d0" : "rgba(177, 187, 197, 0.72)";
+    this.ctx.font = "800 12px 'Segoe UI'";
+    this.ctx.fillText(`${charges}/${capacity || 0}`, 0, 28);
+    this.ctx.restore();
+  }
+
   #drawPlatformClockIcon() {
     this.ctx.fillStyle = "#d7b07b";
     this.ctx.fillRect(-12, 2, 24, 6);
@@ -1381,6 +1445,67 @@ export class Renderer {
     this.ctx.fillRect(7, 8, 3, 5);
     this.ctx.fillStyle = "rgba(255, 246, 208, 0.75)";
     this.ctx.fillRect(-10, 0, 20, 1);
+  }
+
+  #drawBombRackIcon() {
+    if (this.assets?.bombIcon) {
+      this.ctx.drawImage(this.assets.bombIcon, -12, -14, 24, 24);
+      return;
+    }
+
+    this.ctx.fillStyle = "#1f1a21";
+    this.ctx.beginPath();
+    this.ctx.arc(0, -2, 9, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.fillStyle = "#b78356";
+    this.ctx.fillRect(4, -13, 3, 7);
+  }
+
+  #drawBombs(bombs) {
+    if (!bombs.length) {
+      return;
+    }
+
+    const frameWidth = 32;
+    const frameHeight = 32;
+    const sheet = this.assets?.bombSpritesheet;
+    const frameCount = sheet ? Math.max(1, Math.floor(sheet.width / frameWidth)) : 1;
+
+    for (const bomb of bombs) {
+      const x = bomb.x - this.camera.x;
+      const y = bomb.y - this.camera.y;
+      if (x + frameWidth < 0 || y + frameHeight < 0 || x > this.viewport.width || y > this.viewport.height) {
+        continue;
+      }
+
+      if (sheet) {
+        const frame = Math.floor((bomb.animationElapsed * 8) % frameCount);
+        this.ctx.drawImage(
+          sheet,
+          frame * frameWidth,
+          0,
+          frameWidth,
+          frameHeight,
+          x,
+          y,
+          frameWidth,
+          frameHeight,
+        );
+        continue;
+      }
+
+      this.ctx.save();
+      this.ctx.translate(x + 16, y + 16);
+      this.ctx.fillStyle = "#1f1a21";
+      this.ctx.beginPath();
+      this.ctx.arc(0, 2, 10, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = "#b78356";
+      this.ctx.fillRect(4, -10, 3, 8);
+      this.ctx.fillStyle = "#ffb45a";
+      this.ctx.fillRect(5, -13, 2, 3);
+      this.ctx.restore();
+    }
   }
 
   #drawHotbarItemIcon(x, y, size, itemId) {

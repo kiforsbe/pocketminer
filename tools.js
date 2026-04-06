@@ -22,6 +22,8 @@ function createTool({
   slotCount = null,
   stackSize = null,
   durationSeconds = null,
+  bombCapacity = null,
+  iconSrc = null,
   isRoot = false,
 }) {
   return Object.freeze({
@@ -41,6 +43,8 @@ function createTool({
     slotCount,
     stackSize,
     durationSeconds,
+    bombCapacity,
+    iconSrc,
     isRoot,
   });
 }
@@ -322,6 +326,48 @@ export const TOOL_DEFINITIONS = Object.freeze({
     tier: 2,
     durationSeconds: 150,
   }),
+  "bomb-1": createTool({
+    id: "bomb-1",
+    label: "Bomb Rack",
+    category: "bomb",
+    storeCategory: "tools",
+    branchId: "bombs",
+    branchLabel: "Bombs",
+    price: 1500,
+    miningPower: 0,
+    description: "Unlocks placeable bombs. Carry one live bomb before the fuse rack needs to recharge.",
+    tier: 1,
+    bombCapacity: 1,
+    iconSrc: "./assets/sprites/bomb-icon.png",
+  }),
+  "bomb-2": createTool({
+    id: "bomb-2",
+    label: "Twin Rack",
+    category: "bomb",
+    storeCategory: "tools",
+    branchId: "bombs",
+    branchLabel: "Bombs",
+    price: 3200,
+    miningPower: 0,
+    description: "Adds a second armed bomb slot so you can stage two blasts before recharge.",
+    tier: 2,
+    bombCapacity: 2,
+    iconSrc: "./assets/sprites/bomb-icon.png",
+  }),
+  "bomb-3": createTool({
+    id: "bomb-3",
+    label: "Tunnel Satchel",
+    category: "bomb",
+    storeCategory: "tools",
+    branchId: "bombs",
+    branchLabel: "Bombs",
+    price: 6800,
+    miningPower: 0,
+    description: "Raises the rack to three armed bombs before the shared fuse reel has to cool down.",
+    tier: 3,
+    bombCapacity: 3,
+    iconSrc: "./assets/sprites/bomb-icon.png",
+  }),
 });
 
 export const GAME_MODE_DEFINITIONS = Object.freeze({
@@ -349,6 +395,9 @@ export const GAME_MODE_DEFINITIONS = Object.freeze({
       "capacity-4",
       "time-1",
       "time-2",
+      "bomb-1",
+      "bomb-2",
+      "bomb-3",
     ]),
   }),
 });

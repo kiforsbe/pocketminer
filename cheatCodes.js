@@ -21,24 +21,29 @@ const CHEAT_CODE_DEFINITIONS = Object.freeze([
     code: "IDFA",
     apply({ audio, gameState, syncPlayerBonuses, showRoundNotification }) {
       applyIdfaStatBoost(gameState);
+      gameState.bank += 25000;
       syncPlayerBonuses();
       audio.playCheatCodeActivated();
-      showRoundNotification("Cheat activated: IDFA grants +50% to all stats.", { urgent: true });
+      showRoundNotification("Cheat activated: IDFA grants +50% to all stats and 25000€.", { urgent: true });
     },
   }),
   Object.freeze({
     code: "IDKFA",
     apply({ audio, gameState, createInventoryForLoadout, syncPlayerBonuses, showRoundNotification }) {
       applyIdfaStatBoost(gameState);
+      gameState.bank += 25000;
       gameState.equippedToolId = "silver-pick";
       gameState.bagUpgradeId = "bag-1";
       gameState.capacityUpgradeId = "capacity-2";
       gameState.timeUpgradeId = "time-1";
+      gameState.bombUpgradeId = "bomb-3";
+      gameState.bombCharges = 3;
+      gameState.bombCooldown = 0;
       gameState.inventory = createInventoryForLoadout(gameState.inventory);
       syncPlayerBonuses();
       audio.playCheatCodeActivated();
       showRoundNotification(
-        "Cheat activated: IDKFA grants IDFA stats, a tier 5 pickaxe, tier 1 bag space, tier 2 pocket size, and tier 1 time.",
+        "Cheat activated: IDKFA grants IDFA stats, another 25000€, a tier 5 pickaxe, tier 1 bag space, tier 2 pocket size, tier 1 time, and tier 3 bombs.",
         { urgent: true },
       );
     },

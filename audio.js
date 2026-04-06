@@ -13,6 +13,8 @@ const DEFAULT_GAIN = {
   introStart: 0.22,
   shiftCountdown: 0.2,
   treasureChest: 0.24,
+  bombFuse: 0.28,
+  bombExplode: 0.34,
   music: 0.12,
 };
 
