@@ -51,6 +51,22 @@ const CHEAT_CODE_DEFINITIONS = Object.freeze([
     },
   }),
   Object.freeze({
+    code: "ROSEBUD",
+    apply({ audio, gameState, showRoundNotification }) {
+      gameState.bank += 10000;
+      audio.playCheatCodeActivated();
+      showRoundNotification("Cheat activated: ROSEBUD grants 10000€.", { urgent: true });
+    },
+  }),
+  Object.freeze({
+    code: "MOTHERLODE",
+    apply({ audio, gameState, showRoundNotification }) {
+      gameState.bank += 50000;
+      audio.playCheatCodeActivated();
+      showRoundNotification("Cheat activated: MOTHERLODE grants 50000€.", { urgent: true });
+    },
+  }),
+  Object.freeze({
     sequence: Object.freeze(["UP", "UP", "DOWN", "DOWN", "LEFT", "RIGHT", "LEFT", "RIGHT", "B", "A"]),
     apply({ audio, triggerGameOver, showRoundNotification }) {
       audio.playCheatCodeActivated();

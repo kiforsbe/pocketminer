@@ -542,14 +542,17 @@ export function createStoreController({
     }
 
     if (tool.category === "bomb") {
+      const bombSpriteRows = 4;
+      const bombSpriteRow = Math.max(0, Math.min(bombSpriteRows - 1, tool.bombSpriteRow ?? 0));
+      const imagePositionY = bombSpriteRows <= 1 ? 0 : (bombSpriteRow / (bombSpriteRows - 1)) * 100;
       return {
         text: "",
         background: "linear-gradient(180deg, #78423d, #2c1518)",
         glow: "0 0 18px rgba(255, 145, 108, 0.26)",
         material: "Explosive",
         image: "./assets/sprites/bomb-spritesheet.png",
-        imageSize: "400% 300%",
-        imagePosition: `0% ${Math.max(0, Math.min(100, (tool.bombSpriteRow ?? 0) * 50))}%`,
+        imageSize: `400% ${bombSpriteRows * 100}%`,
+        imagePosition: `0% ${imagePositionY}%`,
       };
     }
 

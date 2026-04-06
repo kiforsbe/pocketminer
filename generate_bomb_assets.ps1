@@ -74,7 +74,7 @@ for ($i = 0; $i -lt $boomCount; $i += 1) {
 }
 Save-Wav -Path (Join-Path $sfxDir 'bomb-explode.wav') -Samples $boomSamples -SampleRate $sampleRate
 
-$sheet = [System.Drawing.Bitmap]::new(128, 96, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+$sheet = [System.Drawing.Bitmap]::new(128, 128, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
 $graphics = [System.Drawing.Graphics]::FromImage($sheet)
 $graphics.Clear([System.Drawing.Color]::Transparent)
 $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
@@ -159,11 +159,47 @@ function Draw-BombFrame {
   $Graphics.FillRectangle($emberBrush, $OffsetX + 11, $OffsetY + 25, 10, 2)
 }
 
+function Draw-NukeFrame {
+  param(
+    [System.Drawing.Graphics]$Graphics,
+    [int]$OffsetX,
+    [int]$OffsetY,
+    [int]$Frame
+  )
+
+  $shellBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 70, 92, 54))
+  $shellHighlightBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 135, 166, 96))
+  $hazardBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 238, 205, 71))
+  $hazardDarkBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 36, 43, 26))
+  $capBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 116, 90, 62))
+
+  $Graphics.FillEllipse($shellBrush, $OffsetX + 6, $OffsetY + 8, 20, 20)
+  $Graphics.FillEllipse($shellHighlightBrush, $OffsetX + 10, $OffsetY + 11, 8, 6)
+  $Graphics.FillRectangle($capBrush, $OffsetX + 13, $OffsetY + 4, 6, 5)
+  $Graphics.FillRectangle($metalBrush, $OffsetX + 15, $OffsetY + 1, 3, 5)
+  $Graphics.FillEllipse($hazardBrush, $OffsetX + 11, $OffsetY + 13, 10, 10)
+  $Graphics.FillPie($hazardDarkBrush, $OffsetX + 13, $OffsetY + 14, 3, 5, 90, 120)
+  $Graphics.FillPie($hazardDarkBrush, $OffsetX + 15, $OffsetY + 14, 3, 5, 210, 120)
+  $Graphics.FillPie($hazardDarkBrush, $OffsetX + 14, $OffsetY + 16, 3, 5, 330, 120)
+
+  $sparkY = $OffsetY + 1 + ($Frame % 2)
+  $sparkX = $OffsetX + 16 + [Math]::Min(3, $Frame)
+  $Graphics.FillRectangle($sparkBrush, $sparkX, $sparkY, 2, 2)
+  $Graphics.FillRectangle($emberBrush, $sparkX + 2, $sparkY + 2, 2, 2)
+
+  $shellBrush.Dispose()
+  $shellHighlightBrush.Dispose()
+  $hazardBrush.Dispose()
+  $hazardDarkBrush.Dispose()
+  $capBrush.Dispose()
+}
+
 for ($frame = 0; $frame -lt 4; $frame += 1) {
   $offsetX = $frame * 32
   Draw-StickDynamiteFrame -Graphics $graphics -OffsetX $offsetX -OffsetY 0 -Frame $frame
   Draw-BundleDynamiteFrame -Graphics $graphics -OffsetX $offsetX -OffsetY 32 -Frame $frame
   Draw-BombFrame -Graphics $graphics -OffsetX $offsetX -OffsetY 64 -Frame $frame
+  Draw-NukeFrame -Graphics $graphics -OffsetX $offsetX -OffsetY 96 -Frame $frame
 }
 $sheet.Save((Join-Path $spriteDir 'bomb-spritesheet.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 $graphics.Dispose()

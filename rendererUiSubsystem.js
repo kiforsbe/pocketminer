@@ -578,6 +578,20 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
       return;
     }
 
+    if (spriteRow === 3) {
+      this.ctx.fillStyle = "#587240";
+      this.ctx.beginPath();
+      this.ctx.ellipse(0, -1, 10, 9, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = "#e7cd48";
+      this.ctx.beginPath();
+      this.ctx.arc(0, -1, 4, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = "#6f552f";
+      this.ctx.fillRect(-2, -12, 4, 5);
+      return;
+    }
+
     this.ctx.fillStyle = "#1f1a21";
     this.ctx.beginPath();
     this.ctx.arc(0, -2, 9, 0, Math.PI * 2);

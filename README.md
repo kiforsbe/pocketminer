@@ -91,6 +91,8 @@ A few in-game screenshots showing gameplay, reward caches and the store.
 
 Cheat codes are enabled in the current project build.
 
+- `ROSEBUD`: grants `10000€`
+- `MOTHERLODE`: grants `50000€`
 - `IDFA`: grants `+50%` to all player bonus stats
 - `IDKFA`: grants the `IDFA` stat boost plus a stronger loadout upgrade package
 
