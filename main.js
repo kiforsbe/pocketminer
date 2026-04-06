@@ -88,7 +88,7 @@ const cardChoiceGrid = document.getElementById("card-choice-grid");
 const cardFooter = document.getElementById("card-footer");
 const shiftCountdownOverlay = document.getElementById("shift-countdown-overlay");
 const shiftCountdownValue = document.getElementById("shift-countdown-value");
-const endShiftButton = document.getElementById("end-shift-button");
+const roundTimer = document.getElementById("round-timer");
 
 function isMusicActivePhase(phase = gameState.phase) {
   return phase === "countdown" || phase === "playing" || phase === "reward" || phase === "summary";
@@ -323,12 +323,32 @@ const endOfRoundSystem = createEndOfRoundSystem({
   },
 });
 
-endShiftButton?.addEventListener("click", () => {
+roundTimer?.addEventListener("click", () => {
   if (gameState.phase !== "playing") {
     return;
   }
 
   endOfRoundSystem.endRound();
+});
+
+roundTimer?.addEventListener("mouseenter", () => {
+  if (gameState.phase === "playing") {
+    roundTimer.dataset.hovered = "true";
+  }
+});
+
+roundTimer?.addEventListener("mouseleave", () => {
+  roundTimer.dataset.hovered = "false";
+});
+
+roundTimer?.addEventListener("focus", () => {
+  if (gameState.phase === "playing") {
+    roundTimer.dataset.hovered = "true";
+  }
+});
+
+roundTimer?.addEventListener("blur", () => {
+  roundTimer.dataset.hovered = "false";
 });
 
 input.addKeyPressListener((event) => {
@@ -583,13 +603,17 @@ function beginShiftCountdown() {
 }
 
 function syncHudActionButtons() {
-  if (!endShiftButton) {
+  if (!roundTimer) {
     return;
   }
 
   const canEndShift = gameState.phase === "playing";
-  endShiftButton.toggleAttribute("hidden", !canEndShift);
-  endShiftButton.toggleAttribute("disabled", !canEndShift);
+  roundTimer.dataset.canEndShift = canEndShift ? "true" : "false";
+  if (!canEndShift) {
+    roundTimer.dataset.hovered = "false";
+  }
+  roundTimer.toggleAttribute("disabled", !canEndShift);
+  roundTimer.setAttribute("aria-label", canEndShift ? "End shift" : "Shift timer");
 }
 
 function updateShiftCountdown(dt) {

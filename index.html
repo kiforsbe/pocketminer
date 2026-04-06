@@ -12,9 +12,6 @@
       <canvas id="game" width="1280" height="720" aria-label="Pocket Miner game canvas"></canvas>
       <div class="overlay" aria-hidden="true">
         <div id="bonus-stats" class="bonus-stats" data-visible="false"></div>
-        <div class="top-right-controls">
-          <button id="end-shift-button" class="hud-action-button hud-action-button-danger" type="button" hidden>End Shift</button>
-        </div>
         <div class="platform-hint" aria-label="Platform placement controls">
           <span class="platform-key-pill platform-key-pill-left">Q</span>
           <span class="platform-key-pill platform-key-pill-mouse" aria-label="Right mouse button">
@@ -28,10 +25,11 @@
                 <div class="timer-label">Shift</div>
                 <div id="round-value" class="bank-value">1</div>
               </div>
-              <div id="round-timer" class="timer-pill" data-urgent="false">
+              <button id="round-timer" class="timer-pill" data-urgent="false" data-can-end-shift="false" data-hovered="false" type="button" aria-label="Shift timer">
                 <div class="timer-label">Time Left</div>
                 <div id="round-timer-value" class="timer-value">60s</div>
-              </div>
+                <div class="timer-pill-action" aria-hidden="true">End Shift</div>
+              </button>
               <div id="bank-readout" class="bank-readout">
                 <div class="timer-label">Bank</div>
                 <div id="bank-value" class="bank-value">0€</div>
