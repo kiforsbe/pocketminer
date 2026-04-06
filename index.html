@@ -185,7 +185,14 @@
                 <div id="store-current-tool">Starter Pickaxe</div>
               </div>
             </div>
-            <div id="store-grid" class="store-grid"></div>
+            <div id="store-grid-shell" class="store-grid-shell" data-can-pan-x="false" data-can-pan-y="false" data-can-pan-left="false" data-can-pan-right="false" data-can-pan-up="false" data-can-pan-down="false">
+              <div id="store-grid" class="store-grid"></div>
+              <div class="store-grid-overflow-cue store-grid-overflow-cue-left" aria-hidden="true"></div>
+              <div class="store-grid-overflow-cue store-grid-overflow-cue-right" aria-hidden="true"></div>
+              <div class="store-grid-overflow-cue store-grid-overflow-cue-up" aria-hidden="true"></div>
+              <div class="store-grid-overflow-cue store-grid-overflow-cue-down" aria-hidden="true"></div>
+              <div id="store-grid-pan-hint" class="store-grid-pan-hint" aria-hidden="true">Drag to pan • Wheel to zoom</div>
+            </div>
             <div id="store-tooltip" class="store-tooltip" data-visible="false" hidden>
               <h3 id="store-tooltip-title">Tool</h3>
               <div id="store-tooltip-state" class="tooltip-state">State</div>

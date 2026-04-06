@@ -1370,12 +1370,16 @@
       text-transform: uppercase;
     }
 
+    .store-grid-shell {
+      position: relative;
+      margin-top: 14px;
+    }
+
     .store-grid {
       display: block;
       width: 100%;
       max-width: 100%;
       min-width: 0;
-      margin-top: 14px;
       height: min(460px, calc(100vh - 320px));
       overflow: auto;
       padding: 8px 12px 12px;
@@ -1394,6 +1398,146 @@
     .store-grid::-webkit-scrollbar {
       width: 0;
       height: 0;
+    }
+
+    .store-grid-overflow-cue {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 140ms ease;
+    }
+
+    .store-grid-overflow-cue::before,
+    .store-grid-overflow-cue::after {
+      content: "";
+      position: absolute;
+    }
+
+    .store-grid-overflow-cue-left,
+    .store-grid-overflow-cue-right {
+      top: 1px;
+      bottom: 1px;
+      width: 30px;
+    }
+
+    .store-grid-overflow-cue-left {
+      left: 1px;
+      background: linear-gradient(90deg, rgba(8, 12, 18, 0.5), rgba(8, 12, 18, 0));
+    }
+
+    .store-grid-overflow-cue-right {
+      right: 1px;
+      background: linear-gradient(270deg, rgba(8, 12, 18, 0.5), rgba(8, 12, 18, 0));
+    }
+
+    .store-grid-overflow-cue-left::before,
+    .store-grid-overflow-cue-left::after,
+    .store-grid-overflow-cue-right::before,
+    .store-grid-overflow-cue-right::after {
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      border-top: 2px solid rgba(240, 196, 90, 0.62);
+      border-right: 2px solid rgba(240, 196, 90, 0.62);
+    }
+
+    .store-grid-overflow-cue-left::before,
+    .store-grid-overflow-cue-left::after {
+      left: 9px;
+      transform: translateY(-50%) rotate(225deg);
+    }
+
+    .store-grid-overflow-cue-left::after {
+      left: 14px;
+    }
+
+    .store-grid-overflow-cue-right::before,
+    .store-grid-overflow-cue-right::after {
+      right: 9px;
+      transform: translateY(-50%) rotate(45deg);
+    }
+
+    .store-grid-overflow-cue-right::after {
+      right: 14px;
+    }
+
+    .store-grid-overflow-cue-up,
+    .store-grid-overflow-cue-down {
+      left: 1px;
+      right: 1px;
+      height: 26px;
+    }
+
+    .store-grid-overflow-cue-up {
+      top: 1px;
+      background: linear-gradient(180deg, rgba(8, 12, 18, 0.42), rgba(8, 12, 18, 0));
+    }
+
+    .store-grid-overflow-cue-down {
+      bottom: 1px;
+      background: linear-gradient(0deg, rgba(8, 12, 18, 0.42), rgba(8, 12, 18, 0));
+    }
+
+    .store-grid-overflow-cue-up::before,
+    .store-grid-overflow-cue-up::after,
+    .store-grid-overflow-cue-down::before,
+    .store-grid-overflow-cue-down::after {
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      border-top: 2px solid rgba(136, 185, 216, 0.56);
+      border-right: 2px solid rgba(136, 185, 216, 0.56);
+    }
+
+    .store-grid-overflow-cue-up::before,
+    .store-grid-overflow-cue-up::after {
+      top: 7px;
+      transform: translateX(-50%) rotate(-45deg);
+    }
+
+    .store-grid-overflow-cue-up::after {
+      top: 12px;
+    }
+
+    .store-grid-overflow-cue-down::before,
+    .store-grid-overflow-cue-down::after {
+      bottom: 7px;
+      transform: translateX(-50%) rotate(135deg);
+    }
+
+    .store-grid-overflow-cue-down::after {
+      bottom: 12px;
+    }
+
+    .store-grid-shell[data-can-pan-left="true"] .store-grid-overflow-cue-left,
+    .store-grid-shell[data-can-pan-right="true"] .store-grid-overflow-cue-right,
+    .store-grid-shell[data-can-pan-up="true"] .store-grid-overflow-cue-up,
+    .store-grid-shell[data-can-pan-down="true"] .store-grid-overflow-cue-down {
+      opacity: 1;
+    }
+
+    .store-grid-pan-hint {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(240, 196, 90, 0.18);
+      background: rgba(8, 13, 20, 0.82);
+      color: rgba(242, 237, 227, 0.86);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      backdrop-filter: blur(12px);
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    .store-grid-shell[data-show-pan-hint="true"] .store-grid-pan-hint {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     .store-tree-root {

@@ -31,8 +31,14 @@ export function createStoreController({
   syncPlayerBonuses,
   onStartNextRound,
 }) {
+  const STORE_MIN_ZOOM = 0.8;
+  const STORE_MAX_ZOOM = 1.6;
+  const STORE_ZOOM_STEP = 0.1;
+
   const state = {
     overlayView: "summary",
+    storeZoom: 1,
+    storePanHintDismissed: false,
     drag: {
       active: false,
       pointerId: null,
@@ -49,7 +55,9 @@ export function createStoreController({
   const storeView = document.getElementById("store-view");
   const backToSummaryButton = document.getElementById("back-to-summary-button");
   const storeNextRoundButton = document.getElementById("store-next-round-button");
+  const storeGridShell = document.getElementById("store-grid-shell");
   const storeGrid = document.getElementById("store-grid");
+  const storeGridPanHint = document.getElementById("store-grid-pan-hint");
   const storeBank = document.getElementById("store-bank");
   const storeMode = document.getElementById("store-mode");
   const storeCurrentTool = document.getElementById("store-current-tool");
@@ -100,6 +108,8 @@ export function createStoreController({
         return;
       }
 
+      state.storePanHintDismissed = true;
+      syncStoreViewportState();
       state.drag.active = true;
       state.drag.pointerId = event.pointerId;
       state.drag.startX = event.clientX;
@@ -138,6 +148,25 @@ export function createStoreController({
     storeGrid?.addEventListener("pointerup", endStoreDrag);
     storeGrid?.addEventListener("pointercancel", endStoreDrag);
 
+    storeGrid?.addEventListener("scroll", () => {
+      syncStoreViewportState();
+    });
+
+    storeGrid?.addEventListener("wheel", (event) => {
+      if (gameState.phase !== "summary" || state.overlayView !== "store") {
+        return;
+      }
+
+      event.preventDefault();
+      state.storePanHintDismissed = true;
+      const zoomDelta = event.deltaY < 0 ? STORE_ZOOM_STEP : -STORE_ZOOM_STEP;
+      zoomStore(zoomDelta, event.clientX, event.clientY);
+    }, { passive: false });
+
+    window.addEventListener("resize", () => {
+      syncStoreViewportState();
+    });
+
     storeGrid?.addEventListener("pointerover", (event) => {
       const button = event.target instanceof HTMLElement ? event.target.closest("button[data-tool-id]") : null;
       if (!button) {
@@ -173,11 +202,18 @@ export function createStoreController({
     storeView?.toggleAttribute("hidden", view !== "store");
     if (view !== "store") {
       hideTooltip();
+      return;
     }
+
+    requestAnimationFrame(() => {
+      syncStoreViewportState();
+    });
   }
 
   function reset() {
     state.overlayView = "summary";
+    state.storeZoom = 1;
+    state.storePanHintDismissed = false;
     state.drag.active = false;
     state.drag.pointerId = null;
     if (storeGrid) {
@@ -223,7 +259,11 @@ export function createStoreController({
     }
 
     storeGrid.append(treeRoot);
-    requestAnimationFrame(() => centerStoreViewOnCurrentNode());
+    applyStoreZoom();
+    requestAnimationFrame(() => {
+      centerStoreViewOnCurrentNode();
+      syncStoreViewportState();
+    });
   }
 
   function createCategoryContent(category) {
@@ -664,6 +704,79 @@ export function createStoreController({
     storeTooltip.hidden = true;
   }
 
+  function applyStoreZoom() {
+    if (!storeGrid) {
+      return;
+    }
+
+    const treeRoot = storeGrid.querySelector(".store-tree-root");
+    if (!(treeRoot instanceof HTMLElement)) {
+      return;
+    }
+
+    treeRoot.style.zoom = String(state.storeZoom);
+    if (storeGridPanHint) {
+      storeGridPanHint.textContent = `Drag to pan • Wheel to zoom (${Math.round(state.storeZoom * 100)}%)`;
+    }
+  }
+
+  function syncStoreViewportState() {
+    if (!storeGridShell || !storeGrid) {
+      return;
+    }
+
+    const maxScrollLeft = Math.max(0, storeGrid.scrollWidth - storeGrid.clientWidth);
+    const maxScrollTop = Math.max(0, storeGrid.scrollHeight - storeGrid.clientHeight);
+    const canPanX = maxScrollLeft > 4;
+    const canPanY = maxScrollTop > 4;
+    const canPanLeft = canPanX && storeGrid.scrollLeft > 2;
+    const canPanRight = canPanX && storeGrid.scrollLeft < maxScrollLeft - 2;
+    const canPanUp = canPanY && storeGrid.scrollTop > 2;
+    const canPanDown = canPanY && storeGrid.scrollTop < maxScrollTop - 2;
+
+    storeGridShell.dataset.canPanX = String(canPanX);
+    storeGridShell.dataset.canPanY = String(canPanY);
+    storeGridShell.dataset.canPanLeft = String(canPanLeft);
+    storeGridShell.dataset.canPanRight = String(canPanRight);
+    storeGridShell.dataset.canPanUp = String(canPanUp);
+    storeGridShell.dataset.canPanDown = String(canPanDown);
+    storeGridShell.dataset.showPanHint = String((canPanX || canPanY) && !state.storePanHintDismissed);
+  }
+
+  function zoomStore(delta, clientX = null, clientY = null) {
+    if (!storeGrid) {
+      return;
+    }
+
+    const treeRoot = storeGrid.querySelector(".store-tree-root");
+    if (!(treeRoot instanceof HTMLElement)) {
+      return;
+    }
+
+    const previousZoom = state.storeZoom;
+    const nextZoom = Math.max(STORE_MIN_ZOOM, Math.min(STORE_MAX_ZOOM, Math.round((previousZoom + delta) * 10) / 10));
+    if (nextZoom === previousZoom) {
+      syncStoreViewportState();
+      return;
+    }
+
+    const gridRect = storeGrid.getBoundingClientRect();
+    const localX = (clientX ?? (gridRect.left + gridRect.width * 0.5)) - gridRect.left;
+    const localY = (clientY ?? (gridRect.top + gridRect.height * 0.5)) - gridRect.top;
+    const contentX = storeGrid.scrollLeft + localX;
+    const contentY = storeGrid.scrollTop + localY;
+    const zoomRatio = nextZoom / previousZoom;
+
+    state.storeZoom = nextZoom;
+    applyStoreZoom();
+
+    requestAnimationFrame(() => {
+      storeGrid.scrollLeft = Math.max(0, contentX * zoomRatio - localX);
+      storeGrid.scrollTop = Math.max(0, contentY * zoomRatio - localY);
+      syncStoreViewportState();
+    });
+  }
+
   function centerStoreViewOnCurrentNode() {
     if (!storeGrid) {
       return;
@@ -680,6 +793,7 @@ export function createStoreController({
     const top = currentNode.offsetTop - (storeGrid.clientHeight - currentNode.offsetHeight) * 0.5;
     storeGrid.scrollLeft = Math.max(0, left);
     storeGrid.scrollTop = Math.max(0, top);
+    syncStoreViewportState();
   }
 
   function purchaseTool(toolId) {
