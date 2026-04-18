@@ -23,6 +23,19 @@ Your long-term goal is to dig deeper, carry more loot, and improve your permanen
 - `E`: use the current secondary tool at the cursor
 - `Tab`: swap which tool is primary and secondary
 
+Gamepad:
+
+- `Left Stick` or `D-pad Left/Right`: move
+- `A`: jump, confirm prompts, start or continue screens
+- `X`: mine
+- Hold `X` and press a direction on the `Left Stick` or `D-pad`: directional mining without the mouse
+- `D-pad Down` or `Left Stick Down`: drop through platforms
+- `Right Stick`: aim the left or right tool around the player in a radial range based on stick direction and distance
+- Hold `Left Bumper` or `Right Bumper`: preview tool aim around the player, then release the bumper to place that side's tool
+- `Y`: swap which tool is primary and secondary
+- `Menu/Start`: pause, resume, or advance overlay screens
+- `View/Back`: toggle the performance readout
+
 At the start of a run, Platform is the primary tool and Bombs are secondary once unlocked. After swapping with `Tab`, `Q` and `Right Mouse Button` follow the tool shown in the left hotbar dial, while `E` follows the tool shown in the right hotbar dial.
 
 ### Reward Screen
@@ -48,6 +61,7 @@ At the start of a run, Platform is the primary tool and Bombs are secondary once
 ## Important Gameplay Notes
 
 - Mining is cursor-targeted. You must point at a mineable block within range of the player.
+- When mining with a gamepad and no mouse button held, the game also supports directional mining from the movement input.
 - Ore is not banked just by breaking blocks. You need to actually collect the dropped items.
 - Temporary platforms can only be placed within range, in line of sight, and not inside the player.
 - Touching magma ends the shift immediately.

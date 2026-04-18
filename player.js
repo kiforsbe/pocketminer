@@ -114,7 +114,7 @@ export class Player {
 
     const pointerTarget = this.getMiningTarget(world, input.getPointerWorld?.(this.rendererContext));
     const mining = input.isDown("mine");
-    const directionalMiningTarget = keyboardMining
+    const directionalMiningTarget = mining && !input.isPointerButtonDown?.(0)
       ? this.getDirectionalMiningTarget(world, movementVector)
       : null;
     const activeMiningTarget = input.isPointerButtonDown?.(0)

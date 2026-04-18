@@ -125,17 +125,31 @@ export function createBombSystem({
     return gameState.bombs.some((bomb) => bomb.column === column && bomb.row === row);
   }
 
+  function playerOccupiesCell(column, row) {
+    const player = getPlayer();
+    const left = column * TILE_SIZE;
+    const top = row * TILE_SIZE;
+    const right = left + TILE_SIZE;
+    const bottom = top + TILE_SIZE;
+    return !(player.x + player.width <= left || player.x >= right || player.y + player.height <= top || player.y >= bottom);
+  }
+
   function getPlacementTarget() {
     const world = getWorld();
     const player = getPlayer();
-    const pointerWorld = input.getPointerWorld(renderer);
-    if (!pointerWorld) {
+    const aimWorld = input.getPlacementAimWorld?.({
+      player,
+      renderer,
+      maxRangeTiles: BOMB_PLACE_RANGE_TILES,
+    });
+    if (!aimWorld) {
       return null;
     }
 
-    const column = Math.floor(pointerWorld.x / TILE_SIZE);
-    const row = Math.floor(pointerWorld.y / TILE_SIZE);
-    if (!world.canPlacePlatform(column, row) || hasBombAt(column, row)) {
+    const column = Math.floor(aimWorld.x / TILE_SIZE);
+    const row = Math.floor(aimWorld.y / TILE_SIZE);
+
+    if ((!world.canPlacePlatform(column, row) && !playerOccupiesCell(column, row)) || hasBombAt(column, row)) {
       return null;
     }
 
@@ -234,11 +248,13 @@ export function createBombSystem({
     const bombIsPrimary = gameState.primaryTool === "bomb";
     const usingPrimaryTool = bombIsPrimary && input.wasPressed("usePrimaryTool");
     const usingBombKey = bombIsPrimary ? input.wasPressed("placePlatform") : input.wasPressed("placeBomb");
+    const usingGamepadTool = (bombIsPrimary && input.wasGamepadReleased?.("leftTool"))
+      || (!bombIsPrimary && input.wasGamepadReleased?.("rightTool"));
     if (
       gameState.phase !== "playing"
       || getCurrentCapacity() <= 0
       || gameState.bombCharges <= 0
-      || !(usingBombKey || usingPrimaryTool)
+      || !(usingBombKey || usingPrimaryTool || usingGamepadTool)
     ) {
       return;
     }
@@ -395,6 +411,13 @@ export function createBombSystem({
     update(dt) {
       if (gameState.phase !== "playing") {
         return;
+      }
+
+      const bombIsPrimary = gameState.primaryTool === "bomb";
+      const previewingGamepadTool = (bombIsPrimary && input.isGamepadDown?.("leftTool"))
+        || (!bombIsPrimary && input.isGamepadDown?.("rightTool"));
+      if (previewingGamepadTool) {
+        gameState.hoverTarget = getPlacementTarget();
       }
 
       gameState.bombCooldown = Math.max(0, gameState.bombCooldown - dt);

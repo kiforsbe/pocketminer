@@ -1,3 +1,5 @@
+import { TILE_SIZE } from "./tile.js";
+
 const PLATFORM_PLACE_RANGE_TILES = 6;
 
 export function createPlatformPlacementSystem({
@@ -33,39 +35,40 @@ export function createPlatformPlacementSystem({
 
   function playerOccupiesCell(column, row) {
     const player = getPlayer();
-    const left = column * 32;
-    const top = row * 32;
-    const right = left + 32;
-    const bottom = top + 32;
+    const left = column * TILE_SIZE;
+    const top = row * TILE_SIZE;
+    const right = left + TILE_SIZE;
+    const bottom = top + TILE_SIZE;
     return !(player.x + player.width <= left || player.x >= right || player.y + player.height <= top || player.y >= bottom);
   }
 
   function getPlatformPlacementTarget() {
     const world = getWorld();
     const player = getPlayer();
-    const pointerWorld = input.getPointerWorld(renderer);
-    if (!pointerWorld) {
+    const aimWorld = input.getPlacementAimWorld?.({
+      player,
+      renderer,
+      maxRangeTiles: PLATFORM_PLACE_RANGE_TILES,
+    });
+    if (!aimWorld) {
       return null;
     }
 
-    const column = Math.floor(pointerWorld.x / 32);
-    const row = Math.floor(pointerWorld.y / 32);
-    if (!world.canPlacePlatform(column, row)) {
+    const column = Math.floor(aimWorld.x / TILE_SIZE);
+    const row = Math.floor(aimWorld.y / TILE_SIZE);
+
+    if (!world.canPlacePlatform(column, row) && !playerOccupiesCell(column, row)) {
       return null;
     }
 
     const playerCenter = player.getCenter();
-    const targetCenterX = column * 32 + 16;
-    const targetCenterY = row * 32 + 16;
-    if (Math.hypot(targetCenterX - playerCenter.x, targetCenterY - playerCenter.y) > PLATFORM_PLACE_RANGE_TILES * 32) {
+    const targetCenterX = column * TILE_SIZE + TILE_SIZE * 0.5;
+    const targetCenterY = row * TILE_SIZE + TILE_SIZE * 0.5;
+    if (Math.hypot(targetCenterX - playerCenter.x, targetCenterY - playerCenter.y) > PLATFORM_PLACE_RANGE_TILES * TILE_SIZE) {
       return null;
     }
 
     if (!hasLineOfSightToCell(playerCenter, { x: targetCenterX, y: targetCenterY }, column, row)) {
-      return null;
-    }
-
-    if (playerOccupiesCell(column, row)) {
       return null;
     }
 
@@ -77,11 +80,19 @@ export function createPlatformPlacementSystem({
       const platformIsPrimary = gameState.primaryTool === "platform";
       const usingPrimaryTool = gameState.primaryTool === "platform" && input.wasPressed("usePrimaryTool");
       const usingPlatformKey = platformIsPrimary ? input.wasPressed("placePlatform") : input.wasPressed("placeBomb");
+      const usingGamepadTool = (platformIsPrimary && input.wasGamepadReleased?.("leftTool"))
+        || (!platformIsPrimary && input.wasGamepadReleased?.("rightTool"));
+      const previewingGamepadTool = (platformIsPrimary && input.isGamepadDown?.("leftTool"))
+        || (!platformIsPrimary && input.isGamepadDown?.("rightTool"));
+      if (previewingGamepadTool) {
+        gameState.hoverTarget = getPlatformPlacementTarget();
+      }
+
       if (
         gameState.phase !== "playing"
         || getPlatformCapacity() <= 0
         || gameState.platformCharges <= 0
-        || !(usingPlatformKey || usingPrimaryTool)
+        || !(usingPlatformKey || usingPrimaryTool || usingGamepadTool)
       ) {
         return;
       }

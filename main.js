@@ -7,7 +7,7 @@ import { createFloatingTextSystem } from "./floatingText.js";
 import { createGameoverScreenController } from "./gameoverScreen.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
 import { createIntroScreenController } from "./introScreen.js";
-import { Input } from "./input.js";
+import { Input } from "./inputSystem.js";
 import { createMusicManifest, createMusicSystem } from "./musicSystem.js";
 import {
   decodePassword,
@@ -440,21 +440,47 @@ for (const panel of passwordPanels) {
   });
 }
 
-input.addKeyPressListener((event) => {
-  if (event.code === "KeyR") {
+function isPasswordEntryOpenFor(controller) {
+  return passwordPanels.some((panel) => panel.controller === controller && panel.entryEl?.dataset.visible === "true");
+}
+
+function handleInputShortcuts() {
+  if (input.wasPressed("togglePerformance")) {
     gameState.performance.visible = !gameState.performance.visible;
-    return;
   }
 
-  if (event.code === "Tab") {
+  if (input.wasPressed("togglePrimaryTool")) {
     togglePrimaryTool();
-    return;
   }
 
-  if (["KeyP", "Pause", "Escape"].includes(event.code) && gameState.phase === "playing") {
+  if (input.wasPressed("pause") && gameState.phase === "playing") {
     pauseCurrentShift();
   }
-});
+}
+
+function handleOverlayAdvanceInput(phaseAtFrameStart) {
+  if (!input.wasPressed("menuAdvance")) {
+    return;
+  }
+
+  if (phaseAtFrameStart === "playing") {
+    return;
+  }
+
+  if (gameState.phase === "intro" && !gameState.introExiting && !isPasswordEntryOpenFor(introScreenController)) {
+    startGameFromIntro();
+    return;
+  }
+
+  if (gameState.phase === "paused" && !gameState.pauseExiting && !isPasswordEntryOpenFor(pauseScreenController)) {
+    resumeShiftFromPause();
+    return;
+  }
+
+  if (gameState.phase === "gameover" && gameoverScreenController.isVisible()) {
+    gameoverScreenController.handleStageAdvance();
+  }
+}
 
 function togglePrimaryTool() {
   if (gameState.phase !== "playing") {
@@ -982,6 +1008,7 @@ function frame(now) {
   const dt = Math.min(0.033, (now - lastTime) / 1000);
   lastTime = now;
 
+  input.update(dt);
   update(dt, now / 1000);
   render();
   input.endFrame();
@@ -990,6 +1017,9 @@ function frame(now) {
 
 function update(dt, timeSeconds) {
   updateTickRateCounter(dt);
+  const phaseAtFrameStart = gameState.phase;
+  handleInputShortcuts();
+  handleOverlayAdvanceInput(phaseAtFrameStart);
 
   if (gameState.phase === "intro") {
     return;

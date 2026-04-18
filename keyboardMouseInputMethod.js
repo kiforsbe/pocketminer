@@ -1,10 +1,15 @@
-export class Input {
-  constructor({ keyboardTarget = window, pointerTarget = window } = {}) {
+import { InputMethod } from "./inputMethod.js";
+
+const PREVENT_DEFAULT_KEY_CODES = Object.freeze(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Tab"]);
+
+export class KeyboardMouseInputMethod extends InputMethod {
+  constructor({ keyboardTarget, pointerTarget, bindings, keyPressListeners }) {
+    super({ id: "keyboardMouse", bindings });
     this.keyboardTarget = keyboardTarget;
     this.pointerTarget = pointerTarget;
+    this.keyPressListeners = keyPressListeners;
     this.keysDown = new Set();
     this.keysPressed = new Set();
-    this.keyPressListeners = new Set();
     this.pointer = {
       x: 0,
       y: 0,
@@ -19,22 +24,7 @@ export class Input {
     this.onPointerLeave = () => this.#handlePointerLeave();
     this.onPointerDown = (event) => this.#handlePointerDown(event);
     this.onPointerUp = (event) => this.#handlePointerUp(event);
-    this.bindings = {
-      left: ["KeyA", "ArrowLeft"],
-      right: ["KeyD", "ArrowRight"],
-      jump: ["KeyW", "ArrowUp"],
-      dropPlatform: ["KeyS", "ArrowDown"],
-      mine: ["Space"],
-      placePlatform: ["KeyQ"],
-      placeBomb: ["KeyE"],
-      togglePrimaryTool: ["Tab"],
-      rewardPrev: ["KeyA", "ArrowLeft", "KeyW", "ArrowUp"],
-      rewardNext: ["KeyD", "ArrowRight", "KeyS", "ArrowDown"],
-      rewardConfirm: ["Enter", "Space", "KeyE"],
-      rewardChoice1: ["Digit1", "Numpad1"],
-      rewardChoice2: ["Digit2", "Numpad2"],
-      rewardChoice3: ["Digit3", "Numpad3"],
-    };
+    this.onContextMenu = (event) => event.preventDefault();
 
     this.keyboardTarget.addEventListener("keydown", this.onKeyDown);
     this.keyboardTarget.addEventListener("keyup", this.onKeyUp);
@@ -43,11 +33,11 @@ export class Input {
     this.pointerTarget.addEventListener("pointerleave", this.onPointerLeave);
     this.pointerTarget.addEventListener("pointerdown", this.onPointerDown);
     this.pointerTarget.addEventListener("pointerup", this.onPointerUp);
-    this.pointerTarget.addEventListener("contextmenu", (event) => event.preventDefault());
+    this.pointerTarget.addEventListener("contextmenu", this.onContextMenu);
   }
 
   #handleKeyDown(event) {
-    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Tab"].includes(event.code)) {
+    if (PREVENT_DEFAULT_KEY_CODES.includes(event.code)) {
       event.preventDefault();
     }
 
@@ -92,59 +82,50 @@ export class Input {
     this.pointer.buttonsDown.delete(event.button);
   }
 
-  isKeyboardDown(action) {
-    return this.bindings[action]?.some((code) => this.keysDown.has(code)) ?? false;
+  #buildActiveInputs() {
+    const activeInputs = new Set(this.keysDown);
+    for (const button of this.pointer.buttonsDown) {
+      activeInputs.add(`Pointer${button}`);
+    }
+
+    return activeInputs;
   }
 
-  isPointerButtonDown(button) {
-    return this.pointer.buttonsDown.has(button);
+  #buildPressedInputs() {
+    const pressedInputs = new Set(this.keysPressed);
+    for (const button of this.pointer.buttonsPressed) {
+      pressedInputs.add(`Pointer${button}`);
+    }
+
+    return pressedInputs;
+  }
+
+  isDown(action) {
+    return this.isMappedActionDown(action, this.#buildActiveInputs());
+  }
+
+  wasPressed(action) {
+    return this.isMappedActionPressed(action, this.#buildPressedInputs());
   }
 
   getMovementVector() {
     let x = 0;
     let y = 0;
 
-    if (this.isKeyboardDown("left")) {
+    if (this.isDown("left")) {
       x -= 1;
     }
-    if (this.isKeyboardDown("right")) {
+    if (this.isDown("right")) {
       x += 1;
     }
-    if (this.isKeyboardDown("jump")) {
+    if (this.isDown("jump")) {
       y -= 1;
     }
-    if (this.isKeyboardDown("dropPlatform")) {
+    if (this.isDown("dropPlatform")) {
       y += 1;
     }
 
     return { x: Math.sign(x), y: Math.sign(y) };
-  }
-
-  isDown(action) {
-    const keyboardMatch = this.isKeyboardDown(action);
-    if (action === "mine") {
-      return keyboardMatch || this.isPointerButtonDown(0);
-    }
-
-    if (action === "usePrimaryTool") {
-      return keyboardMatch || this.isPointerButtonDown(2);
-    }
-
-    return keyboardMatch;
-  }
-
-  wasPressed(action) {
-    if (action === "usePrimaryTool") {
-      const keyboardMatch = this.bindings[action]?.some((code) => this.keysPressed.has(code)) ?? false;
-      return keyboardMatch || this.pointer.buttonsPressed.has(2);
-    }
-
-    return this.bindings[action]?.some((code) => this.keysPressed.has(code)) ?? false;
-  }
-
-  endFrame() {
-    this.keysPressed.clear();
-    this.pointer.buttonsPressed.clear();
   }
 
   getPointerWorld(renderer) {
@@ -155,12 +136,48 @@ export class Input {
     return renderer.screenToWorld(this.pointer.x, this.pointer.y);
   }
 
-  addKeyPressListener(listener) {
-    this.keyPressListeners.add(listener);
+  getValue(name, context = {}) {
+    if (name === "movementVector") {
+      return this.getMovementVector();
+    }
+
+    if (name === "pointerWorld") {
+      return this.getPointerWorld(context.renderer);
+    }
+
+    if (name === "placementAimWorld") {
+      const { player, renderer, maxRangeTiles } = context;
+      if (!player || !renderer || !Number.isFinite(maxRangeTiles) || maxRangeTiles <= 0) {
+        return null;
+      }
+
+      const pointerWorld = this.getPointerWorld(renderer);
+      if (!pointerWorld) {
+        return null;
+      }
+
+      const maxRange = maxRangeTiles * 32;
+      const playerCenter = player.getCenter();
+      const dx = pointerWorld.x - playerCenter.x;
+      const dy = pointerWorld.y - playerCenter.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 4) {
+        return null;
+      }
+
+      const clampedDistance = Math.min(distance, maxRange);
+      return {
+        x: playerCenter.x + (dx / distance) * clampedDistance,
+        y: playerCenter.y + (dy / distance) * clampedDistance,
+      };
+    }
+
+    return null;
   }
 
-  removeKeyPressListener(listener) {
-    this.keyPressListeners.delete(listener);
+  endFrame() {
+    this.keysPressed.clear();
+    this.pointer.buttonsPressed.clear();
   }
 
   destroy() {
@@ -171,5 +188,6 @@ export class Input {
     this.pointerTarget.removeEventListener("pointerleave", this.onPointerLeave);
     this.pointerTarget.removeEventListener("pointerdown", this.onPointerDown);
     this.pointerTarget.removeEventListener("pointerup", this.onPointerUp);
+    this.pointerTarget.removeEventListener("contextmenu", this.onContextMenu);
   }
 }
