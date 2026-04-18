@@ -80,10 +80,10 @@ export function createPlatformPlacementSystem({
       const platformIsPrimary = gameState.primaryTool === "platform";
       const usingPrimaryTool = gameState.primaryTool === "platform" && input.wasPressed("usePrimaryTool");
       const usingPlatformKey = platformIsPrimary ? input.wasPressed("placePlatform") : input.wasPressed("placeBomb");
-      const usingGamepadTool = (platformIsPrimary && input.wasGamepadReleased?.("leftTool"))
-        || (!platformIsPrimary && input.wasGamepadReleased?.("rightTool"));
-      const previewingGamepadTool = (platformIsPrimary && input.isGamepadDown?.("leftTool"))
-        || (!platformIsPrimary && input.isGamepadDown?.("rightTool"));
+      const usingGamepadTool = (platformIsPrimary && input.wasReleased("leftTool"))
+        || (!platformIsPrimary && input.wasReleased("rightTool"));
+      const previewingGamepadTool = (platformIsPrimary && input.isDown("leftTool"))
+        || (!platformIsPrimary && input.isDown("rightTool"));
       if (previewingGamepadTool) {
         gameState.hoverTarget = getPlatformPlacementTarget();
       }

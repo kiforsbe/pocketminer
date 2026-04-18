@@ -248,8 +248,8 @@ export function createBombSystem({
     const bombIsPrimary = gameState.primaryTool === "bomb";
     const usingPrimaryTool = bombIsPrimary && input.wasPressed("usePrimaryTool");
     const usingBombKey = bombIsPrimary ? input.wasPressed("placePlatform") : input.wasPressed("placeBomb");
-    const usingGamepadTool = (bombIsPrimary && input.wasGamepadReleased?.("leftTool"))
-      || (!bombIsPrimary && input.wasGamepadReleased?.("rightTool"));
+    const usingGamepadTool = (bombIsPrimary && input.wasReleased("leftTool"))
+      || (!bombIsPrimary && input.wasReleased("rightTool"));
     if (
       gameState.phase !== "playing"
       || getCurrentCapacity() <= 0
@@ -414,8 +414,8 @@ export function createBombSystem({
       }
 
       const bombIsPrimary = gameState.primaryTool === "bomb";
-      const previewingGamepadTool = (bombIsPrimary && input.isGamepadDown?.("leftTool"))
-        || (!bombIsPrimary && input.isGamepadDown?.("rightTool"));
+      const previewingGamepadTool = (bombIsPrimary && input.isDown("leftTool"))
+        || (!bombIsPrimary && input.isDown("rightTool"));
       if (previewingGamepadTool) {
         gameState.hoverTarget = getPlacementTarget();
       }

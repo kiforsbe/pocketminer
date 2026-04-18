@@ -66,8 +66,9 @@ export class Player {
     this.jumpedThisFrame = false;
     const jumpHeld = input.isDown("jump");
     const movementVector = input.getMovementVector?.() ?? { x: 0, y: 0 };
-    const keyboardMining = input.isKeyboardDown?.("mine") ?? false;
-    const suppressJumpForMining = keyboardMining && movementVector.y < 0;
+    const pointerMining = input.isPointerButtonDown?.(0) ?? false;
+    const directionalMining = input.isDown("mine") && !pointerMining;
+    const suppressJumpForMining = directionalMining && movementVector.y < 0;
     const wasGrounded = this.grounded;
 
     let direction = 0;
