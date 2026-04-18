@@ -92,14 +92,42 @@ export class Input {
     this.pointer.buttonsDown.delete(event.button);
   }
 
+  isKeyboardDown(action) {
+    return this.bindings[action]?.some((code) => this.keysDown.has(code)) ?? false;
+  }
+
+  isPointerButtonDown(button) {
+    return this.pointer.buttonsDown.has(button);
+  }
+
+  getMovementVector() {
+    let x = 0;
+    let y = 0;
+
+    if (this.isKeyboardDown("left")) {
+      x -= 1;
+    }
+    if (this.isKeyboardDown("right")) {
+      x += 1;
+    }
+    if (this.isKeyboardDown("jump")) {
+      y -= 1;
+    }
+    if (this.isKeyboardDown("dropPlatform")) {
+      y += 1;
+    }
+
+    return { x: Math.sign(x), y: Math.sign(y) };
+  }
+
   isDown(action) {
-    const keyboardMatch = this.bindings[action]?.some((code) => this.keysDown.has(code)) ?? false;
+    const keyboardMatch = this.isKeyboardDown(action);
     if (action === "mine") {
-      return keyboardMatch || this.pointer.buttonsDown.has(0);
+      return keyboardMatch || this.isPointerButtonDown(0);
     }
 
     if (action === "usePrimaryTool") {
-      return keyboardMatch || this.pointer.buttonsDown.has(2);
+      return keyboardMatch || this.isPointerButtonDown(2);
     }
 
     return keyboardMatch;

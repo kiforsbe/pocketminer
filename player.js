@@ -65,6 +65,9 @@ export class Player {
     this.jumpLockout = Math.max(0, this.jumpLockout - dt);
     this.jumpedThisFrame = false;
     const jumpHeld = input.isDown("jump");
+    const movementVector = input.getMovementVector?.() ?? { x: 0, y: 0 };
+    const keyboardMining = input.isKeyboardDown?.("mine") ?? false;
+    const suppressJumpForMining = keyboardMining && movementVector.y < 0;
     const wasGrounded = this.grounded;
 
     let direction = 0;
@@ -83,7 +86,7 @@ export class Player {
 
     this.#updatePlatformDropState(dt, input, world);
 
-    if (input.wasPressed("jump") && this.#canJump()) {
+    if (!suppressJumpForMining && input.wasPressed("jump") && this.#canJump()) {
       this.#jump();
     }
 
@@ -105,19 +108,26 @@ export class Player {
       this.jumpLockout = JUMP_LAND_DELAY;
     }
 
-    if (jumpHeld && this.#canJump()) {
+    if (!suppressJumpForMining && jumpHeld && this.#canJump()) {
       this.#jump();
     }
 
-    const hoverTarget = this.getMiningTarget(world, input.getPointerWorld?.(this.rendererContext));
+    const pointerTarget = this.getMiningTarget(world, input.getPointerWorld?.(this.rendererContext));
     const mining = input.isDown("mine");
+    const directionalMiningTarget = keyboardMining
+      ? this.getDirectionalMiningTarget(world, movementVector)
+      : null;
+    const activeMiningTarget = input.isPointerButtonDown?.(0)
+      ? pointerTarget
+      : directionalMiningTarget ?? pointerTarget;
+    const hoverTarget = mining ? activeMiningTarget ?? pointerTarget : pointerTarget;
     if (hoverTarget) {
       this.facing = hoverTarget.column * TILE_SIZE + TILE_SIZE * 0.5 >= this.getCenter().x ? 1 : -1;
     }
 
-    if (mining && hoverTarget) {
+    if (mining && activeMiningTarget) {
       this.animation = "mining";
-      this.currentMiningTarget = hoverTarget;
+      this.currentMiningTarget = activeMiningTarget;
     } else if (Math.abs(this.vx) > 1 && this.grounded) {
       this.animation = "walk";
       this.currentMiningTarget = null;
@@ -144,6 +154,33 @@ export class Player {
 
     const column = Math.floor(pointerWorld.x / TILE_SIZE);
     const row = Math.floor(pointerWorld.y / TILE_SIZE);
+    return this.#getMiningTargetAt(world, column, row);
+  }
+
+  getDirectionalMiningTarget(world, direction) {
+    if (!direction || (direction.x === 0 && direction.y === 0)) {
+      return null;
+    }
+
+    const playerCenter = this.getCenter();
+    const originColumn = Math.floor(playerCenter.x / TILE_SIZE);
+    const originRow = Math.floor(playerCenter.y / TILE_SIZE);
+
+    for (let step = 1; step <= MINING_RANGE_TILES; step += 1) {
+      const target = this.#getMiningTargetAt(
+        world,
+        originColumn + direction.x * step,
+        originRow + direction.y * step,
+      );
+      if (target) {
+        return target;
+      }
+    }
+
+    return null;
+  }
+
+  #getMiningTargetAt(world, column, row) {
     const tile = world.getTile(column, row);
     if (!tile?.solid || !tile.mineable) {
       return null;
