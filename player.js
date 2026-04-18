@@ -66,8 +66,9 @@ export class Player {
     this.jumpedThisFrame = false;
     const jumpHeld = input.isDown("jump");
     const movementVector = input.getMovementVector?.() ?? { x: 0, y: 0 };
-    const pointerMining = input.isPointerButtonDown?.(0) ?? false;
-    const directionalMining = input.isDown("mine") && !pointerMining;
+    const pointerWorld = input.getPointerWorld?.(this.rendererContext);
+    const pointerIsInPlayArea = Boolean(pointerWorld);
+    const directionalMining = input.isDown("mine") && !pointerIsInPlayArea;
     const suppressJumpForMining = directionalMining && movementVector.y < 0;
     const wasGrounded = this.grounded;
 
@@ -113,14 +114,12 @@ export class Player {
       this.#jump();
     }
 
-    const pointerTarget = this.getMiningTarget(world, input.getPointerWorld?.(this.rendererContext));
+    const pointerTarget = this.getMiningTarget(world, pointerWorld);
     const mining = input.isDown("mine");
-    const directionalMiningTarget = mining && !input.isPointerButtonDown?.(0)
+    const directionalMiningTarget = mining && !pointerIsInPlayArea
       ? this.getDirectionalMiningTarget(world, movementVector)
       : null;
-    const activeMiningTarget = input.isPointerButtonDown?.(0)
-      ? pointerTarget
-      : directionalMiningTarget ?? pointerTarget;
+    const activeMiningTarget = pointerTarget ?? directionalMiningTarget;
     const hoverTarget = mining ? activeMiningTarget ?? pointerTarget : pointerTarget;
     if (hoverTarget) {
       this.facing = hoverTarget.column * TILE_SIZE + TILE_SIZE * 0.5 >= this.getCenter().x ? 1 : -1;
