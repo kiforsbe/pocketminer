@@ -3,7 +3,7 @@ const PASSWORD_ALPHABET_MAP = new Map([...PASSWORD_ALPHABET].map((character, ind
 const PASSWORD_DATA_CHAR_COUNT = 11;
 const PASSWORD_TOTAL_CHAR_COUNT = 12;
 const PASSWORD_GROUP_SIZE = 4;
-const PASSWORD_VERSION = 1;
+const PASSWORD_VERSION = 2;
 const PASSWORD_ROUND_MIN = 1;
 const PASSWORD_ROUND_MAX = 32;
 const PASSWORD_BANK_BUCKET = 500;
@@ -159,7 +159,7 @@ export function encodePassword(progress) {
     [clampInteger(progress.platformTier, 0, 3), 2],
     [clampInteger(progress.bombUnlocked ? 1 : 0, 0, 1), 1],
     [clampInteger(progress.bombCapacityTier, 0, 3), 2],
-    [clampInteger(progress.bombTypeTier, 0, 3), 2],
+    [clampInteger(progress.bombTypeTier, 0, 7), 3],
     [clampRoundValue(progress.round) - 1, 5],
     [quantizeBankValue(progress.bank), 7],
     ...normalizedBonuses.map((tier) => [tier, 2]),
@@ -202,7 +202,7 @@ export function decodePassword(value) {
   const roundValue = unpacked.value;
   payload = unpacked.payload;
 
-  unpacked = unpackField(payload, 2);
+  unpacked = unpackField(payload, 3);
   const bombTypeTier = unpacked.value;
   payload = unpacked.payload;
 
@@ -263,5 +263,5 @@ export function decodePassword(value) {
 }
 
 export function getPasswordHelpText() {
-  return "12 chars. Unlocks are exact. Bank and bonuses are rounded.";
+  return "12 chars. Version 2 passwords only. Unlocks are exact. Bank and bonuses are rounded.";
 }

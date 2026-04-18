@@ -527,7 +527,7 @@ export const TOOL_DEFINITIONS = Object.freeze({
     description: "An end-tier nuclear charge with a massive radius and brutal payload.",
     tier: 3,
     bombDamage: 70,
-    bombBlastRadius: 4,
+    bombBlastRadius: 3,
     bombSpriteRow: 3,
   }),
   "bomb-type-5": createTool({
@@ -542,7 +542,7 @@ export const TOOL_DEFINITIONS = Object.freeze({
     description: "A wandering sheep-bomb that roams the mine, jumps onto nearby blocks, then locks up and explodes.",
     tier: 4,
     bombDamage: 90,
-    bombBlastRadius: 5,
+    bombBlastRadius: 4,
     bombKind: "dolly",
     iconSrc: "./assets/sprites/sheep-spritesheet.png",
     iconFrameColumns: 7,
