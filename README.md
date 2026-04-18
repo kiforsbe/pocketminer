@@ -109,6 +109,7 @@ Because the code is limited to 12 human-entered characters, bank and permanent b
 
 A few in-game screenshots showing gameplay, reward caches and the store.
 
+![Intro screen](screenshots/screenshot-intro.png)
 ![First stratum](screenshots/screenshot-first-stratum.png)
 ![Store screen](screenshots/screenshot-chest.png)
 ![Reward cache](screenshots/screenshot-powerups.png)
