@@ -363,7 +363,7 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
       mutedAccent: "rgba(226, 182, 120, 0.48)",
       plateStroke: "rgba(255, 146, 96, 0.52)",
       actions: [{ label: "E" }],
-      drawIcon: () => this.drawBombRackIcon(roundInfo.bombSpriteRow ?? 0),
+      drawIcon: () => this.drawBombRackIcon(roundInfo.bombVisual ?? {}),
     };
     const primaryTool = roundInfo.primaryTool === "bomb" ? "bomb" : "platform";
     const leftDial = primaryTool === "bomb"
@@ -547,7 +547,25 @@ class RendererUiToolCooldownIndicatorsElement extends RendererUiSection {
     this.ctx.fillRect(-10, 0, 20, 1);
   }
 
-  drawBombRackIcon(spriteRow = 0) {
+  drawBombRackIcon(bombVisual = {}) {
+    const spriteRow = bombVisual.spriteRow ?? 0;
+    if (bombVisual.sheet === "sheep" && this.assets?.sheepSpritesheet) {
+      const frameWidth = Math.max(1, Math.floor(this.assets.sheepSpritesheet.width / 7));
+      const frameHeight = Math.max(1, Math.floor(this.assets.sheepSpritesheet.height / 5));
+      this.ctx.drawImage(
+        this.assets.sheepSpritesheet,
+        (bombVisual.iconFrame ?? 0) * frameWidth,
+        (bombVisual.iconRow ?? 0) * frameHeight,
+        frameWidth,
+        frameHeight,
+        -12,
+        -14,
+        24,
+        24,
+      );
+      return;
+    }
+
     if (this.assets?.bombSpritesheet) {
       this.ctx.drawImage(this.assets.bombSpritesheet, 0, spriteRow * 32, 32, 32, -12, -14, 24, 24);
       return;

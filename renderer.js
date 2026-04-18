@@ -34,10 +34,11 @@ export class Renderer {
   }
 
   static async loadAssets() {
-    const [terrainAtlas, spritesheet, bombSpritesheet] = await Promise.all([
+    const [terrainAtlas, spritesheet, bombSpritesheet, sheepSpritesheet] = await Promise.all([
       loadImage("./assets/tiles/terrain-atlas.png"),
       loadImage("./assets/sprites/player-spritesheet.png"),
       loadImage("./assets/sprites/bomb-spritesheet.png"),
+      loadImage("./assets/sprites/sheep-spritesheet.png"),
     ]);
 
     return {
@@ -45,6 +46,7 @@ export class Renderer {
       terrainAtlasManifest: TERRAIN_ATLAS_MANIFEST,
       spritesheet,
       bombSpritesheet,
+      sheepSpritesheet,
     };
   }
 

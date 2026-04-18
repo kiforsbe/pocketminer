@@ -1,5 +1,6 @@
 import { TILE_SIZE } from "./tile.js";
 import { BOMB_CAPACITY_ROOT_ID, BOMB_TYPE_ROOT_ID, getToolDefinition } from "./tools.js";
+import { SheepBombNpc } from "./sheepBombNpc.js";
 
 const BOMB_PLACE_RANGE_TILES = 6;
 const BOMB_FALL_GRAVITY = 1400;
@@ -11,6 +12,10 @@ const BOMB_PLAYER_IMPULSE_RADIUS = TILE_SIZE * 2.25;
 const BOMB_PLAYER_MAX_IMPULSE = 540;
 
 export const BOMB_FUSE_SECONDS = 2;
+
+function isNpcBomb(bomb) {
+  return typeof bomb?.consumeDetonation === "function";
+}
 
 export function createBombSystem({
   gameState,
@@ -187,6 +192,44 @@ export function createBombSystem({
     return Math.max(0, (world.rows - 1) * TILE_SIZE);
   }
 
+  function getBombOrigin(bomb) {
+    if (typeof bomb?.getBlastOrigin === "function") {
+      return bomb.getBlastOrigin();
+    }
+
+    return {
+      x: bomb.column * TILE_SIZE + TILE_SIZE * 0.5,
+      y: bomb.row * TILE_SIZE + TILE_SIZE * 0.5,
+    };
+  }
+
+  function createBombEntity(target, currentBomb) {
+    const damage = currentBomb?.bombDamage ?? DEFAULT_BOMB_DAMAGE;
+    const blastRadius = currentBomb?.bombBlastRadius ?? DEFAULT_BOMB_BLAST_RADIUS;
+
+    if (currentBomb?.bombKind === "dolly") {
+      return new SheepBombNpc({
+        x: target.x + 4,
+        y: target.y + 8,
+        damage,
+        blastRadius,
+      });
+    }
+
+    return {
+      column: target.column,
+      row: target.row,
+      x: target.x,
+      y: target.y,
+      vy: 0,
+      fuseRemaining: BOMB_FUSE_SECONDS,
+      animationElapsed: 0,
+      damage,
+      blastRadius,
+      spriteRow: currentBomb?.bombSpriteRow ?? 0,
+    };
+  }
+
   function placeBomb() {
     const bombIsPrimary = gameState.primaryTool === "bomb";
     const usingPrimaryTool = bombIsPrimary && input.wasPressed("usePrimaryTool");
@@ -206,18 +249,7 @@ export function createBombSystem({
       return;
     }
 
-    gameState.bombs.push({
-      column: target.column,
-      row: target.row,
-      x: target.x,
-      y: target.y,
-      vy: 0,
-      fuseRemaining: BOMB_FUSE_SECONDS,
-      animationElapsed: 0,
-      damage: currentBomb?.bombDamage ?? DEFAULT_BOMB_DAMAGE,
-      blastRadius: currentBomb?.bombBlastRadius ?? DEFAULT_BOMB_BLAST_RADIUS,
-      spriteRow: currentBomb?.bombSpriteRow ?? 0,
-    });
+    gameState.bombs.push(createBombEntity(target, currentBomb));
     gameState.bombCharges = Math.max(0, gameState.bombCharges - 1);
     if (gameState.bombCharges < getCurrentCapacity() && gameState.bombCooldown <= 0) {
       gameState.bombCooldown = getCurrentCooldownDuration();
@@ -227,10 +259,7 @@ export function createBombSystem({
 
   function applyImpulseToPlayer(bomb) {
     const player = getPlayer();
-    const bombCenter = {
-      x: bomb.column * TILE_SIZE + TILE_SIZE * 0.5,
-      y: bomb.row * TILE_SIZE + TILE_SIZE * 0.5,
-    };
+    const bombCenter = getBombOrigin(bomb);
     const playerCenter = player.getCenter();
     const dx = playerCenter.x - bombCenter.x;
     const dy = playerCenter.y - bombCenter.y;
@@ -266,11 +295,10 @@ export function createBombSystem({
     const blastTargets = [];
     const blastRadius = Math.max(0, bomb.blastRadius ?? BOMB_BLAST_RADIUS);
 
+    const bombCenter = getBombOrigin(bomb);
+
     audio.playSound("bombExplode", { volume: 0.34 });
-    particleSystem.spawnExplosionBurst({
-      x: bomb.column * TILE_SIZE + TILE_SIZE * 0.5,
-      y: bomb.row * TILE_SIZE + TILE_SIZE * 0.5,
-    });
+    particleSystem.spawnExplosionBurst(bombCenter);
 
     for (const { columnOffset, rowOffset } of getBlastOffsets(blastRadius)) {
       blastTargets.push({
@@ -322,6 +350,15 @@ export function createBombSystem({
   function updateActiveBombs(dt) {
     const detonations = [];
     gameState.bombs = gameState.bombs.filter((bomb) => {
+      if (isNpcBomb(bomb)) {
+        bomb.update(dt, getWorld());
+        if (bomb.consumeDetonation()) {
+          detonations.push(bomb);
+        }
+
+        return !bomb.isFinished();
+      }
+
       const currentRow = Math.floor(bomb.y / TILE_SIZE);
       const restingY = getBombRestingY(bomb.column, currentRow);
       const nextVy = bomb.y < restingY ? bomb.vy + BOMB_FALL_GRAVITY * dt : 0;

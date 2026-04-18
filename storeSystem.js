@@ -542,17 +542,20 @@ export function createStoreController({
     }
 
     if (tool.category === "bomb") {
-      const bombSpriteRows = 4;
-      const bombSpriteRow = Math.max(0, Math.min(bombSpriteRows - 1, tool.bombSpriteRow ?? 0));
-      const imagePositionY = bombSpriteRows <= 1 ? 0 : (bombSpriteRow / (bombSpriteRows - 1)) * 100;
+      const iconColumns = tool.iconFrameColumns ?? 4;
+      const iconRows = tool.iconFrameRows ?? 4;
+      const iconFrame = tool.iconFrame ?? 0;
+      const iconRow = tool.iconRow ?? Math.max(0, Math.min(iconRows - 1, tool.bombSpriteRow ?? 0));
+      const imagePositionX = iconColumns <= 1 ? 0 : (iconFrame / (iconColumns - 1)) * 100;
+      const imagePositionY = iconRows <= 1 ? 0 : (iconRow / (iconRows - 1)) * 100;
       return {
         text: "",
         background: "linear-gradient(180deg, #78423d, #2c1518)",
         glow: "0 0 18px rgba(255, 145, 108, 0.26)",
         material: "Explosive",
-        image: "./assets/sprites/bomb-spritesheet.png",
-        imageSize: `400% ${bombSpriteRows * 100}%`,
-        imagePosition: `0% ${imagePositionY}%`,
+        image: tool.iconSrc ?? "./assets/sprites/bomb-spritesheet.png",
+        imageSize: `${iconColumns * 100}% ${iconRows * 100}%`,
+        imagePosition: `${imagePositionX}% ${imagePositionY}%`,
       };
     }
 

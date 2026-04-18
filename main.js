@@ -126,7 +126,7 @@ const CAPACITY_PASSWORD_TIERS = Object.freeze([DEFAULT_CAPACITY_ROOT_ID, "capaci
 const TIME_PASSWORD_TIERS = Object.freeze([DEFAULT_TIME_ROOT_ID, "time-1", "time-2", "time-3"]);
 const PLATFORM_PASSWORD_TIERS = Object.freeze([DEFAULT_PLATFORM_ROOT_ID, "platform-1", "platform-2"]);
 const BOMB_CAPACITY_PASSWORD_TIERS = Object.freeze([BOMB_CAPACITY_ROOT_ID, "bomb-capacity-2", "bomb-capacity-3", "bomb-capacity-5"]);
-const BOMB_TYPE_PASSWORD_TIERS = Object.freeze([BOMB_TYPE_ROOT_ID, "bomb-type-2", "bomb-type-3", "bomb-type-4"]);
+const BOMB_TYPE_PASSWORD_TIERS = Object.freeze([BOMB_TYPE_ROOT_ID, "bomb-type-2", "bomb-type-3", "bomb-type-4", "bomb-type-5"]);
 const PASSWORD_ENTRY_HELP_TEXT = getPasswordHelpText();
 
 function isMusicActivePhase(phase = gameState.phase) {
@@ -1075,6 +1075,7 @@ function update(dt, timeSeconds) {
 
 function render() {
   syncHudActionButtons();
+  const currentBombDefinition = getToolDefinition(gameState.bombTypeUpgradeId ?? BOMB_TYPE_ROOT_ID);
   renderer.render({
     player,
     world,
@@ -1103,7 +1104,16 @@ function render() {
         : 0,
       bombCharges: gameState.bombCharges,
       bombCapacity: bombSystem.getCapacity(),
-      bombSpriteRow: getToolDefinition(gameState.bombTypeUpgradeId ?? BOMB_TYPE_ROOT_ID)?.bombSpriteRow ?? 0,
+      bombVisual: currentBombDefinition?.bombKind === "dolly"
+        ? {
+          sheet: "sheep",
+          iconFrame: currentBombDefinition.iconFrame ?? 0,
+          iconRow: currentBombDefinition.iconRow ?? 0,
+        }
+        : {
+          sheet: "bomb",
+          spriteRow: currentBombDefinition?.bombSpriteRow ?? 0,
+        },
       urgent: gameState.phase === "playing" && gameState.timeLeft <= 30,
       notification: gameState.notification,
     },
