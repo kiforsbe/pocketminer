@@ -38,7 +38,18 @@
             <div id="round-toast" class="round-toast" data-visible="false" data-urgent="false"></div>
           </div>
         </div>
-        <div class="hud">
+        <div id="survey-panel" class="hud" data-collapsed="false">
+          <button id="survey-collapse-button" class="survey-collapse-button" type="button" aria-label="Collapse survey panel" title="Collapse survey panel">
+            <span aria-hidden="true">-</span>
+          </button>
+          <button id="survey-collapsed-button" class="survey-collapsed-button" type="button" aria-label="Expand survey panel" title="Expand survey panel">
+            <span id="survey-collapsed-stratum" class="survey-collapsed-stratum">Loading...</span>
+            <span class="survey-collapsed-body">
+              <canvas id="survey-collapsed-icon" class="survey-collapsed-icon" width="48" height="48"></canvas>
+            </span>
+            <span id="survey-collapsed-name" class="survey-collapsed-name">Ore</span>
+            <span id="survey-collapsed-value" class="survey-collapsed-value">0€</span>
+          </button>
           <section class="survey-section">
             <strong class="survey-heading">Survey</strong>
             <div class="survey-row">

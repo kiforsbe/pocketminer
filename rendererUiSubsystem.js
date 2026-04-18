@@ -1,5 +1,5 @@
 import { ITEM_DEFINITIONS } from "./inventory.js";
-import { TILE_SIZE, TILE_TYPES } from "./tile.js";
+import { TILE_DEFINITIONS, TILE_SIZE, TILE_TYPES } from "./tile.js";
 import { RendererSubsystem } from "./rendererSubsystem.js";
 
 class RendererUiSection extends RendererSubsystem {
@@ -173,6 +173,7 @@ class RendererUiHudSection extends RendererUiSection {
 class RendererUiSurveySection extends RendererUiSection {
   drawSurveyPanel(player, target) {
     const stratum = this.world.getStratumAtPixel(player.getCenter().y);
+    const summary = this.getCollapsedSurveySummary(stratum, target);
     const stratumSignature = [
       stratum.name,
       stratum.depth,
@@ -204,6 +205,8 @@ class RendererUiSurveySection extends RendererUiSection {
         }
       }
     }
+
+    this.updateCollapsedSurveySummary(stratum, summary);
 
     if (!this.dom.blockName || !this.dom.blockType || !this.dom.blockHp || !this.dom.blockValue || !this.dom.blockRange || !this.dom.blockYield) {
       return;
@@ -288,6 +291,52 @@ class RendererUiSurveySection extends RendererUiSection {
     }
 
     return `${normalRange} (+${dropRange.bonusMax})`;
+  }
+
+  getCollapsedSurveySummary(stratum, target) {
+    const targetTile = target ? this.world.getTile(target.column, target.row) : null;
+    const preferredTileType = targetTile && targetTile.type !== TILE_TYPES.EMPTY
+      ? targetTile.type
+      : (stratum.primaryOres[0]?.type ?? stratum.base[0]?.type ?? TILE_TYPES.EMPTY);
+    const definition = TILE_DEFINITIONS[preferredTileType] ?? TILE_DEFINITIONS[TILE_TYPES.EMPTY];
+    const itemId = definition.drop ?? null;
+    const itemDefinition = itemId ? ITEM_DEFINITIONS[itemId] : null;
+    const value = itemDefinition
+      ? `${itemDefinition.value}€`
+      : (preferredTileType === TILE_TYPES.CHEST ? "Reward" : "0€");
+    return {
+      tileType: preferredTileType,
+      name: this.formatCollapsedSurveyName(definition.label),
+      value,
+    };
+  }
+
+  formatCollapsedSurveyName(label) {
+    if (label === "Treasure Chest") {
+      return "Chest";
+    }
+
+    return label.replace(" Ore", "");
+  }
+
+  updateCollapsedSurveySummary(stratum, summary) {
+    if (!this.dom.surveyCollapsedStratum || !this.dom.surveyCollapsedName || !this.dom.surveyCollapsedValue) {
+      return;
+    }
+
+    const summarySignature = [stratum.name, summary.tileType, summary.name, summary.value].join("|");
+    if (summarySignature === this.state.surveyCollapsedSignature) {
+      return;
+    }
+
+    this.state.surveyCollapsedSignature = summarySignature;
+    if (this.state.lastSurveyCollapsedIconType !== summary.tileType) {
+      this.worldRenderer.paintIcon(this.dom.surveyCollapsedIcon, summary.tileType);
+      this.state.lastSurveyCollapsedIconType = summary.tileType;
+    }
+    this.setTextContentIfChanged(this.dom.surveyCollapsedStratum, stratum.name);
+    this.setTextContentIfChanged(this.dom.surveyCollapsedName, summary.name);
+    this.setTextContentIfChanged(this.dom.surveyCollapsedValue, summary.value);
   }
 }
 
@@ -639,14 +688,24 @@ export class RendererUiSubsystem extends RendererSubsystem {
       hudSignature: "",
       stratumSignature: "",
       blockSignature: "",
+      surveyCollapsedSignature: "",
       lastStratumIconType: null,
       lastBlockIconType: null,
+      lastSurveyCollapsedIconType: null,
       lastFrameTimestamp: 0,
       fpsSampleElapsed: 0,
       fpsSampleFrames: 0,
       displayedFps: 0,
+      surveyCollapsed: false,
     };
     this.dom = {
+      surveyPanel: document.getElementById("survey-panel"),
+      surveyCollapseButton: document.getElementById("survey-collapse-button"),
+      surveyCollapsedButton: document.getElementById("survey-collapsed-button"),
+      surveyCollapsedStratum: document.getElementById("survey-collapsed-stratum"),
+      surveyCollapsedIcon: document.getElementById("survey-collapsed-icon"),
+      surveyCollapsedName: document.getElementById("survey-collapsed-name"),
+      surveyCollapsedValue: document.getElementById("survey-collapsed-value"),
       roundTimer: document.getElementById("round-timer"),
       roundTimerValue: document.getElementById("round-timer-value"),
       bankValue: document.getElementById("bank-value"),
@@ -670,6 +729,29 @@ export class RendererUiSubsystem extends RendererSubsystem {
     this.hudSection = new RendererUiHudSection(this);
     this.surveySection = new RendererUiSurveySection(this);
     this.hotbarSection = new RendererUiHotbarSection(this);
+
+    this.dom.surveyCollapseButton?.addEventListener("click", () => this.setSurveyCollapsed(true));
+    this.dom.surveyCollapsedButton?.addEventListener("click", () => this.setSurveyCollapsed(false));
+    this.setSurveyCollapsed(true);
+  }
+
+  setSurveyCollapsed(collapsed) {
+    this.state.surveyCollapsed = collapsed;
+    if (this.dom.surveyPanel?.getAttribute("data-collapsed") !== (collapsed ? "true" : "false")) {
+      this.dom.surveyPanel?.setAttribute("data-collapsed", collapsed ? "true" : "false");
+    }
+    if (this.dom.surveyCollapseButton) {
+      this.dom.surveyCollapseButton.setAttribute("aria-label", collapsed ? "Survey panel collapsed" : "Collapse survey panel");
+      this.dom.surveyCollapseButton.setAttribute("title", collapsed ? "Survey panel collapsed" : "Collapse survey panel");
+    }
+    if (this.dom.surveyCollapsedButton) {
+      this.dom.surveyCollapsedButton.setAttribute("aria-label", collapsed ? "Expand survey panel" : "Survey panel expanded");
+      this.dom.surveyCollapsedButton.setAttribute("title", collapsed ? "Expand survey panel" : "Survey panel expanded");
+    }
+  }
+
+  toggleSurveyCollapsed() {
+    this.setSurveyCollapsed(!this.state.surveyCollapsed);
   }
 
   updateFrameRateCounter() {

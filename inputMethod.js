@@ -13,6 +13,7 @@ export const DEFAULT_BINDINGS = Object.freeze({
   togglePrimaryTool: ["Tab", "GamepadTop"],
   pause: ["KeyP", "Pause", "Escape", "GamepadStart"],
   togglePerformance: ["KeyR", "GamepadBack"],
+  toggleSurveyPanel: ["KeyF", "GamepadBack"],
   rewardPrev: ["KeyA", "ArrowLeft", "KeyW", "ArrowUp", "GamepadMoveLeft", "GamepadMoveUp"],
   rewardNext: ["KeyD", "ArrowRight", "KeyS", "ArrowDown", "GamepadMoveRight", "GamepadMoveDown"],
   rewardConfirm: ["Enter", "Space", "KeyE", "GamepadBottom"],

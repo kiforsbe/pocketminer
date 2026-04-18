@@ -449,6 +449,10 @@ function handleInputShortcuts() {
     gameState.performance.visible = !gameState.performance.visible;
   }
 
+  if (input.wasPressed("toggleSurveyPanel")) {
+    renderer.uiRenderer.toggleSurveyCollapsed();
+  }
+
   if (input.wasPressed("togglePrimaryTool")) {
     togglePrimaryTool();
   }
