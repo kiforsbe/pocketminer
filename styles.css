@@ -867,10 +867,10 @@
     .top-center {
       position: absolute;
       top: 18px;
-      left: 50%;
-      transform: translateX(-50%);
+      left: 18px;
+      right: 18px;
       display: grid;
-      justify-items: center;
+      justify-items: stretch;
       pointer-events: none;
     }
 
@@ -966,17 +966,37 @@
     .top-stack {
       display: grid;
       gap: 8px;
-      justify-items: center;
+      justify-items: stretch;
       position: relative;
     }
 
     .top-stack-row {
-      position: relative;
       display: grid;
-      justify-items: center;
-      align-items: start;
-      width: max-content;
-      min-width: 158px;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+      gap: 20px;
+    }
+
+    .top-stack-left {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .top-stack-center {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .top-stack-right {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 20px;
+      min-width: 0;
+      flex-wrap: wrap;
     }
 
     .timer-pill,
@@ -1090,11 +1110,9 @@
       color: #ffd8d1;
     }
 
-    .bank-readout {
-      position: absolute;
-      left: calc(100% + 30px);
-      top: 50%;
-      transform: translateY(-50%);
+    .bank-readout,
+    .goal-readout {
+      position: relative;
       display: grid;
       justify-items: center;
       gap: 2px;
@@ -1112,10 +1130,7 @@
     }
 
     .round-readout {
-      position: absolute;
-      right: calc(100% + 30px);
-      top: 50%;
-      transform: translateY(-50%);
+      position: relative;
       display: grid;
       justify-items: center;
       gap: 2px;
@@ -1134,6 +1149,7 @@
     }
 
     .bank-readout::before,
+    .goal-readout::before,
     .round-readout::before {
       content: "";
       position: absolute;
@@ -1153,6 +1169,12 @@
       line-height: 1;
       color: var(--accent);
       font-variant-numeric: tabular-nums;
+    }
+
+    #bank-value,
+    #total-goal-value {
+      min-width: 6ch;
+      text-align: center;
     }
 
     .round-toast {
@@ -1452,38 +1474,6 @@
       font-weight: 700;
     }
 
-    .summary-stats {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin-top: 18px;
-      padding-top: 9px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .summary-stat {
-      display: grid;
-      align-content: start;
-      gap: 1px;
-    }
-
-    .summary-stat-label {
-      display: block;
-      color: rgba(136, 185, 216, 0.86);
-      font-size: 0.72rem;
-      line-height: 1;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-
-    .summary-stat > :last-child {
-      display: block;
-      line-height: 1;
-      margin-top: 2px;
-    }
-
     .summary-total {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -1497,12 +1487,19 @@
       font-size: 1.05rem;
     }
 
-    .summary-stats + .summary-total {
+    .summary-grid + .summary-total {
       margin-top: 10px;
     }
 
     .summary-total + .summary-total {
       margin-top: 0;
+    }
+
+    .summary-total-break {
+      margin-top: 12px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 -10px 18px -18px rgba(255, 255, 255, 0.55);
     }
 
     .summary-total span,
@@ -1519,13 +1516,21 @@
       font-size: 1.3rem;
     }
 
+    .summary-total strong[data-negative="true"] {
+      color: #ff9e8f;
+    }
+
     .summary-actions {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
       padding-top: 12px;
+    }
+
+    #next-round-button {
+      margin-left: auto;
     }
 
     .summary-actions button,
@@ -2154,12 +2159,25 @@
     }
 
     @media (max-width: 720px) {
-      .top-stack-row {
-        width: 100%;
+      .top-center {
+        left: 12px;
+        right: 12px;
       }
 
-      .bank-readout {
-        left: calc(100% + 18px);
+      .top-stack-row {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        gap: 12px;
+      }
+
+      .top-stack-left,
+      .top-stack-center,
+      .top-stack-right {
+        justify-content: center;
+      }
+
+      .top-stack-right {
+        gap: 14px;
       }
 
       .round-card {

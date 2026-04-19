@@ -21,18 +21,32 @@
         <div class="top-center">
           <div class="top-stack">
             <div class="top-stack-row">
-              <div id="round-readout" class="round-readout">
-                <div class="timer-label">Shift</div>
-                <div id="round-value" class="bank-value">1</div>
+              <div class="top-stack-left">
+                <div id="round-readout" class="round-readout">
+                  <div class="timer-label">Shift</div>
+                  <div id="round-value" class="bank-value">1</div>
+                </div>
               </div>
-              <button id="round-timer" class="timer-pill" data-urgent="false" data-can-end-shift="false" data-hovered="false" type="button" aria-label="Shift timer">
-                <div class="timer-label">Time Left</div>
-                <div id="round-timer-value" class="timer-value">60s</div>
-                <div class="timer-pill-action" aria-hidden="true">End Shift</div>
-              </button>
-              <div id="bank-readout" class="bank-readout">
-                <div class="timer-label">Bank</div>
-                <div id="bank-value" class="bank-value">0€</div>
+              <div class="top-stack-center">
+                <button id="round-timer" class="timer-pill" data-urgent="false" data-can-end-shift="false" data-hovered="false" type="button" aria-label="Shift timer">
+                  <div class="timer-label">Time Left</div>
+                  <div id="round-timer-value" class="timer-value">60s</div>
+                  <div class="timer-pill-action" aria-hidden="true">End Shift</div>
+                </button>
+              </div>
+              <div class="top-stack-right">
+                <div id="bank-readout" class="bank-readout">
+                  <div class="timer-label">Bank</div>
+                  <div id="bank-value" class="bank-value">0€</div>
+                </div>
+                <div id="total-goal-readout" class="goal-readout">
+                  <div class="timer-label">Debt</div>
+                  <div id="total-goal-value" class="bank-value">15000€</div>
+                </div>
+                <div id="shift-goal-readout" class="goal-readout">
+                  <div class="timer-label">Dues</div>
+                  <div id="shift-goal-value" class="bank-value">0€</div>
+                </div>
               </div>
             </div>
             <div id="round-toast" class="round-toast" data-visible="false" data-urgent="false"></div>
@@ -116,7 +130,7 @@
               <div id="intro-password-entry" class="screen-password-entry" data-visible="false" hidden>
                 <label class="screen-password-entry-label" for="intro-password-input">Restore Progress</label>
                 <div class="screen-password-entry-row">
-                  <input id="intro-password-input" class="screen-password-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="14" placeholder="AAAA-AAAA-AAAA">
+                  <input id="intro-password-input" class="screen-password-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="17" placeholder="AAAA-AAAA-AAAA-AA">
                   <button id="intro-password-submit" class="screen-password-submit" type="button">Load</button>
                 </div>
                 <p id="intro-password-status" class="screen-password-status"></p>
@@ -158,7 +172,7 @@
               <div id="pause-password-entry" class="screen-password-entry" data-visible="false" hidden>
                 <label class="screen-password-entry-label" for="pause-password-input">Restore Progress</label>
                 <div class="screen-password-entry-row">
-                  <input id="pause-password-input" class="screen-password-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="14" placeholder="AAAA-AAAA-AAAA">
+                  <input id="pause-password-input" class="screen-password-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="17" placeholder="AAAA-AAAA-AAAA-AA">
                   <button id="pause-password-submit" class="screen-password-submit" type="button">Load</button>
                 </div>
                 <p id="pause-password-status" class="screen-password-status"></p>
@@ -192,23 +206,21 @@
               <p id="round-subtitle">Tallying the haul...</p>
             </div>
             <div id="summary-grid" class="summary-grid"></div>
-            <div class="summary-stats">
-              <div class="summary-stat">
-                <div class="summary-stat-label">Blocks mined</div>
-                <div id="summary-blocks">0</div>
-              </div>
-              <div class="summary-stat">
-                <div class="summary-stat-label">Items collected</div>
-                <div id="summary-items">0</div>
-              </div>
-              <div class="summary-stat">
-                <div class="summary-stat-label">Shift</div>
-                <div id="summary-round">1</div>
-              </div>
-            </div>
             <div class="summary-total">
               <span>Shift earnings</span>
               <strong id="summary-earnings">0€</strong>
+            </div>
+            <div class="summary-total">
+              <span>Debt payment</span>
+              <strong id="summary-auto-payment">0€</strong>
+            </div>
+            <div class="summary-total">
+              <span>Shift profit</span>
+              <strong id="summary-shift-profit">0€</strong>
+            </div>
+            <div class="summary-total summary-total-break">
+              <span>Total debt</span>
+              <strong id="summary-total-goal">15000€</strong>
             </div>
             <div class="summary-total">
               <span>Total bank</span>
@@ -216,6 +228,7 @@
             </div>
             <div class="summary-actions">
               <button id="open-store-button" class="secondary-button" type="button">Visit Store</button>
+              <button id="summary-amortize-button" class="secondary-button" type="button" disabled>Amortize 0€</button>
               <button id="next-round-button" type="button">Start Next Shift</button>
             </div>
           </div>

@@ -3,6 +3,11 @@ import { createBombSystem } from "./bombSystem.js";
 import { createChestRewardController, createPlayerBonuses } from "./chestRewards.js";
 import { createCheatCodeController } from "./cheatCodes.js";
 import { createEndOfRoundSystem } from "./endOfRoundSystem.js";
+import {
+  DEBT_TOTAL_SHIFTS,
+  STARTING_DEBT,
+  debtSystem,
+} from "./debtSystem.js";
 import { createFloatingTextSystem } from "./floatingText.js";
 import { createGameoverScreenController } from "./gameoverScreen.js";
 import { Inventory, ITEM_DEFINITIONS } from "./inventory.js";
@@ -47,7 +52,7 @@ const GOOD_END_IMAGE_SRC = "./assets/victory.png";
 const MIN_SCREEN_FADE_MS = 1000;
 const MAX_INTRO_OVERLAY_FADE_MS = 3000;
 const MAX_PAUSE_OVERLAY_FADE_MS = 1000;
-const GOOD_END_SHIFT = 10;
+const GOOD_END_SHIFT = DEBT_TOTAL_SHIFTS;
 const SHIFT_COUNTDOWN_STEPS = Object.freeze([
   { label: "3", durationMs: 1000, playbackRate: 0.96, volume: 0.2 },
   { label: "2", durationMs: 1000, playbackRate: 1.01, volume: 0.2 },
@@ -191,6 +196,7 @@ const gameState = {
   round: 1,
   timeLeft: getToolDefinition(DEFAULT_TIME_ROOT_ID).durationSeconds ?? 60,
   bank: 0,
+  debt: debtSystem.createDebtState(),
   roundStats: createRoundStats(),
   summary: null,
   chestReward: null,
@@ -222,6 +228,8 @@ const gameState = {
     remainingMs: 0,
   },
 };
+
+debtSystem.syncDebtStateForShift(gameState.debt, gameState.round);
 
 const floatingTextSystem = createFloatingTextSystem({
   getFloatingTexts: () => gameState.floatingTexts,
@@ -389,6 +397,8 @@ const endOfRoundSystem = createEndOfRoundSystem({
   onStartSummaryMusic: () => {
     return musicSystem.startSummary({ immediate: true });
   },
+  onResolveDebt: ({ bank }) => settleDebtForShift(bank),
+  onAttemptAmortization: ({ bank }) => attemptDebtAmortization(bank),
 });
 
 roundTimer?.addEventListener("click", () => {
@@ -582,10 +592,33 @@ function pauseCurrentShift() {
 function shouldTriggerGoodEnding() {
   return gameState.phase === "summary"
     && Boolean(gameState.summary?.completed)
-    && gameState.round >= GOOD_END_SHIFT;
+    && gameState.round >= GOOD_END_SHIFT
+    && gameState.debt.current <= 0;
 }
 
-function triggerGameOver({ endingType }) {
+function getDebtGameOverReason() {
+  if (gameState.phase !== "summary" || !gameState.summary?.completed) {
+    return null;
+  }
+
+  if ((gameState.summary.debtStatus?.consecutiveFailures ?? 0) >= 3) {
+    return {
+      titleText: "Game Over",
+      copyText: "Three missed dues in a row let the debt swallow the operation.",
+    };
+  }
+
+  if (gameState.round >= GOOD_END_SHIFT && gameState.debt.current > 0) {
+    return {
+      titleText: "Game Over",
+      copyText: `Shift ${GOOD_END_SHIFT} closed with ${gameState.debt.current}€ still unpaid.`,
+    };
+  }
+
+  return null;
+}
+
+function triggerGameOver({ endingType, titleText, copyText }) {
   if (gameState.phase === "gameover") {
     return;
   }
@@ -608,11 +641,53 @@ function triggerGameOver({ endingType }) {
   musicSystem.startGameover({ endingType });
   gameoverScreenController.showEnding({
     endingType,
-    titleText: endingType === "good" ? "Good End" : "Game Over",
-    copyText: endingType === "good"
-      ? `You completed ${GOOD_END_SHIFT} shifts and brought Pocket Miner to a close.`
-      : "The mine won this time.",
+    titleText: titleText ?? (endingType === "good" ? "Good End" : "Game Over"),
+    copyText: copyText ?? (endingType === "good"
+      ? `You cleared ${STARTING_DEBT}€ of debt across ${GOOD_END_SHIFT} shifts and closed Pocket Miner clean.`
+      : "The mine won this time."),
   });
+}
+
+function syncDebtForCurrentShift() {
+  debtSystem.syncDebtStateForShift(gameState.debt, gameState.round);
+}
+
+function settleDebtForShift(bank) {
+  const debtStatus = debtSystem.resolveDebtShift({
+    debtState: gameState.debt,
+    shift: gameState.round,
+    bank,
+  });
+  gameState.bank = debtStatus.bankAfterSettlement;
+  syncDebtForCurrentShift();
+  return {
+    ...debtStatus,
+    canAmortize: debtSystem.canAmortizeDebt(gameState.debt, gameState.round),
+    amortizationAmount: debtSystem.getAmortizationAmount(gameState.debt),
+    amortizedAmount: 0,
+  };
+}
+
+function attemptDebtAmortization(bank) {
+  const result = debtSystem.applyDebtAmortization({
+    debtState: gameState.debt,
+    shift: gameState.round,
+    bank,
+  });
+
+  if (!result.applied) {
+    return {
+      ...result,
+      canAmortize: debtSystem.canAmortizeDebt(gameState.debt, gameState.round),
+    };
+  }
+
+  gameState.bank = result.bankAfterAmortization;
+  syncDebtForCurrentShift();
+  return {
+    ...result,
+    canAmortize: debtSystem.canAmortizeDebt(gameState.debt, gameState.round),
+  };
 }
 
 function resetGameToIntro() {
@@ -642,6 +717,8 @@ function resetGameToIntro() {
   gameState.round = 1;
   gameState.timeLeft = getToolDefinition(DEFAULT_TIME_ROOT_ID).durationSeconds ?? 60;
   gameState.bank = 0;
+  gameState.debt = debtSystem.createDebtState();
+  syncDebtForCurrentShift();
   gameState.roundStats = createRoundStats();
   gameState.summary = null;
   gameState.chestReward = null;
@@ -776,6 +853,9 @@ function createPasswordProgressSnapshot() {
     bombTypeTier: getTierIndex(BOMB_TYPE_PASSWORD_TIERS, gameState.bombTypeUpgradeId ?? BOMB_TYPE_ROOT_ID, 0),
     round: gameState.round,
     bank: gameState.bank,
+    debt: gameState.debt.current,
+    debtFailureStreak: gameState.debt.consecutiveFailures,
+    amortizationPaymentsMade: gameState.debt.amortizationPaymentsMade,
     bonuses,
   };
 }
@@ -885,6 +965,12 @@ function applyRestoredProgressFromPassword(decodedPassword) {
   gameState.round = decodedPassword.round;
   gameState.timeLeft = getRoundDuration();
   gameState.bank = decodedPassword.bank;
+  gameState.debt = debtSystem.createDebtState({
+    current: decodedPassword.debt ?? STARTING_DEBT,
+    consecutiveFailures: decodedPassword.debtFailureStreak ?? 0,
+    amortizationPaymentsMade: decodedPassword.amortizationPaymentsMade ?? 0,
+  });
+  syncDebtForCurrentShift();
   gameState.roundStats = createRoundStats();
   gameState.summary = null;
   gameState.chestReward = null;
@@ -915,7 +1001,7 @@ function applyRestoredProgressFromPassword(decodedPassword) {
   storeController.reset();
   endOfRoundSystem.reset();
   updatePasswordDisplays();
-  showRoundNotification("Password restored. Bank and bonuses were rounded to password tiers.");
+  showRoundNotification("Password restored. Bank, debt, and bonuses were rounded to password tiers.");
 }
 
 function startRestoredGameFromIntro(decodedPassword) {
@@ -1045,6 +1131,11 @@ function update(dt, timeSeconds) {
 
   if (gameState.phase === "summary") {
     endOfRoundSystem.update(dt);
+    const debtGameOver = getDebtGameOverReason();
+    if (debtGameOver) {
+      triggerGameOver({ endingType: "bad", ...debtGameOver });
+      return;
+    }
     if (shouldTriggerGoodEnding()) {
       triggerGameOver({ endingType: "good" });
     }
@@ -1124,6 +1215,8 @@ function render() {
       round: gameState.round,
       timeLeft: Math.ceil(gameState.timeLeft),
       bank: gameState.bank,
+      shiftGoal: gameState.debt.shiftGoal,
+      totalGoal: gameState.debt.current,
       bonuses: gameState.playerBonuses,
       primaryTool: gameState.primaryTool,
       showPerformance: gameState.performance.visible,
@@ -1233,6 +1326,7 @@ function startNextRound() {
   gameState.phase = "countdown";
   gameState.primaryTool = gameState.bombUnlockId ? gameState.primaryTool : "platform";
   gameState.timeLeft = getRoundDuration();
+  syncDebtForCurrentShift();
   gameState.inventory = createInventoryForLoadout();
   gameState.miningResult = null;
   gameState.hoverTarget = null;

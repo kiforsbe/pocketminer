@@ -84,6 +84,8 @@ class RendererUiHudSection extends RendererUiSection {
       roundInfo.timeLeft,
       roundInfo.round,
       roundInfo.bank,
+      roundInfo.shiftGoal,
+      roundInfo.totalGoal,
       roundInfo.urgent ? 1 : 0,
       toastMessage,
       toastUrgent,
@@ -95,6 +97,8 @@ class RendererUiHudSection extends RendererUiSection {
       this.setTextContentIfChanged(this.dom.roundTimerValue, `${roundInfo.timeLeft}s`);
       this.setTextContentIfChanged(this.dom.roundValue, String(roundInfo.round));
       this.setTextContentIfChanged(this.dom.bankValue, `${roundInfo.bank}€`);
+      this.setTextContentIfChanged(this.dom.shiftGoalValue, `${roundInfo.shiftGoal ?? 0}€`);
+      this.setTextContentIfChanged(this.dom.totalGoalValue, `${roundInfo.totalGoal ?? 0}€`);
 
       if (toastMessage) {
         this.setTextContentIfChanged(this.dom.roundToast, toastMessage);
@@ -709,6 +713,8 @@ export class RendererUiSubsystem extends RendererSubsystem {
       roundTimer: document.getElementById("round-timer"),
       roundTimerValue: document.getElementById("round-timer-value"),
       bankValue: document.getElementById("bank-value"),
+      shiftGoalValue: document.getElementById("shift-goal-value"),
+      totalGoalValue: document.getElementById("total-goal-value"),
       bonusStats: document.getElementById("bonus-stats"),
       roundValue: document.getElementById("round-value"),
       roundToast: document.getElementById("round-toast"),

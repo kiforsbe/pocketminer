@@ -10,16 +10,19 @@ export function createEndOfRoundSystem({
   storeController,
   worldRenderer,
   onStartSummaryMusic,
+  onResolveDebt,
+  onAttemptAmortization,
 }) {
   const roundOverlay = document.getElementById("round-overlay");
   const summaryGrid = document.getElementById("summary-grid");
   const roundTitle = document.getElementById("round-title");
   const roundSubtitle = document.getElementById("round-subtitle");
-  const summaryBlocks = document.getElementById("summary-blocks");
-  const summaryItems = document.getElementById("summary-items");
-  const summaryRound = document.getElementById("summary-round");
   const summaryEarnings = document.getElementById("summary-earnings");
   const summaryBank = document.getElementById("summary-bank");
+  const summaryAutoPayment = document.getElementById("summary-auto-payment");
+  const summaryShiftProfit = document.getElementById("summary-shift-profit");
+  const summaryTotalGoal = document.getElementById("summary-total-goal");
+  const summaryAmortizeButton = document.getElementById("summary-amortize-button");
   const nextRoundButton = document.getElementById("next-round-button");
   let overlayFadeTimeoutId = null;
 
@@ -61,9 +64,20 @@ export function createEndOfRoundSystem({
   }
 
   function updateSummaryActionState() {
-    const enabled = Boolean(gameState.summary?.completed);
-    nextRoundButton?.toggleAttribute("disabled", !enabled);
-    storeController.updateSummaryActionState(enabled);
+    const summaryCompleted = Boolean(gameState.summary?.completed);
+    nextRoundButton?.toggleAttribute("disabled", !summaryCompleted);
+    storeController.updateSummaryActionState(summaryCompleted);
+
+    if (!summaryAmortizeButton) {
+      return;
+    }
+
+    const amount = gameState.summary?.debtStatus?.amortizationAmount ?? 0;
+    const enabled = summaryCompleted
+      && Boolean(gameState.summary?.debtStatus?.canAmortize)
+      && amount > 0
+      && gameState.bank >= amount;
+    summaryAmortizeButton.toggleAttribute("disabled", !enabled);
   }
 
   function updateSummaryRow(entry) {
@@ -76,12 +90,46 @@ export function createEndOfRoundSystem({
     row.querySelector('[data-role="value"]').textContent = `${entry.displayedValue}€`;
   }
 
+  function updateDebtSummaryPanel() {
+    const debtStatus = gameState.summary?.debtStatus;
+    if (!debtStatus) {
+      return;
+    }
+
+    const paymentAmount = debtStatus.paymentSucceeded ? (debtStatus.autoPayment ?? 0) : 0;
+    const debtIncrease = debtStatus.debtIncrease ?? 0;
+    const displayedEarnings = gameState.summary?.displayedEarnings ?? 0;
+    const shiftProfit = displayedEarnings - paymentAmount;
+
+    if (summaryAutoPayment) {
+      summaryAutoPayment.textContent = paymentAmount > 0 ? `-${paymentAmount}€` : "0€";
+      summaryAutoPayment.dataset.negative = paymentAmount > 0 ? "true" : "false";
+    }
+    if (summaryShiftProfit) {
+      summaryShiftProfit.textContent = `${shiftProfit}€`;
+      summaryShiftProfit.dataset.negative = shiftProfit < 0 ? "true" : "false";
+    }
+    if (summaryTotalGoal) {
+      summaryTotalGoal.textContent = debtIncrease > 0
+        ? `${debtStatus.remainingDebt ?? 0}€ (+${debtIncrease}€)`
+        : `${debtStatus.remainingDebt ?? 0}€`;
+      summaryTotalGoal.dataset.negative = debtIncrease > 0 ? "true" : "false";
+    }
+
+    if (summaryAmortizeButton) {
+      summaryAmortizeButton.textContent = `Amortize ${debtStatus.amortizationAmount ?? 0}€`;
+    }
+
+    updateSummaryActionState();
+  }
+
   function commitSummaryBankEarnings() {
     if (!gameState.summary || gameState.summary.bankAwarded) {
       return;
     }
 
     gameState.bank += gameState.summary.totalEarnings;
+    gameState.summary.debtStatus = onResolveDebt?.({ bank: gameState.bank }) ?? gameState.summary.debtStatus;
     gameState.summary.bankAwarded = true;
     updateSummaryActionState();
     if (gameState.summary.totalEarnings > 0) {
@@ -94,6 +142,7 @@ export function createEndOfRoundSystem({
       summaryBank.textContent = `${gameState.bank}€`;
     }
     storeController.syncBankDisplay();
+    updateDebtSummaryPanel();
   }
 
   function paintSummaryIcon(canvasEl, itemId) {
@@ -119,21 +168,27 @@ export function createEndOfRoundSystem({
         ? "Counting your haul..."
         : "No ore banked this shift.";
     }
-    if (summaryBlocks) {
-      summaryBlocks.textContent = String(gameState.summary.blocksMined);
-    }
-    if (summaryItems) {
-      summaryItems.textContent = String(gameState.summary.totalItems);
-    }
-    if (summaryRound) {
-      summaryRound.textContent = String(gameState.round);
-    }
     if (summaryEarnings) {
       summaryEarnings.textContent = `${gameState.summary.displayedEarnings}€`;
     }
     if (summaryBank) {
       summaryBank.textContent = `${gameState.summary.startingBank}€`;
     }
+    gameState.summary.debtStatus = gameState.summary.debtStatus ?? {
+      shiftGoal: gameState.debt?.shiftGoal ?? 0,
+      autoPayment: 0,
+      paidPrincipal: 0,
+      paidInterest: 0,
+      debtIncrease: 0,
+      penalty: 0,
+      paymentSucceeded: (gameState.debt?.shiftGoal ?? 0) <= 0,
+      remainingDebt: gameState.debt?.current ?? 0,
+      consecutiveFailures: gameState.debt?.consecutiveFailures ?? 0,
+      canAmortize: false,
+      amortizationAmount: 0,
+      amortizedAmount: 0,
+    };
+    updateDebtSummaryPanel();
 
     for (const entry of gameState.summary.entries) {
       const row = document.createElement("div");
@@ -184,6 +239,7 @@ export function createEndOfRoundSystem({
     if (summaryEarnings) {
       summaryEarnings.textContent = `${gameState.summary.displayedEarnings}€`;
     }
+    updateDebtSummaryPanel();
     audio.playSound("coin", { playbackRate: 0.98 + Math.random() * 0.06, volume: 0.2 });
 
     if (entry.displayedCount >= entry.count) {
@@ -203,6 +259,35 @@ export function createEndOfRoundSystem({
         }
 
         onStartNextRound();
+      });
+
+      summaryAmortizeButton?.addEventListener("click", () => {
+        if (gameState.phase !== "summary" || !gameState.summary?.completed) {
+          return;
+        }
+
+        const result = onAttemptAmortization?.({ bank: gameState.bank });
+        if (!result) {
+          return;
+        }
+
+        if (!result.applied) {
+          updateSummaryActionState();
+          return;
+        }
+
+        gameState.summary.debtStatus = {
+          ...gameState.summary.debtStatus,
+          remainingDebt: result.remainingDebt,
+          amortizedAmount: result.amount,
+          amortizationAmount: result.nextAmortizationAmount,
+          canAmortize: result.canAmortize,
+        };
+        if (summaryBank) {
+          summaryBank.textContent = `${result.bankAfterAmortization}€`;
+        }
+        storeController.syncBankDisplay();
+        updateDebtSummaryPanel();
       });
     },
 
@@ -240,6 +325,7 @@ export function createEndOfRoundSystem({
         totalItems,
         completed: oreEntries.length === 0,
         bankAwarded: false,
+        debtStatus: null,
       };
       gameState.notification = null;
       gameState.countdownTickCooldown = 0;

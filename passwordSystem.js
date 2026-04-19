@@ -1,13 +1,16 @@
 const PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const PASSWORD_ALPHABET_MAP = new Map([...PASSWORD_ALPHABET].map((character, index) => [character, index]));
-const PASSWORD_DATA_CHAR_COUNT = 11;
-const PASSWORD_TOTAL_CHAR_COUNT = 12;
+const PASSWORD_DATA_CHAR_COUNT = 13;
+const PASSWORD_TOTAL_CHAR_COUNT = 14;
 const PASSWORD_GROUP_SIZE = 4;
-const PASSWORD_VERSION = 2;
+const PASSWORD_VERSION = 3;
 const PASSWORD_ROUND_MIN = 1;
 const PASSWORD_ROUND_MAX = 32;
 const PASSWORD_BANK_BUCKET = 500;
 const PASSWORD_BANK_BUCKET_MAX = 127;
+const PASSWORD_DEBT_BUCKET = 500;
+const PASSWORD_DEBT_BUCKET_MAX = 63;
+const PASSWORD_AMORTIZATION_PAYMENT_MAX = 7;
 const PASSWORD_BONUS_RESTORE_VALUES = Object.freeze([0, 0.1, 0.25, 0.5]);
 const PASSWORD_BONUS_THRESHOLDS = Object.freeze([0.05, 0.175, 0.375]);
 
@@ -144,6 +147,15 @@ export function restoreBankValue(bucketIndex) {
   return clampInteger(bucketIndex, 0, PASSWORD_BANK_BUCKET_MAX) * PASSWORD_BANK_BUCKET;
 }
 
+export function quantizeDebtValue(value) {
+  const debtValue = clampNumber(value, 0, Number.POSITIVE_INFINITY);
+  return clampInteger(Math.round(debtValue / PASSWORD_DEBT_BUCKET), 0, PASSWORD_DEBT_BUCKET_MAX);
+}
+
+export function restoreDebtValue(bucketIndex) {
+  return clampInteger(bucketIndex, 0, PASSWORD_DEBT_BUCKET_MAX) * PASSWORD_DEBT_BUCKET;
+}
+
 export function clampRoundValue(value) {
   return clampInteger(value, PASSWORD_ROUND_MIN, PASSWORD_ROUND_MAX);
 }
@@ -162,6 +174,9 @@ export function encodePassword(progress) {
     [clampInteger(progress.bombTypeTier, 0, 7), 3],
     [clampRoundValue(progress.round) - 1, 5],
     [quantizeBankValue(progress.bank), 7],
+    [quantizeDebtValue(progress.debt), 6],
+    [clampInteger(progress.debtFailureStreak, 0, 3), 2],
+    [clampInteger(progress.amortizationPaymentsMade, 0, PASSWORD_AMORTIZATION_PAYMENT_MAX), 3],
     ...normalizedBonuses.map((tier) => [tier, 2]),
   ];
 
@@ -177,7 +192,7 @@ export function encodePassword(progress) {
 export function decodePassword(value) {
   const normalized = normalizePasswordInput(value);
   if (normalized.length !== PASSWORD_TOTAL_CHAR_COUNT) {
-    throw new Error("Password must be 12 characters.");
+    throw new Error("Password must be 14 characters.");
   }
 
   const dataCharacters = normalized.slice(0, PASSWORD_DATA_CHAR_COUNT);
@@ -194,7 +209,19 @@ export function decodePassword(value) {
     payload = unpackedBonus.payload;
   }
 
-  let unpacked = unpackField(payload, 7);
+  let unpacked = unpackField(payload, 3);
+  const amortizationPaymentsMade = unpacked.value;
+  payload = unpacked.payload;
+
+  unpacked = unpackField(payload, 2);
+  const debtFailureStreak = unpacked.value;
+  payload = unpacked.payload;
+
+  unpacked = unpackField(payload, 6);
+  const debtBucket = unpacked.value;
+  payload = unpacked.payload;
+
+  unpacked = unpackField(payload, 7);
   const bankBucket = unpacked.value;
   payload = unpacked.payload;
 
@@ -258,10 +285,13 @@ export function decodePassword(value) {
     bombTypeTier,
     round: roundValue + 1,
     bank: restoreBankValue(bankBucket),
+    debt: restoreDebtValue(debtBucket),
+    debtFailureStreak,
+    amortizationPaymentsMade,
     bonuses,
   };
 }
 
 export function getPasswordHelpText() {
-  return "12 chars. Version 2 passwords only. Unlocks are exact. Bank and bonuses are rounded.";
+  return "14-char v3 password. Unlocks are exact. Bank, debt, and bonuses are rounded.";
 }
